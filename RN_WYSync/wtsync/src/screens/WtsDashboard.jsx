@@ -2012,7 +2012,7 @@ const WtsDashboard = () => {
         </TouchableOpacity>
 
         <View style={styles.headerTitleWrap}>
-          <Text style={styles.headerTitle}>WTS Dashboard</Text>
+          <Text style={styles.headerTitle}>Intelli Temp Dashboard</Text>
         </View>
 
         <HeaderMenu onSelect={handleMenuSelect} />

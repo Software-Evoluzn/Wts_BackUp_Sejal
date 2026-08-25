@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   SafeAreaView,
   View,
@@ -107,6 +108,30 @@ const ProductRegistrationScreen = ({ navigation }) => {
     }
   };
 
+  // Reset the entire screen back to its initial state.
+  // Called after a successful registration and on screen focus,
+  // so a new product can always be registered without an app restart.
+  const resetForm = useCallback(() => {
+    setMode('scan');
+    setProduct(null);
+    setManualForm(EMPTY_FORM);
+    setShowDatePicker(false);
+    setPurchaseDate(new Date());
+    setThresholdValue('');
+    setEmailEnabled(false);
+    setSmsEnabled(false);
+    setAlertEmail('');
+    setSmsPhone('');
+  }, []);
+
+  // Safety net: if this screen stays mounted in the nav stack and
+  // regains focus (e.g. user navigates back to it), make sure it's clean.
+  useFocusEffect(
+    useCallback(() => {
+      resetForm();
+    }, [resetForm])
+  );
+
   // Switch between scan / manual and reset previous data
   const switchMode = (newMode) => {
     if (newMode === mode) return;
@@ -193,7 +218,10 @@ const ProductRegistrationScreen = ({ navigation }) => {
           response.message, [
           {
             text: 'OK',
-            onPress: () => navigation.goBack(),
+            onPress: () => {
+              resetForm();
+              navigation.goBack();
+            },
           },
         ]
         );
@@ -916,7 +944,7 @@ const createStyles = (colors) => StyleSheet.create({
 
   // Buttons
   registerButton: {
-    backgroundColor: '#0B0D12',
+    backgroundColor: '#7F2E94',
     paddingVertical: 16,
     borderRadius: 14,
     marginTop: 4,

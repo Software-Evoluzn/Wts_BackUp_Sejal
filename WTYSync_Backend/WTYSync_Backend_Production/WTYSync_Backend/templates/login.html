@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="icon" type="image/png" href="../static/img/evoluzn_title_logo.png">
+    <link rel="stylesheet" href="../static/css/bootstrap.css">
+    <link rel="stylesheet" href="../static/css/login.css">
+</head>
+
+<body>
+    <div class="login_container">
+
+        <div class="login_left_panel">
+            <img class="login_evoluzn_logo_img" src="../static/img/evoluznlogo_white.png" alt="">
+            <div class="login_toggle_buttons">
+                <button id="loginBtn" class="active" onclick="showLogin()">Login</button>
+                <button id="registerBtn" onclick="showRegister()">Register</button>
+            </div>
+        </div>
+        <!-- ******************** -->
+        <div class="login_right_panel" id="login_rightPanel">
+
+            <div class="login_form_box">
+
+                <div class="login_form_container" id="loginForm">
+                    <h2>WELCOME BACK 👋</h2>
+                    <!-- <p>Today is a new day. It's your day. You shape it. Sign in to start managing your projects.</p> -->
+
+                    <form id="loginForm">
+
+                        <div class="mt-4 text-start">
+                            <label class="form-label mb-0">Email</label>
+                            <input type="text" id="login_email" name="email" class="form-control mt-1"
+                                placeholder="Enter email">
+                            <span id="login_emailError" class="error"></span>
+                        </div>
+
+                        <div class="position-relative mt-3">
+                            <label class="form-label  mb-0">Password</label>
+                            <input type="password" id="login_password" name="password" class="form-control pe-5  mt-1"
+                                placeholder="Enter password">
+                            <span class="position-absolute end-0 translate-middle-y me-3 toggle_eye"
+                                id="togglePassword">
+                                <img class="login_eye_open_img" src="../static/img/eye_open.svg" alt="Not shown">
+                            </span>
+                        </div>
+                        <span id="login_passwordError" class="error"></span>
+
+                        <!-- <div class="text-end foget">
+                            Forgot Password?
+                        </div> -->
+                        <div class="d-flex justify-content-center">
+                            <!-- <a href="{{ url_for('home') }}"><button type="submit" class="btn border border-dark">Sign in</button></a> -->
+                            <button type="submit" class="btn border border-dark">Sign in</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="login_form_container hidden bg-white" id="registerForm">
+                    <h2>CREATE ACCOUNT</h2>
+                    <!-- <p>Join us today! Enter your details to create your account.</p> -->
+
+                    <form id="registerForm">
+                        <div class="login_input_div text-start">
+                            <label class="form-label  mb-0">Full Name</label>
+                            <input type="text" id="company_name" name="name" class="form-control mt-1" placeholder="Full Name">
+                            <span id="nameError" class="error"></span>
+                        </div>
+
+                        <div class="login_input_div text-start mt-1">
+                            <label class="form-label  mb-0">Email</label>
+                            <input type="text" id="register_email" name="email" class="form-control  mt-1"
+                                placeholder="Enter email">
+                            <span id="register_emailError" class="error"></span>
+                        </div>
+
+
+                        <div class="login_input_div position-relative mt-1">
+                            <label class="form-label  mb-0">Password</label>
+                            <input type="password" id="register_password" name="password"
+                                class="form-control pe-5  mt-1" placeholder="Enter password">
+                            <span class="position-absolute end-0 translate-middle-y me-3 toggle_eye"
+                                id="togglePassword">
+                                <img class="login_eye_open_img" src="../static/img/eye_open.svg" alt="Not shown">
+                            </span>
+
+                        </div>
+
+                        <span id="register_passwordError" class="error"></span>
+
+                        <div class="d-flex justify-content-center">
+                            <!-- <a href="{{ url_for('dashboard') }}"><button type="submit" class="btn border border-dark">Register</button></a> -->
+                            <button type="submit" class="btn border border-dark">Register</button>
+
+                        </div>
+
+                    </form>
+                </div>
+
+
+            </div>
+
+        </div>
+        <!-- ******************** -->
+
+    </div>
+    <!-- pls inset footer backend-->
+    <footer class="py-2">
+        <div> Powered By <span>EVOLUZN</span></div>
+    </footer>
+    <!-- pls inset footer backend-->
+
+    <script src="../static/js/login.js"></script>
+</body>
+
+</html>

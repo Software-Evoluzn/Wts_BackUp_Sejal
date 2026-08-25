@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>User Access</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link href="../static/css/bootstrap.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background: #f4f6f9;
+            margin: 0;
+            padding: 40px;
+            color: #1f2937;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+        }
+
+        .card {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            padding: 24px;
+        }
+
+        h2 {
+            margin: 0 0 20px;
+            font-size: 22px;
+            font-weight: 600;
+        }
+
+        .add-email {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .add-email input {
+            flex: 1;
+            padding: 12px 14px;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            font-size: 14px;
+        }
+
+        .add-email button {
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 18px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #f9fafb;
+        }
+
+        th,
+        td {
+            padding: 14px 12px;
+            font-size: 14px;
+            text-align: left;
+        }
+
+        th {
+            font-weight: 600;
+        }
+
+        tr {
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .action-btn {
+            color: #dc2626;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .badge {
+            background: #e0e7ff;
+            color: #3730a3;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 30px;
+            color: #6b7280;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="card">
+
+            <h2>User Access – {{ company_name }}</h2>
+
+            <!-- Add Email -->
+            <form class="add-email" method="POST" action="{{ url_for('save_company_email') }}">
+
+                <!-- company name taken from HTML/Jinja -->
+                <input type="hidden" name="company_name" value="{{ company_name }}">
+
+                <!-- email entered by user -->
+                <input type="email" name="email_id" placeholder="Enter user email" required>
+
+                <button type="submit">Add User</button>
+            </form>
+
+
+            <!-- Email Table -->
+            {% if company_emails %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Email Address</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in company_emails %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ e.email_id }}</td>
+                        <td><span class="badge">Active</span></td>
+                        <td>
+                            <form method="POST" action="{{ url_for('delete_company_email') }}" style="display:inline;">
+                                <input type="hidden" name="email_id" value="{{ e.email_id }}">
+                                <button type="submit"
+        class="btn btn-sm btn-outline-danger"
+        onclick="return confirm('Delete this email?')">
+    Delete
+</button>
+
+                            </form>
+                        </td>
+
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty">
+                No users added yet.
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+
+</body>
+
+</html>

@@ -1,0 +1,328 @@
+/* -----------------------------------
+   GLOBAL / BASIC
+----------------------------------- */
+.profile_body_bg {
+    background: #f8fafc;
+    font-family: 'Inter', sans-serif;
+}
+
+.profile_file_input {
+    display: none;
+}
+
+/* -----------------------------------
+   PROFILE IMAGE + CAMERA BUTTON
+----------------------------------- */
+.profile_profile_img_info_main_div {
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+}
+
+.profile_profile_img_div {
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    border: 2px solid #d9dce3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: auto;
+    position: relative;
+    background-color: #D9D9D9;
+}
+
+.profile_profile_main_img {
+    width: 100px;
+}
+
+.profile_smal_camera_icon_update_img {
+    position: relative;
+    top: -30px;
+    left: 45px;
+}
+
+.profile_img_label {
+    height: 30px;
+    width: 30px;
+    border-radius: 50%;
+    background-color: #2B3674;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+}
+
+.profile_img_label img {
+    width: 20px;
+}
+
+/* -----------------------------------
+   PROFILE TITLE + INFO
+----------------------------------- */
+.profile_my_profile_title {
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #5c5c5c;
+}
+
+.profile_name_title {
+    text-transform: uppercase;
+    font-size: 26px;
+    font-weight: 700;
+}
+
+.profile_registered_count {
+    color: #8a8a8a;
+    font-size: 14px;
+    margin-top: 4px;
+}
+
+/* -----------------------------------
+   SEARCH BOX
+----------------------------------- */
+.profile_search_container {
+    display: flex;
+    justify-content: start;
+    padding-left: 2rem;
+    margin-top: 30px;
+}
+
+.profile_search_input {
+    width: 250px;
+    padding: 8px;
+    border: 1px solid #cfd4dc;
+    border-radius: 6px;
+}
+
+/* -----------------------------------
+   DROPDOWN
+----------------------------------- */
+.dashboard_dropdown_main_div {
+    position: relative;
+    display: inline-block;
+}
+
+.dashboard_btn {
+    cursor: pointer;
+}
+
+.dashboard_content_dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    min-width: 170px;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+    box-shadow: 0px 8px 16px rgba(0,0,0,0.2);
+    z-index: 10;
+}
+
+.dashboard_content_dropdown a {
+    color: #000;
+    padding: 10px;
+    text-decoration: none;
+    display: block;
+}
+
+.dashboard_content_dropdown div:hover {
+    background-color: #f1f1f1;
+}
+
+.dropdown_show {
+    display: block;
+}
+
+.dashboard_div {
+    display: flex;
+    align-items: center;
+}
+
+.dashboard_div img {
+    height: 30px;
+    padding-left: 10px;
+}
+
+/* -----------------------------------
+   BUTTONS
+----------------------------------- */
+.lux_graph_level_go_back_button {
+    background-color: #0084FF;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    width: 110px;
+    height: 35px;
+    font-size: small;
+}
+
+.btn-add-device {
+    background-color: #1f93ff;
+    color: #fff;
+    padding: 14px;
+    font-size: 14px;
+    border-radius: 8px;
+    text-decoration: none;
+    display: inline-block;
+    transition: 0.3s;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.btn-add-device:hover {
+    background-color: #0084ff;
+    transform: translateY(-3px);
+}
+
+.btn-add-device:active {
+    transform: translateY(1px);
+}
+
+/* -----------------------------------
+   TABLE CONTAINER
+----------------------------------- */
+.device_table_container {
+    margin: 40px auto;
+    width: 90%;
+    padding: 20px;
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+}
+
+/* -----------------------------------
+   TABLE DESIGN
+----------------------------------- */
+.device_table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+}
+
+.device_table thead th {
+    background: #f3f4f6;
+    color: #374151;
+    padding: 14px 16px;
+    text-align: center;
+    font-weight: 600;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.device_table td {
+    padding: 14px 16px;
+    text-align: center;
+    color: #111827;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.device_table tbody tr:nth-child(even) {
+    background: #fcfcfc;
+}
+
+.device_table tbody tr:hover {
+    background: #f9fafb;
+    transition: 0.2s;
+}
+
+/* Special cell for rowspan */
+.device_table td[rowspan] {
+    background: #f9fafb !important;
+    font-weight: 600;
+    color: #2563eb;
+}
+
+/* -----------------------------------
+   DELETE ICON
+----------------------------------- */
+.delete_img {
+    width: 18px;
+    opacity: 0.6;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.delete_img:hover {
+    opacity: 1;
+    transform: scale(1.15);
+}
+
+/* Link */
+.profile_link_blue {
+    color: #0d6efd;
+    text-decoration: none;
+}
+
+/* Badge */
+.badge_days {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+}
+
+.positive_badge {
+    background: #e0fbe0;
+    color: #0b8a05;
+}
+
+.negative_badge {
+    background: #ffe5e5;
+    color: #d30000;
+}
+
+/* ---------------- MOBILE CARD VIEW ---------------- */
+@media (max-width: 768px) {
+
+    .device_table {
+        border: 0;
+    }
+
+    .device_table thead {
+        display: none; /* Hide header */
+    }
+
+    .device_table tr {
+        display: block;
+        background: #fff;
+        margin-bottom: 15px;
+        border-radius: 12px;
+        padding: 15px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    }
+
+    .device_table td {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 5px;
+        border: none !important;
+        font-size: 14px;
+        text-align: left;
+    }
+
+    .device_table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #6b7280;
+    }
+
+    /* Rowspan company block as card header */
+    .device_table td[rowspan] {
+        display: block !important;
+        width: 100%;
+        background: #eef3ff !important;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        padding: 10px;
+        color: #2563eb;
+        font-weight: 700;
+        text-align: left;
+    }
+
+    /* Delete icon full width alignment */
+    .delete-action {
+        justify-content: flex-end !important;
+    }
+}

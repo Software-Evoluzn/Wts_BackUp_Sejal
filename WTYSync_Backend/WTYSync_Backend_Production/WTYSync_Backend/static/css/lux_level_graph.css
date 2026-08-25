@@ -1,0 +1,72 @@
+@import url('../font/dm_sans_font.css');
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: "DM Sans", sans-serif;
+}
+
+.lux_graph_level_main_div {
+    color: #2B3674;
+}
+
+.lux_graph_level {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    width: 100%;
+    gap: 40px;
+}
+
+.lux_graph_level_indv_div {
+    height: fit-content;
+    display: flex;
+    flex-direction: column;
+    transition: 0.3s;
+    text-decoration: none;
+    gap: 5px;
+    background-color: #FFFFFF;
+    box-shadow: 0px 4px 10px #EBEBEB;
+    border-radius: 13px;
+
+    border-radius: 18px;
+    border-width: 1px;
+    border-style: solid;
+    border-color: #474F7D;
+}
+
+.lux_graph_level_title_img_main_div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.lux_graph_level_temp_value_div {
+    font-weight: 700;
+    color: #2B3674;
+    font-size: 25px;
+}
+
+.dashboard_logout_button {
+    color: #2B3674;
+    outline: none;
+    background-color: white;
+    border: none;
+    text-decoration: underline;
+}
+
+.lux_graph_level_go_back_button {
+    background-color: #0084FF;
+    color: #ffffff;
+    border: none;
+    border-radius: 5px;
+    width: 110px;
+    height: 35px;
+    font-size: small;
+
+}
+
+@media (max-width: 768px) {
+    .lux_graph_level {
+        gap: 20px;
+    }
+}

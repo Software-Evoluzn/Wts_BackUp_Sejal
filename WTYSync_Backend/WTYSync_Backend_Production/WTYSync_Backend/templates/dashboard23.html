@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="icon" type="image/png" href="../static/img/evoluzn_title_logo.png">
+    <link href="../static/css/bootstrap.css" rel="stylesheet" />
+    <link href="../static/css/dashboard.css" rel="stylesheet" />
+    <script src="../static/js/alert.js"></script>
+
+</head>
+
+<body>
+    <div class="d-flex flex-column min-vh-100">
+        <div>
+            <div>
+                <div class="p-3 dashboard_main_heading_logout">
+                    <h6>Main Dashboard</h6>
+                    {% include 'setting.html' %}
+                </div>
+
+                <div class="d-flex flex-row gap-4 temp_alert_box_main_div">
+                
+                    {% for alert in alerts %}
+                    <div class="mt-4 p-1 temp_r_y_b_alert_box_div">
+                        <div class="alert-box" data-alert-message="{{ alert['message'] }}">
+                            <div class="d-flex justify-content-end">
+                                <img class="temp_alert_box_close" src="../static/img/alert_cross_close.svg"
+                                    onclick="deleteAlert(this)">
+                            </div>
+                            <div class="text-center temp_r_y_b_alert_box_title">
+                                <img class="temp_alert_icon" src="../static/img/alert.svg">Alert({{
+                                alert['exceeded_phases'] or "â€”" }})
+                            </div>
+                            <div class="text-center temp_r_y_b_alert_box_id mt-2">
+                                {{ alert['device_name'] }}
+                            </div>
+                            <div class="text-center temp_r_y_b_alert_box_description mt-2">
+                                {{ alert['message'] }}
+                            </div>
+                            <div class="mt-2 pb-3 temp_alert_time">
+                               {{ alert['timestamp'].strftime('%d %B %Y, %I:%M:%S %p') }}
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="mt-4 text-muted"></div>
+                    {% endfor %}
+                </div>
+
+
+                <!-- {{device_data}}
+                {{result}} -->
+                {% for device_name, panels in device_data.items() %}
+                <div class="p-3">
+                    <div class="p-4 dashboard_indv_temperature_box">
+                        <div class="dashboard_indv_temperature_box_main_div">
+                            <h3 class="dashboard_indv_temperature_title" id="device_idm">
+                                {{ device_name }}
+                            </h3>
+
+                            <a href="{{url_for('temperature',device_id=device_name)}}"
+                                class="dashboard_indv_nav_img_div">
+                                <div class="dashboard_indv_nav_img_div"><img class="dashboard_indv_nav_img"
+                                        src="../static/img/navigate.svg"></div>
+                            </a>
+                        </div>
+
+                        {% for panel_name, sensors in panels.items() %}
+                        <div class="pt-3">
+
+                            <!-- <input type="text" value="{{ panel_name }}" class="control_panel_edit"
+                                id="control_panel_edit_1_{{ device_name | replace(' ', '_') }}_{{ panel_name | replace(' ', '_') }}"
+                                readonly> -->
+
+                            <input type="text" value="{{ panel_name }}" class="control_panel_edit"
+                                id="control_panel_edit_1_{{ device_name | replace(' ', '_') }}_{{panel_name.replace(' ', '_').replace('  ', '_').replace('   ', '_').replace('    ', '_') }}"
+                                data-id="{{ device_name.replace(' ', '_').replace('  ', '_').replace('   ', '_').replace('    ', '_') }}_{{ panel_name.replace(' ', '_').replace('  ', '_').replace('   ', '_').replace('    ', '_') }}"
+                                readonly>
+                            <button class="edit_name"
+                                id="edit_name_button_1_{{ device_name | replace(' ', '_') }}_{{ panel_name | replace(' ', '_') }}"
+                                data-id="1_{{ device_name }}_{{ panel_name }}">
+                                <img src="../static/img/akar-icons_edit.png" alt="" height="40">
+                            </button>
+                            <button class="apply_name"
+                                id="apply_name_button_1_{{ device_name | replace(' ', '_') }}_{{ panel_name | replace(' ', '_') }}"
+                                data-id="1_{{ device_name }}_{{ panel_name }}" style="display: none;">Apply</button>
+
+
+                            <div class="pt-3 dashboard_temp_sensor_main_div">
+                                {% set order = ['R', 'Y', 'B', 'N'] %}
+                                {% for key in order %}
+                                {% for sensor_name, sensor_value in sensors.items() %}
+                                {% if sensor_name.startswith(key) %}
+                                <div class="dashboard_temp_sensor_indv_div p-3">
+                                    <div class="dashboard_temp_sensor_indv_div_T_R">
+                                        <h3 class="dashboard_temp_sensor_indv_div_T1">
+                                            <span
+                                                class="{% if sensor_name.startswith('R') %}dashboard_temp_R_title{% elif sensor_name.startswith('Y') %}dashboard_temp_Y_title{% elif sensor_name.startswith('B') %}dashboard_temp_B_title{% else %}dashboard_temp_N_title{% endif %}">
+                                                {{ sensor_name }}
+                                            </span>
+                                        </h3>
+                                        <div><img src="../static/img/temperature_icon.svg"></div>
+                                    </div>
+
+                                    {% set channel_data = result[device_name] %}
+                                    {% set sensor_key = sensor_name %}
+                                    <div class="dashboard_temp_min_max_main_div">
+                                        <div>
+                                            <!-- {{ channel_data }} -->
+                                            <div class="dashboard_temp_min_div">Min</div>
+                                            <div class="dashboard_temp_min_value_div" data-device="{{ device_name }}"
+                                                data-sensor="{{ sensor_name }}">
+                                                {% set min_value = result.get(device_name, {}).get(sensor_key,
+                                                {}).get('MIN', '-') %}
+                                                {{ min_value }}Â&deg;C
+                                            </div>
+                                        </div>
+
+                                        <div class="dashboard_temp_avg_value_div">{{ sensor_value }}Â&deg;C</div>
+                                        <div>
+                                            <div class="dashboard_temp_max_div">Max</div>
+                                            <div class="dashboard_temp_max_value_div" data-device="{{ device_name }}"
+                                                data-sensor="{{ sensor_name }}">
+                                                {% set max_value = result.get(device_name,
+                                                {}).get(sensor_key,{}).get('MAX', '-') %}
+                                                {{ max_value }}Â&deg;C
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                                {% endfor %}
+
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+
+
+
+            </div>
+        </div>
+
+        <!-- pls inset footer backend-->
+        <footer class="py-2 mt-auto text-center">
+            <div> Powered By <span>EVOLUZN</span></div>
+        </footer>
+        <!-- pls inset footer backend-->
+
+    </div>
+    <script src="../static/js/socket.io.js"></script>
+    <script src="../static/js/graph.js"></script>
+    <script src="../static/js/dashboard.js"></script>
+</body>
+
+</html>

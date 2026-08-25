@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Improved Dropdown</title>
+
+    <link rel="icon" type="image/png" href="../static/img/evoluzn_title_logo.png">
+    <link href="../static/css/bootstrap.css" rel="stylesheet" />
+
+    <style>
+        .settings-dropdown {
+            position: relative;
+            display: inline-block;
+            padding: 5px;
+        }
+
+        .settings-trigger {
+            cursor: pointer;
+            padding: 10px 14px;
+            border-radius: 8px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: 0.2s;
+        }
+
+        .settings-trigger:hover {
+            background: #f1f5f9;
+        }
+
+        /* ---------- Dropdown Menu ---------- */
+        .dropdown-menu-custom {
+            position: absolute;
+            top: 110%;
+            right: 0;
+            background: white;
+            min-width: 150px;
+            border-radius: 10px;
+            padding: 8px 0;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+            display: none;
+            z-index: 50;
+            border: 1px solid #e5e7eb;
+        }
+
+        .dropdown-menu-custom.show {
+            display: block;
+        }
+
+        /* ---------- Each Item ---------- */
+        .dropdown-item-custom {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px;
+            cursor: pointer;
+            text-decoration: none;
+            color: #1f2937;
+            transition: 0.2s;
+        }
+
+        .dropdown-item-custom img {
+            width: 20px;
+        }
+
+        .dropdown-item-custom:hover {
+            background: #f3f4f6;
+        }
+
+        .dropdown-divider {
+            margin: 6px 0;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        /* Prevent anchor from shifting */
+        .dropdown-item-custom a {
+            text-decoration: none;
+            color: inherit;
+            flex-grow: 1;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- -------- SETTINGS DROPDOWN -------- -->
+    <div class="settings-dropdown">
+        <div class="settings-trigger" onclick="toggleDropdown()">
+            <img src="../static/img/setting.svg" alt="Settings">
+            <span>Settings</span>
+        </div>
+
+        <div id="settingsMenu" class="dropdown-menu-custom">
+
+            <div class="dropdown-item-custom">
+                <img src="../static/img/profile.svg">
+                <a href="{{ url_for('profile') }}">Profile</a>
+            </div>
+
+            <div class="dropdown-divider"></div>
+
+            <div class="dropdown-item-custom" onclick="requestPublicLink()">
+                <img src="../static/img/link.svg">
+                <a href="javascript:void(0)">Public URL</a>
+            </div>
+
+            <div class="dropdown-divider"></div>
+
+            <div class="dropdown-item-custom">
+                <img src="../static/img/link.svg">
+                <a href="{{ url_for('mail_access') }}">Mail Access</a>
+            </div>
+
+            <div class="dropdown-divider"></div>
+
+            <div class="dropdown-item-custom">
+                <img src="../static/img/logout.svg">
+                <a href="{{ url_for('logout') }}">Logout</a>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Public URL Modal -->
+    <div class="modal fade" id="publicUrlModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">Public URL</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <input type="text" id="publicUrlInput" class="form-control" readonly>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" onclick="copyPublicUrl()">
+                        Copy
+                    </button>
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">
+                        Close
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- -------- JS -------- -->
+    <script src="../static/js/socket.io.js"></script>
+
+    <script>
+        
+        let publicSocket;   // ✅ global socket reference
+        document.addEventListener("DOMContentLoaded", function () {
+            
+            // 🔹 Load server IP first
+            fetch('/static/js/ip.json')
+                .then(response => response.json())
+                .then(data => {
+                    const serverIP = data.ip;
+                    console.log("Fetched IP:", serverIP);
+
+                    // 🔹 Connect socket
+                    publicSocket = io(serverIP);
+
+                    // 🔹 Listen for public URL response
+                    publicSocket.on('public_url_response', function (data) {
+                        if (data.success) {
+                            document.getElementById('publicUrlInput').value = data.url;
+
+                            const modal = new bootstrap.Modal(
+                                document.getElementById('publicUrlModal')
+                            );
+                            modal.show();
+                        } else {
+                            alert("Failed to generate public URL");
+                        }
+                    });
+                })
+                .catch(err => {
+                    console.error("Failed to load IP config:", err);
+                });
+        });
+
+        // ================= Dropdown =================
+        function toggleDropdown() {
+            document.getElementById("settingsMenu").classList.toggle("show");
+        }
+
+        window.addEventListener("click", function (e) {
+            const trigger = document.querySelector(".settings-trigger");
+            const menu = document.getElementById("settingsMenu");
+
+            if (trigger && !trigger.contains(e.target)) {
+                menu.classList.remove("show");
+            }
+        });
+
+        // ================= Public URL =================
+        function requestPublicLink() {
+            if (!publicSocket) {
+                alert("Connection not ready. Please try again.");
+                return;
+            }
+
+            publicSocket.emit('get_public_url', {});
+        }
+
+        function copyPublicUrl() {
+            const input = document.getElementById('publicUrlInput');
+
+            if (!input) {
+                alert("Input not found");
+                return;
+            }
+
+            input.removeAttribute("readonly"); // if readonly
+            input.select();
+            input.setSelectionRange(0, 99999);
+
+            try {
+                document.execCommand("copy");
+                alert("Public URL copied!");
+            } catch (err) {
+                alert("Copy failed");
+            }
+
+            input.setAttribute("readonly", true);
+        }
+    </script>
+
+
+
+</body>
+
+</html>

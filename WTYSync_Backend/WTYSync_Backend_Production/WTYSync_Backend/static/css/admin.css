@@ -1,0 +1,367 @@
+@import url('../font/dm_sans_font.css');
+
+/* @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap'); */
+
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "DM Sans", sans-serif;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    justify-content: center;
+    align-items: center;
+    font-family: "DM Sans", sans-serif;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.admin_container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    background: white;
+    /* border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.2); */
+}
+
+.admin_left_panel {
+    width: 45%;
+    background: url(../img/image.png);
+    background-repeat: no-repeat;
+    background-size: cover;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    position: relative;
+}
+
+
+.admin_evoluzn_logo_img {
+    width: 150px;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+}
+
+.admin_toggle_buttons {
+    position: absolute;
+    right: -11px;
+    top: 35%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    padding: 5px;
+}
+
+.admin_toggle_buttons button {
+    background: transparent;
+    border: none;
+    padding: 10px 20px;
+    margin: 5px;
+    cursor: pointer;
+    border-radius: 20px 0 0 20px;
+    font-weight: normal;
+    font-size: 18px;
+    transition: 0.3s;
+    color: white;
+}
+
+.admin_toggle_buttons .active {
+    background: white;
+    color: #2B3674;
+    font-weight: bold;
+}
+
+
+.admin_right_panel {
+    width: 55%;
+    background: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    transition: background 0.3s;
+}
+
+.admin_form_box {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Hide the password reveal icon in Edge */
+input::-ms-reveal,
+input::-ms-clear {
+    display: none;
+}
+
+
+.admin_form_container {
+    text-align: left;
+    width: 50%;
+}
+
+.admin_form_container p {
+    color: #DE8C73;
+}
+
+.admin_form_container h2 {
+    color: #2B3674;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.admin_form_container label {
+    color: #3965FF;
+    font-size: 15px;
+}
+
+.admin_input_div {
+    margin-bottom: 15px;
+}
+
+.admin_form_container input {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.admin_form_container select {
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+
+.admin_form_container button {
+    /* background: #3742fa; */
+    padding: 10px 30px;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+    margin-top: 25px;
+}
+
+
+.device_container input {
+    width: 100%;
+}
+
+.device_container button {
+    padding: 0;
+    height: fit-content;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+    margin-top: 2.5%;
+    background: transparent;
+}
+
+
+.hidden {
+    display: none;
+}
+
+.foget {
+    font-size: 14px;
+    color: #2B3674;
+}
+
+footer {
+    color: #474F7D;
+    margin-top: auto;
+}
+
+footer span {
+    font-weight: bold;
+}
+
+.toggle_eye {
+    top: 68% !important;
+    cursor: pointer;
+}
+
+.error {
+    font-size: 15px;
+    color: red;
+}
+
+.login_eye_open_img {
+    width: 20px;
+    height: 20px;
+}
+
+/* @media (max-width: 1500px) {
+    .select_container select{
+        width: 30%;
+    }
+} */
+
+@media (max-width: 1300px) {
+    .admin_form_container {
+        width: 80%;
+    }
+
+    .device_container button {
+        margin-top: 3.5%;
+    }
+}
+
+
+@media (max-width: 800px) {
+    .admin_left_panel {
+        width: 40%;
+    }
+
+    .admin_right_panel {
+        width: 60%;
+    }
+
+    .device_container button {
+        margin-left: 2%;
+    }
+
+    .admin_form_container select {
+        padding: 10px 4px;
+        font-size: medium;
+    }
+}
+
+@media (max-width: 650px) {
+    .admin_container {
+        flex-direction: column;
+    }
+
+    .admin_left_panel {
+        height: 25%;
+    }
+
+    .admin_left_panel img {
+        width: 100px;
+    }
+
+    .admin_toggle_buttons {
+        display: none;
+    }
+
+    .admin_input_div {
+        margin-bottom: 8px;
+    }
+
+    .admin_left_panel,
+    .admin_right_panel {
+        width: 100%;
+    }
+
+    /* .admin_toggle_buttons {
+        position: absolute;
+        flex-direction: row;
+        padding: 5px;
+        align-items: flex-end;
+        bottom: -12px;
+        right: auto;
+        transform: translateY(0%);
+    } */
+
+    .admin_toggle_buttons button {
+        border-radius: 20px 20px 0 0;
+    }
+
+    .admin_form_container {
+        margin-top: 70px;
+    }
+
+    .admin_form_container p {
+        font-size: 12px;
+    }
+
+    .admin_form_container h2 {
+        font-size: 21px;
+    }
+
+    .admin_form_container label {
+        font-size: 14px;
+    }
+
+    .admin_form_container input {
+        width: 100%;
+        padding: 5px;
+        /* margin: 0px 0; */
+        border: 1px solid #ccc;
+        border-radius: 5px;
+    }
+
+    .admin_form_container select {
+        padding: 5px;
+        font-size: medium;
+    }
+
+    .admin_form_container button {
+        padding: 5px 30px;
+    }
+
+    .foget {
+        font-size: 14px;
+        color: #2B3674;
+    }
+
+    .toggle_eye {
+        top: 70% !important;
+    }
+
+    .error {
+        font-size: 11px;
+    }
+
+    .device_container input {
+        width: 100%;
+    }
+
+    .device_container button {
+        padding: 0;
+        height: fit-content;
+        border: none;
+        cursor: pointer;
+        border-radius: 5px;
+        margin-top: 2.5%;
+        background: transparent;
+    }
+
+}
+
+@media (max-height: 700px) {
+    .admin_left_panel {
+        height: 20%;
+    }
+
+    .admin_form_container {
+        margin-top: 30px;
+    }
+}
+
+@media (max-width: 400px) {
+    .admin_form_container select {
+        padding: 7px;
+        padding-right: 1.4rem;
+        font-size: small;
+        background-position: right 0.4rem center;
+        background-size: 0.7rem;
+    }
+}

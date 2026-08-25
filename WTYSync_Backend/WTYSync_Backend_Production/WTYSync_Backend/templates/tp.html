@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link href="../static/css/bootstrap.css" rel="stylesheet" />
+    <title>Device Cards Grid</title>
+    <style>
+        .device-card {
+            width: 400px;
+            height: 120px;
+            background: white;
+            border-radius: 14px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+
+        .device-card.no-warning .device-content {
+            height: 100%;
+            display: flex;
+            align-items: center;
+        }
+
+
+        /* Top Warning Bar */
+        .warning-bar {
+            background: #c47e00;
+            color: white;
+            padding: 8px 12px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+        }
+
+        .warning-icon {
+            font-size: 16px;
+        }
+
+        /* Main Content */
+        .device-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+        }
+
+        .device-name {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .status {
+            font-size: 14px;
+        }
+
+
+        /* Right Side Icons */
+        .right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* Arrow Button */
+        .arrow-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: #e5e7eb;
+            border: none;
+            cursor: pointer;
+            font-size: 15px;
+            color: #374151;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="d-flex flex-row flex-wrap p-4 gap-4">
+
+        <div class="device-card ">
+            <div class="warning-bar">
+                <span class="warning-icon">⚠</span>
+                Temperature threshold exceeded
+            </div>
+
+            <div class="device-content">
+                <div class="left">
+                    <h3 class="device-name">WTSF0BF36</h3>
+                    <span class="status online">Online</span>
+                </div>
+
+                <div class="right">
+                    <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+
+                        <!-- Ripple wave -->
+                        <circle cx="20" cy="20" r="6" fill="#10B981">
+                            <animate attributeName="r" from="6" to="18" dur="1.6s" repeatCount="indefinite" />
+
+                            <animate attributeName="opacity" from="0.7" to="0" dur="1.6s" repeatCount="indefinite" />
+                        </circle>
+
+                        <!-- Static center dot -->
+                        <circle cx="20" cy="20" r="6" fill="#10B981" />
+
+                    </svg>
+
+
+                    <div>
+                        <img src="../static/img/wifi.png" alt="">
+                    </div>
+
+                    <!-- Arrow Button -->
+                    <button class="arrow-btn">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M9 6l6 6-6 6" stroke="#3b82f6" stroke-width="2.3" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="device-card no-warning">
+            <div class="device-content">
+                <div class="left">
+                    <h3 class="device-name">WTSF0BF36</h3>
+                    <span class="status online">Online</span>
+                </div>
+
+                <div class="right">
+                    <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+
+                        <!-- Ripple wave -->
+                        <circle cx="20" cy="20" r="6" fill="#10B981">
+                            <animate attributeName="r" from="6" to="18" dur="1.6s" repeatCount="indefinite" />
+
+                            <animate attributeName="opacity" from="0.7" to="0" dur="1.6s" repeatCount="indefinite" />
+                        </circle>
+
+                        <!-- Static center dot -->
+                        <circle cx="20" cy="20" r="6" fill="#10B981" />
+
+                    </svg>
+
+
+                    <div>
+                        <img src="../static/img/wifi.png" alt="">
+                    </div>
+
+
+                    <!-- Arrow Button -->
+                    <button class="arrow-btn">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M9 6l6 6-6 6" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- add more cards as needed -->
+    </div>
+
+</body>
+
+</html>

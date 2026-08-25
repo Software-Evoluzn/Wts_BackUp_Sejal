@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile</title>
+    <link rel="icon" type="image/png" href="../static/img/evoluzn_title_logo.png">
+    <link href="../static/css/bootstrap.css" rel="stylesheet" />
+    <link href="../static/css/profile.css" rel="stylesheet" />
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+
+
+<body>
+    <div class="p-3">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <a href="{{ url_for('home') }}"><button class="lux_graph_level_go_back_button">
+                        <img src="../static/img/left_arrow.svg"> Go Back</button></a>
+            </div>
+            <div>
+                {% include 'setting.html' %}
+            </div>
+        </div>
+
+    </div>
+    <!-- PROFILE -->
+    <div class="d-flex justify-content-center">
+        <div>
+            <h3 class="text-center p-3 profile_my_profile_title">PROFILE</h3>
+            <div class="mt-5 px-2 profile_profile_img_info_main_div">
+                <form id="uploadForm" action="/upload_profile_img" method="POST" enctype="multipart/form-data">
+                <div>
+                        <div class="profile_profile_img_div">
+                            <img class="profile_profile_main_img" id="profileImg"
+                                src="{{ url_for('static', filename=profile_img) if profile_img else url_for('static', filename='img/evzlooogo.png') }}">
+                        </div>
+
+                        <input type="file" id="fileUpload" name="profile_image" class="profile_file_input" hidden />
+                    </div>
+                </form>
+
+                <div class="d-flex align-items-center">
+                    <div>
+                        <div class="profile_name_title">{{ company_name }}</div>
+                        <div>{{ email }}</div>
+                        <div class="profile_registered_count">{{ devices|length }} products registered</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="device_table_container">
+        <table class="device_table">
+            <thead>
+                <tr>
+                    {% if is_admin %}
+                    <th>Company Name</th>
+                    {% endif %}
+                    <th>Device Type</th>
+                    <th>Device Name</th>
+                    <th>Timestamp</th>
+                    {% if is_admin %}
+                    <th>Action</th>
+                    {% endif %}
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for device in devices %}
+                <tr>
+
+                    {% if is_admin %}
+                    {% if device.show_company %}
+                    <td rowspan="{{ device.rowspan }}">{{ device.company_name }}</td>
+                    {% endif %}
+                    {% endif %}
+
+                    <td data-label="Device Type">{{ device.device_type }}</td>
+                    <td data-label="Device Name">{{ device.device_name }}</td>
+                    <td data-label="Timestamp">{{ device.timestamp }}</td>
+
+                    {% if is_admin %}
+                    <td data-label="Action" class="delete-action">
+                        <img src="../static/img/bin.png" alt="Delete" class="delete_img"
+                            data-name="{{ device.device_name }}">
+                    </td>
+                    {% endif %}
+
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+
+
+    <script src="../static/js/profile.js"></script>
+
+
+    <!-- <footer></footer> -->
+</body>
+
+</html>

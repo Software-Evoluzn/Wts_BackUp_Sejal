@@ -220,7 +220,7 @@ const SettingsScreen = ({ navigation }) => {
             onPress={() => navigation.navigate('EditProfile')}
           >
             <Text style={styles.editButtonText}>Edit Profile</Text>
-            <Feather name="arrow-right" size={16} color="#4F46E5" />
+            <Feather name="arrow-right" size={16} color="#9C3AB3" />
           </TouchableOpacity>
         </View>
       </View>
@@ -327,7 +327,7 @@ const SettingsScreen = ({ navigation }) => {
               onPress={handleSaveNotifications}
             >
               <Text style={styles.editButtonText}>Save Notification Preferences</Text>
-              <Feather name="check" size={16} color="#4F46E5" />
+              <Feather name="check" size={16} color="#9C3AB3" />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -373,7 +373,7 @@ const SettingsScreen = ({ navigation }) => {
         <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>
 
-      <Text style={styles.version}>WireTempSync v1.0.0</Text>
+      <Text style={styles.version}>IntelliTemp v1.0.0</Text>
     </ScrollView>
   );
 };
@@ -413,11 +413,11 @@ const createStyles = (colors) =>
       width: '100%',
     },
 
-    // Identity Card (intentionally kept as a fixed dark accent card
+    // Identity Card (intentionally kept as a fixed brand accent card
     // in both themes to preserve the existing brand look — not
     // remapped to colors.card per "identical in light mode" requirement)
     identityCard: {
-      backgroundColor: '#0B0D12',
+      backgroundColor: '#7F2E94',
       borderRadius: 24,
       padding: 22,
       marginBottom: 32,
@@ -540,7 +540,7 @@ const createStyles = (colors) =>
     editButton: {
       marginTop: 10,
       marginBottom: 16,
-      backgroundColor: '#F4F4FE',
+      backgroundColor: '#F5EAF8',
       borderRadius: 14,
       paddingVertical: 14,
       flexDirection: 'row',
@@ -549,7 +549,7 @@ const createStyles = (colors) =>
       gap: 6,
     },
     editButtonText: {
-      color: '#4F46E5',
+      color: '#9C3AB3',
       fontWeight: '700',
       fontSize: 14,
     },

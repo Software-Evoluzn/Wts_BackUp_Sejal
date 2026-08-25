@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Devices Table</title>
+    <link rel="icon" type="image/png" href="../static/img/evoluzn_title_logo.png">
+    <link rel="stylesheet" href="../static/css/bootstrap.css">
+   
+    <style>
+    table {
+        width: 90%;
+        border-collapse: collapse;
+        margin: 30px auto;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+    }
+
+    th, td {
+        border: 1px solid #ccc;
+        padding: 10px 15px;
+        text-align: left;
+    }
+
+    th {
+        background-color: #f0f0f0;
+    }
+
+    .company-row td {
+        background-color: #f9f9f9;
+        font-weight: bold;
+    }
+
+    tr:nth-child(even):not(.company-row) {
+        background-color: #f7f7f7;
+    }
+
+    a {
+        display: block;
+        margin: 20px auto;
+        width: max-content;
+        text-decoration: none;
+        color: #007BFF;
+        font-weight: bold;
+    }
+
+    a:hover {
+        text-decoration: underline;
+    }
+
+    .delete_img{
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+    }
+
+    </style>
+</head>
+<body>
+    {% if is_admin %}
+    <a href="{{ url_for('admin_page') }}">Admin</a>
+  {% endif %}
+<table>
+    <thead>
+        <tr>
+            <th>Company Name</th>
+            <th>Device Type</th>
+            <th>Device Name</th>
+            <th>Timestamp</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for device in devices %}
+            <tr>
+                {% if device.show_company %}
+                    <td rowspan="{{ device.rowspan }}">{{ device.company_name }}</td>
+                {% endif %}
+                {% if not device.show_company %}
+                    <!-- Skip company cell -->
+                {% endif %}
+                <td>{{ device.device_type }}</td>
+                <td>{{ device.device_name }}</td>
+                <td>{{ device.timestamp }}</td>
+                <td class="border-0 bg-white">
+                    <img src="../static/img/bin.png" alt="bin" class="delete_img" data-name="{{ device.device_name }}" >
+                </td>
+            </tr>
+        {% endfor %}
+    </tbody>
+    
+</table>
+<script src="../static/js/dashboard_table.js"></script>
+</body>
+</html>

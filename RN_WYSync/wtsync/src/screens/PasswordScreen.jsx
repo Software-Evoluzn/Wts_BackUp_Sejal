@@ -8,6 +8,8 @@ import WifiManager from 'react-native-wifi-reborn';
 import Feather from 'react-native-vector-icons/Feather';
 import { useAppTheme } from '../services/theme';
 
+import { saveDeviceWifi } from '../services/WifiService';
+
 const ESP_AP_IP = 'http://192.168.4.1';
 
 // Verification tuning
@@ -50,6 +52,27 @@ export default function PasswordScreen({ route, navigation }) {
 
   };
 
+
+  // 4. Database Sync Handler
+  const handleSaveToDatabase = async () => {
+    try {
+      const res = await saveDeviceWifi({
+        deviceId: deviceId || 'ESP32_DEFAULT_ID', // Route params or default fallback
+        firebaseUid: firebaseUid || 'DEFAULT_UID',
+        ssid: network.SSID,
+        password: password,
+      });
+
+      if (res.success) {
+        console.log('[DB Save Success]:', res.message);
+      } else {
+        console.log('[DB Save Failed]:', res.message);
+      }
+    } catch (err) {
+      console.log('[DB Save Error]:', err);
+    }
+  }; 
+
   const startPhoneWifiPolling = () => {
     setPhoneConnected(false);
 
@@ -67,6 +90,8 @@ export default function PasswordScreen({ route, navigation }) {
         if (currentSSID === network.SSID) {
           stopPhoneWifiPolling();
           setPhoneConnected(true);
+
+          await handleSaveToDatabase();
         }
 
       } catch (error) {
@@ -475,7 +500,7 @@ const createStyles = (colors) => StyleSheet.create({
   accentLine: {
     height: 3,
     borderRadius: 2,
-    backgroundColor: colors.subText,
+    backgroundColor: '#9C3AB3',
     marginTop: 18,
     opacity: 0.6,
   },
@@ -555,7 +580,7 @@ const createStyles = (colors) => StyleSheet.create({
     paddingHorizontal: 32,
     borderRadius: 16,
     width: '100%',
-    backgroundColor: '#111111',
+    backgroundColor: '#9C3AB3',
     shadowColor: '#0B0D12',
     shadowOpacity: 0.16,
     shadowRadius: 14,

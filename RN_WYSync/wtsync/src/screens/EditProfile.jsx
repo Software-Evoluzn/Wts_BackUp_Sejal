@@ -437,7 +437,7 @@ const EditProfile = ({ navigation }) => {
             />
           </SectionCard>
 
-          {/* Device Preferences */}
+          {/* Device Preferences
           <SectionCard title="Device Preferences" icon="cpu">
             <View style={styles.deviceRow}>
               <View>
@@ -446,7 +446,7 @@ const EditProfile = ({ navigation }) => {
               </View>
               <Text style={styles.deviceCount}>{accountInfo.registeredDevices}</Text>
             </View>
-          </SectionCard>
+          </SectionCard> */}
 
           {/* Action Buttons */}
           <View style={styles.buttonGroup}>
@@ -454,7 +454,7 @@ const EditProfile = ({ navigation }) => {
             <ActionButton label="Cancel" onPress={handleCancel} variant="secondary" />
           </View>
 
-          <Text style={styles.version}>WireTempSync v1.0.0</Text>
+          <Text style={styles.version}>Intelli Tempv1.0.0</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -509,11 +509,11 @@ const createStyles = (colors) =>
       letterSpacing: -0.6,
     },
 
-    // Identity / Profile Card (intentionally kept as a fixed dark accent
+    // Identity / Profile Card (intentionally kept as a fixed brand accent
     // card in both themes to preserve the existing brand look, same as
     // the Settings screen).
     identityCard: {
-      backgroundColor: '#0B0D12',
+      backgroundColor: '#7F2E94',
       borderRadius: 24,
       padding: 22,
       marginBottom: 28,
@@ -555,7 +555,7 @@ const createStyles = (colors) =>
       justifyContent: 'center',
       alignItems: 'center',
       borderWidth: 2,
-      borderColor: '#0B0D12',
+      borderColor: '#7F2E94',
     },
     identityInfo: {
       flex: 1,
@@ -729,8 +729,8 @@ const createStyles = (colors) =>
       borderRadius: 16,
     },
     primaryButton: {
-      backgroundColor: '#4F46E5',
-      shadowColor: '#4F46E5',
+      backgroundColor: '#9C3AB3',
+      shadowColor: '#9C3AB3',
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.25,
       shadowRadius: 16,

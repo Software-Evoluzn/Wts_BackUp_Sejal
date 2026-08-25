@@ -275,7 +275,7 @@ const createStyles = (colors) => StyleSheet.create({
   accentLine: {
     height: 3,
     borderRadius: 2,
-    backgroundColor: colors.subText,
+    backgroundColor: '#9C3AB3',
     marginTop: 18,
   },
 
@@ -370,7 +370,7 @@ const createStyles = (colors) => StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 32,
     borderRadius: 16,
-    backgroundColor: '#111111',
+    backgroundColor: '#9C3AB3',
     shadowColor: '#0B0D12',
     shadowOpacity: 0.16,
     shadowRadius: 14,

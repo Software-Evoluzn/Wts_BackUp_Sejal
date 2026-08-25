@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="icon" type="image/png" href="../static/img/evoluzn_title_logo.png">
+    <link href="../static/css/bootstrap.css" rel="stylesheet" />
+    <link href="../static/css/dashboard.css" rel="stylesheet" />
+    <script src="../static/js/alert.js"></script>
+    <style>
+        .device-card {
+            width: 400px;
+            height: 120px;
+            background: white;
+            border-radius: 14px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+
+        .device-card.no-warning .device-content {
+            height: 100%;
+            display: flex;
+            align-items: center;
+        }
+
+
+        /* Top Warning Bar */
+        .warning-bar {
+            background: #ff4756e8;
+            color: white;
+            padding: 8px 12px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+        }
+
+        .warning-icon {
+            font-size: 16px;
+        }
+
+        /* Main Content */
+        .device-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+        }
+
+        .device-name {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .status {
+            font-size: 14px;
+        }
+
+
+        /* Right Side Icons */
+        .right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* Arrow Button */
+        .arrow-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: #e5e7eb;
+            border: none;
+            cursor: pointer;
+            font-size: 15px;
+            color: #374151;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="d-flex flex-column min-vh-100">
+        <div>
+            <div>
+                <div class="p-3 dashboard_main_heading_logout">
+                    <h6>Main Dashboard</h6>
+                    {% include 'setting.html' %}
+                </div>
+
+                <div class="d-flex flex-row flex-wrap p-4 gap-4">
+                    {% for device_name, panels in device_data.items() %}
+                    {% set status = panels.get('status', 'offline') %}
+
+                    {% set clean_name = alerts[0].device_name | replace("Alert", "") %}
+                    <div class="device-card {% if clean_name == device_name %}{% else %}no-warning{% endif %}">
+                        
+                        {% if clean_name == device_name %}
+                        <div class="warning-bar">
+                            <span class="warning-icon">⚠</span>
+                            Temperature threshold exceeded
+                        </div>
+                        {% endif %}
+
+                        <div class="device-content">
+                            <div class="left">
+                                <h3 class="device-name">{{ device_name }}</h3>
+                                {% if status == 'online' %}
+                                <span class="status online">Online</span>
+                                {% else %}
+                                <span class="status offline">Offline</span>
+                                {% endif %}
+                            </div>
+
+                            <div class="right">
+                                <!-- Ripple SVG -->
+                                <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"
+                                    class="{% if status == 'online' %}ripple-online{% else %}ripple-offline{% endif %}">
+                                    <circle cx="20" cy="20" r="6"
+                                        fill="{% if status == 'online' %}#10B981{% else %}#EF4444{% endif %}"
+                                        opacity="0.7">
+                                        <animate attributeName="r" from="6" to="18" dur="1.6s"
+                                            repeatCount="indefinite" />
+                                        <animate attributeName="opacity" from="0.7" to="0" dur="1.6s"
+                                            repeatCount="indefinite" />
+                                    </circle>
+                                    <circle cx="20" cy="20" r="6"
+                                        fill="{% if status == 'online' %}#10B981{% else %}#EF4444{% endif %}" />
+                                </svg>
+
+                                <!-- Wi-Fi images -->
+                                <img src="../static/img/wifi.png" alt="Wi-Fi_Online" class="wifi-online"
+                                    style="display: {% if status == 'online' %}inline{% else %}none{% endif %};">
+                                <img src="../static/img/wifi_off.png" alt="Wi-Fi_Offline" class="wifi-offline"
+                                    style="display: {% if status != 'online' %}inline{% else %}none{% endif %};">
+
+                                <!-- Arrow Button -->
+                                <button class="arrow-btn">
+                                    <a href="{{ url_for('temperature', device_id=device_name) }}"
+                                        class="dashboard_indv_nav_img_div">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                                            aria-hidden="true">
+                                            <path d="M9 6l6 6-6 6" stroke="#3b82f6" stroke-width="2.3"
+                                                stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                    </a>
+                                </button>
+                            </div>
+
+                        </div>
+
+                    </div>
+                    {% endfor %}
+
+                </div>
+
+            </div>
+        </div>
+
+        <!-- pls inset footer backend-->
+        <footer class="py-2 mt-auto text-center">
+            <div> Powered By <span>EVOLUZN</span></div>
+        </footer>
+        <!-- pls inset footer backend-->
+
+    </div>
+    <script src="../static/js/socket.io.js"></script>
+
+    <script>
+        fetch('static/js/ip.json')
+            .then(response => response.json())
+            .then(data => {
+                const serverIP = data.ip;
+                console.log("Fetched IP:", serverIP);
+
+                // Connect to Socket.IO server dynamically
+                var socket = io.connect(serverIP);
+
+                // Listen for status updates
+                socket.on('status_update', function (data) {
+                    const deviceId = data.device_id;
+                    const status = data.device_status; // 'online' or 'offline'
+
+                    // Find the corresponding device card
+                    const card = Array.from(document.querySelectorAll('.device-card')).find(c => {
+                        const nameElem = c.querySelector('.device-name');
+                        return nameElem && nameElem.textContent.trim() === deviceId;
+                    });
+
+                    if (!card) return;
+
+                    // 1️⃣ Update status text
+                    const statusSpan = card.querySelector('.status');
+                    if (status === 'online') {
+                        statusSpan.textContent = 'Online';
+                        statusSpan.classList.remove('offline');
+                        statusSpan.classList.add('online');
+                    } else {
+                        statusSpan.textContent = 'Offline';
+                        statusSpan.classList.remove('online');
+                        statusSpan.classList.add('offline');
+                    }
+
+                    // 2️⃣ Update Wi-Fi image
+                    const wifiOnline = card.querySelector('img[alt="Wi-Fi_Online"]');
+                    const wifiOffline = card.querySelector('img[alt="Wi-Fi_Offline"]');
+
+                    if (status === 'online') {
+                        if (wifiOnline) wifiOnline.style.display = 'inline';
+                        if (wifiOffline) wifiOffline.style.display = 'none';
+                    } else {
+                        if (wifiOnline) wifiOnline.style.display = 'none';
+                        if (wifiOffline) wifiOffline.style.display = 'inline';
+                    }
+
+                    // 3️⃣ Update ripple color dynamically
+                    const rippleCircles = card.querySelectorAll('svg circle');
+                    rippleCircles.forEach(circle => {
+                        if (status === 'online') {
+                            circle.setAttribute('fill', '#10B981'); // green
+                        } else {
+                            circle.setAttribute('fill', '#EF4444'); // red
+                        }
+                    });
+                });
+
+            })
+            .catch(error => {
+                console.error('Error fetching IP configuration:', error);
+            });
+
+    </script>
+
+    <!-- <script src="../static/js/graph.js"></script> -->
+    <script src="../static/js/dashboard.js"></script>
+</body>
+
+</html>

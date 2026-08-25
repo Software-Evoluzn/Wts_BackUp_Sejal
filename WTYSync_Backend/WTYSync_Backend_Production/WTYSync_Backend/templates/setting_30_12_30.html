@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Improved Dropdown</title>
+
+    <link rel="icon" type="image/png" href="../static/img/evoluzn_title_logo.png">
+    <link href="../static/css/bootstrap.css" rel="stylesheet" />
+
+    <style>
+        .settings-dropdown {
+            position: relative;
+            display: inline-block;
+            padding: 5px;
+        }
+
+        .settings-trigger {
+            cursor: pointer;
+            padding: 10px 14px;
+            border-radius: 8px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: 0.2s;
+        }
+
+        .settings-trigger:hover {
+            background: #f1f5f9;
+        }
+
+        /* ---------- Dropdown Menu ---------- */
+        .dropdown-menu-custom {
+            position: absolute;
+            top: 110%;
+            right: 0;
+            background: white;
+            min-width: 150px;
+            border-radius: 10px;
+            padding: 8px 0;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+            display: none;
+            z-index: 50;
+            border: 1px solid #e5e7eb;
+        }
+
+        .dropdown-menu-custom.show {
+            display: block;
+        }
+
+        /* ---------- Each Item ---------- */
+        .dropdown-item-custom {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px;
+            cursor: pointer;
+            text-decoration: none;
+            color: #1f2937;
+            transition: 0.2s;
+        }
+
+        .dropdown-item-custom img {
+            width: 20px;
+        }
+
+        .dropdown-item-custom:hover {
+            background: #f3f4f6;
+        }
+
+        .dropdown-divider {
+            margin: 6px 0;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        /* Prevent anchor from shifting */
+        .dropdown-item-custom a {
+            text-decoration: none;
+            color: inherit;
+            flex-grow: 1;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- -------- SETTINGS DROPDOWN -------- -->
+    <div class="settings-dropdown">
+        <div class="settings-trigger" onclick="toggleDropdown()">
+            <img src="../static/img/setting.svg" alt="Settings">
+            <span>Settings</span>
+        </div>
+
+        <div id="settingsMenu" class="dropdown-menu-custom">
+
+            <div class="dropdown-item-custom">
+                <img src="../static/img/profile.svg">
+                <a href="{{ url_for('profile') }}">Profile</a>
+            </div>
+
+            <div class="dropdown-divider"></div>
+
+            <div class="dropdown-item-custom">
+                <img src="../static/img/logout.svg">
+                <a href="{{ url_for('logout') }}">Logout</a>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- -------- JS -------- -->
+    <script>
+        function toggleDropdown() {
+            document.getElementById("settingsMenu").classList.toggle("show");
+        }
+
+        // Close when clicking outside
+        window.addEventListener("click", function (e) {
+            const trigger = document.querySelector(".settings-trigger");
+            const menu = document.getElementById("settingsMenu");
+
+            if (!trigger.contains(e.target)) {
+                menu.classList.remove("show");
+            }
+        });
+    </script>
+
+</body>
+
+</html>

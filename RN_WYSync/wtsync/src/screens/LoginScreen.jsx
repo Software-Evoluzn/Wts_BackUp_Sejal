@@ -18,9 +18,15 @@ import { loginUser } from '../services/AuthService';
 import { googleLogin } from '../services/AuthService';
 import { useAppTheme } from '../services/theme';
 
+// Accent color used throughout the login flow (links, focus borders,
+// primary button, footer link) — matches the brand's plum/purple identity.
+const ACCENT = '#5B2C74';
+const ACCENT_LIGHT = '#7B4A98';
+const ACCENT_DARK = '#3D1E52';
+
 const LoginScreen = ({ navigation }) => {
   const { colors, isDark } = useAppTheme();
-  const styles = createStyles(colors);
+  const styles = createStyles(colors, isDark);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,6 +34,14 @@ const LoginScreen = ({ navigation }) => {
   const [focused, setFocused] = useState(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  // The "Login" button uses a solid plum/purple fill in both themes, matching
+  // the reference brand color. In dark mode it lightens slightly for
+  // contrast against a dark card; light mode keeps the same accent fill.
+  // No token in `colors` represents this, so it's expressed explicitly here,
+  // gated on `isDark`.
+  const loginButtonSurfaceStyle = isDark ? { backgroundColor: ACCENT_LIGHT } : null;
+  const loginButtonContentColor = '#fff';
 
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
@@ -76,7 +90,7 @@ const LoginScreen = ({ navigation }) => {
         </View>
 
         <Text style={styles.title}>Welcome back</Text>
-        <Text style={styles.subtitle}>Sign in to continue to WireTempSync</Text>
+        <Text style={styles.subtitle}>Sign in to continue to IntelliTemp</Text>
 
         <View style={styles.form}>
           <View style={styles.fieldGroup}>
@@ -130,14 +144,14 @@ const LoginScreen = ({ navigation }) => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.button}
+            style={[styles.button, loginButtonSurfaceStyle]}
             onPress={handleLogin}
             activeOpacity={0.85}
             disabled={loading}>
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={loginButtonContentColor} />
             ) : (
-              <Text style={styles.buttonText}>Login</Text>
+              <Text style={[styles.buttonText, { color: loginButtonContentColor }]}>Login</Text>
             )}
           </TouchableOpacity>
 
@@ -185,147 +199,153 @@ const LoginScreen = ({ navigation }) => {
 
 export default LoginScreen;
 
-const createStyles = (colors) => StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.background },
-  container: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 24,
-    paddingVertical: 48,
-  },
-  logoCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: colors.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-    alignSelf: 'center',
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#0B0D12',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    elevation: 2,
-  },
-  logo: {
-    width: 34,
-    height: 34,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: colors.text,
-    textAlign: 'center',
-    letterSpacing: -0.4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.subText,
-    textAlign: 'center',
-    marginTop: 6,
-    marginBottom: 32,
-  },
-  form: {
-    backgroundColor: colors.card,
-    borderRadius: 22,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#0B0D12',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.04,
-    shadowRadius: 20,
-    elevation: 2,
-  },
-  fieldGroup: {
-    marginBottom: 14,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.subText,
-    marginBottom: 8,
-    letterSpacing: 0.2,
-  },
-  input: {
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  inputFocused: {
-    borderColor: '#4F46E5',
-    backgroundColor: colors.card,
-  },
-  passwordWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-  },
-  passwordInput: {
-    flex: 1,
-    paddingVertical: 14,
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  forgotWrapper: { alignSelf: 'flex-end', marginTop: 2, marginBottom: 20 },
-  forgotText: { color: '#4F46E5', fontWeight: '600', fontSize: 13 },
-  button: {
-    backgroundColor: '#0B0D12',
-    paddingVertical: 16,
-    borderRadius: 14,
-    alignItems: 'center',
-    shadowColor: '#0B0D12',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.16,
-    shadowRadius: 14,
-    elevation: 3,
-  },
-  buttonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 22,
-  },
-  divider: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
-  dividerText: {
-    marginHorizontal: 12,
-    color: colors.subText,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  googleButton: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    paddingVertical: 15,
-    borderRadius: 14,
-    gap: 10,
-  },
-  googleIconFallback: {
-    width: 18,
-    height: 18,
-  },
-  googleText: { color: colors.text, fontSize: 14, fontWeight: '600' },
-  footer: { marginTop: 28, alignItems: 'center' },
-  footerText: { color: colors.subText, fontSize: 14 },
-  footerLink: { color: '#4F46E5', fontWeight: '700' },
-});
+const createStyles = (colors, isDark) =>
+  StyleSheet.create({
+    flex: { flex: 1, backgroundColor: colors.background },
+    container: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      padding: 24,
+      paddingVertical: 48,
+    },
+    logoCircle: {
+      width: 72,
+      height: 72,
+      borderRadius: 22,
+      backgroundColor: colors.card,
+      justifyContent: 'center',
+      alignItems: 'center',
+      alignSelf: 'center',
+      marginBottom: 26,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: isDark ? ACCENT_DARK : ACCENT,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: isDark ? 0.3 : 0.1,
+      shadowRadius: 18,
+      elevation: 4,
+    },
+    logo: {
+      width: 38,
+      height: 38,
+    },
+    title: {
+      fontSize: 27,
+      fontWeight: '800',
+      color: colors.text,
+      textAlign: 'center',
+      letterSpacing: -0.5,
+    },
+    subtitle: {
+      fontSize: 14,
+      color: colors.subText,
+      textAlign: 'center',
+      marginTop: 8,
+      marginBottom: 30,
+    },
+    form: {
+      backgroundColor: colors.card,
+      borderRadius: 26,
+      padding: 22,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: isDark ? ACCENT_DARK : ACCENT,
+      shadowOffset: { width: 0, height: 14 },
+      shadowOpacity: isDark ? 0.4 : 0.1,
+      shadowRadius: 26,
+      elevation: 6,
+    },
+    fieldGroup: {
+      marginBottom: 16,
+    },
+    label: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.subText,
+      marginBottom: 8,
+      letterSpacing: 0.3,
+    },
+    input: {
+      borderWidth: 1.5,
+      borderColor: 'transparent',
+      backgroundColor: isDark ? colors.background : '#F1EEF3',
+      borderRadius: 14,
+      paddingHorizontal: 16,
+      paddingVertical: 15,
+      fontSize: 15,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    inputFocused: {
+      borderColor: ACCENT,
+      backgroundColor: isDark ? colors.card : '#F1EEF3',
+    },
+    passwordWrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderWidth: 1.5,
+      borderColor: 'transparent',
+      backgroundColor: isDark ? colors.background : '#F1EEF3',
+      borderRadius: 14,
+      paddingHorizontal: 16,
+    },
+    passwordInput: {
+      flex: 1,
+      paddingVertical: 15,
+      fontSize: 15,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    forgotWrapper: { alignSelf: 'flex-end', marginTop: 4, marginBottom: 22 },
+    forgotText: { color: ACCENT, fontWeight: '600', fontSize: 13 },
+    button: {
+      backgroundColor: ACCENT,
+      paddingVertical: 17,
+      borderRadius: 16,
+      alignItems: 'center',
+      shadowColor: ACCENT,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.32,
+      shadowRadius: 18,
+      elevation: 5,
+    },
+    buttonText: { fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
+    dividerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginVertical: 24,
+    },
+    divider: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
+    dividerText: {
+      marginHorizontal: 14,
+      color: colors.subText,
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 0.5,
+    },
+    googleButton: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.card,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      paddingVertical: 16,
+      borderRadius: 16,
+      gap: 10,
+      shadowColor: '#0B0D12',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: isDark ? 0.2 : 0.05,
+      shadowRadius: 10,
+      elevation: 2,
+    },
+    googleIconFallback: {
+      width: 20,
+      height: 20,
+    },
+    googleText: { color: colors.text, fontSize: 14, fontWeight: '600' },
+    footer: { marginTop: 28, alignItems: 'center' },
+    footerText: { color: colors.subText, fontSize: 14 },
+    footerLink: { color: ACCENT, fontWeight: '700' },
+  });

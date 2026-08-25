@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thermostate Graph</title>
+    <link rel="icon" type="image/png" href="../static/img/evoluzn_title_logo.png">
+    <link href="../static/css/bootstrap.css" rel="stylesheet" />
+    <link rel="stylesheet" href="../static/css/dashboard.css">
+    <link href="../static/css/lux_level_graph.css" rel="stylesheet" />
+    <link href="../static/css/datepicker.css" rel="stylesheet" />
+    <script src="../static/js/chart.js"></script>
+    <script src="../static/js/datepicker.js"></script>
+    <link href="../static/css/temperature.css" rel="stylesheet" />
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+
+    <script src="../static/js/chart_cdn.js"></script>
+    <script src="../static/js/hammer.js"></script>
+    <script src="../static/js/plugin.js"></script>
+    <script src="../static/js/alert.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+
+
+    <!-- <style>
+        .alert-action-box {
+            background: #f8f9fa;
+            padding: 6px 8px;
+            /* thoda chhota padding */
+            margin-bottom: 6px;
+            border-left: 4px solid orange;
+            font-size: 13px;
+            width: 250px;
+            /* fixed chhota width */
+            white-space: nowrap;
+            /* text ek line me rahe */
+            overflow-x: auto;
+            /* horizontal scroll agar content lamba ho */
+            overflow-y: hidden;
+            /* vertical scroll hata do */
+            scrollbar-width: thin;
+            /* Firefox me scrollbar chhota */
+        }
+
+        /* Optional: Chrome/Edge/Safari me thin scrollbar */
+        .alert-action-box::-webkit-scrollbar {
+            height: 5px;
+            /* horizontal scrollbar height */
+        }
+
+        .alert-action-box::-webkit-scrollbar-thumb {
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 2px;
+        }
+    </style> -->
+<style>
+
+
+/* 🔔 ALERT CONTAINER (Horizontal smooth scroll) */
+#alertActionContainer {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px;
+    max-width: 100%;
+    white-space: nowrap;
+
+    scroll-behavior: smooth;
+
+    /* hide scrollbar */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+
+    /* 🔒 disable text selection */
+    user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+}
+
+/* #alertActionContainer::-webkit-scrollbar {
+    display:;
+} */
+
+
+/* 🔔 ALERT CARD */
+.alert-action-box {
+    background: #ffffff;
+    padding: 12px 16px;
+    margin: 8px;
+    border-left: 4px solid orange;
+    border-radius: 8px;
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    width: 320px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: grab;
+    flex-shrink: 0;
+
+    /* disable selection */
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* grab effect */
+.alert-action-box:active {
+    cursor: grabbing;
+}
+
+
+/* 🔔 HEADER */
+.alert-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.alert-icon {
+    font-size: 18px;
+    margin-right: 8px;
+}
+
+.alert-title {
+    font-weight: bold;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+
+/* 🔔 BADGE */
+.alert-badge {
+    background: #ffd966;
+    color: #8a6d3b;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-left: 8px;
+}
+
+
+/* 🔔 ROWS (scrollable, no scrollbar, no select) */
+.alert-row {
+    margin: 4px 0;
+    white-space: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+
+    scroll-behavior: smooth;
+
+    /* hide scrollbar */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+
+
+}
+
+.alert-row::-webkit-scrollbar {
+    display: none;
+}
+
+
+/* 🔔 TEXT COLORS */
+.alert-row span1 {
+    color: rgb(133, 133, 133);
+}
+
+.c span {
+    color: rgb(36, 36, 36);
+    font-weight: bold;
+}
+
+.alert-msg span {
+    color: rgb(36, 36, 36);
+    font-weight: bold;
+}
+</style>
+
+</head>
+
+<body>
+    <div class="p-3">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <a href="{{ url_for('home') }}"><button class="lux_graph_level_go_back_button">
+                        <img src="../static/img/left_arrow.svg"> Go Back</button></a>
+            </div>
+            {% include 'setting.html' %}
+        </div>
+    </div>
+
+    <div class="d-flex flex-column min-vh-100">
+
+        <div class="p-3">
+
+            <div class="d-flex flex-row gap-4 temp_alert_box_main_div">
+                {% for alert in alertsindivisual %}
+                <div class="mt-4 p-1 temp_r_y_b_alert_box_div">
+                    <div class="alert-box" data-device-name="{{alert['device_name']}}"
+                        data-alert-message="{{ alert['message'] }}" data-device-name="{{ alert['device_id'] }}">
+                        <div style="display: none;">
+                            <img class="temp_alert_box_close" src="../static/img/alert_cross_close.svg"
+                                onclick="deleteAlert(this)">
+                        </div>
+                        <div class="text-center temp_r_y_b_alert_box_title">
+                            <img class="temp_alert_icon" src="../static/img/alert.svg">
+                            Alert ({{ alert['exceeded_phases'] or " " }})
+                        </div>
+                        <div class="text-center temp_r_y_b_alert_box_description mt-2">
+                            {{ alert['message'] }}
+                        </div>
+                        <div class="mt-2 pb-3 temp_alert_time">
+                            {{ alert['timestamp'].strftime('%d %B %Y, %H:%M:%S') }}
+                        </div>
+                        <!-- ? ACTION INPUT -->
+
+                        <div class="mt-2">
+                            <input type="text" class="form-control action-input" placeholder="Enter action taken..." {%
+                                if alert['action_taken'] %} value="{{ alert['action_taken'] }}" disabled {% endif %} />
+                            <button class="btn btn-sm btn-primary mt-2" onclick="submitAction(this)" {% if
+                                alert['action_taken'] %} disabled {% endif %}>
+                                Submit
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+                {% else %}
+                <div class="mt-4 text-muted"></div>
+                {% endfor %}
+            </div>
+
+            <!-- {{device_data}} -->
+            <div class="lux_graph_level_main_div mt-3">
+                <h3 class="temperature_dashboard_title" id="deviceTitle">
+                    {{device_location}}
+                </h3>
+
+                {% set order = ['R', 'Y', 'B', 'N'] %}
+                {% for device_id, panels in device_data.items() %}
+                {% for panel_name, phases in panels.items() %}
+                <div data-device-id="{{ device_id }}" data-panel-name="{{ panel_name }}">
+
+                    <div class="d-flex align-items-center">
+                        <h4 style="margin-top: 10px;">{{ panel_name }}</h4>
+
+                        <input type="text" value="{{ panel_name }}" class="control_panel_edit"
+                            id="control_panel_edit_1_{{ device_id | replace(' ', '_') }}_{{panel_name.replace(' ', '_').replace('  ', '_').replace('   ', '_').replace('    ', '_') }}"
+                            data-id="{{ device_id.replace(' ', '_').replace('  ', '_').replace('   ', '_').replace('    ', '_') }}_{{ panel_name.replace(' ', '_').replace('  ', '_').replace('   ', '_').replace('    ', '_') }}"
+                            readonly>
+                        <button class="edit_name"
+                            id="edit_name_button_1_{{ device_id | replace(' ', '_') }}_{{ panel_name | replace(' ', '_') }}"
+                            data-id="1_{{ device_id }}_{{ panel_name }}">
+                            <img src="../static/img/akar-icons_edit.png" alt="" height="30">
+                        </button>
+                        <button class="apply_name"
+                            id="apply_name_button_1_{{ device_id | replace(' ', '_') }}_{{ panel_name | replace(' ', '_') }}"
+                            data-id="1_{{ device_id }}_{{ panel_name }}" style="display: none;">Apply</button>
+
+                    </div>
+
+                    <div class="lux_graph_level mt-4 mb-4">
+                        {% for letter in order %}
+                        {% for phase_name, value in phases.items() %}
+                        {% if phase_name.startswith(letter) %}
+                        <div class="lux_graph_level_indv_div p-3">
+                            <div class="lux_graph_level_title_img_main_div">
+                                <h4 class="{% if phase_name.startswith('R') %}dashboard_temp_R_title{% elif phase_name.startswith('Y') %}
+                                dashboard_temp_Y_title{% elif phase_name.startswith('B') %}
+                                dashboard_temp_B_title{% else %}dashboard_temp_N_title{% endif %}">
+                                    {{ phase_name }}</h4>
+                                <img src="{{ url_for('static', filename='img/temperature_icon.svg') }}">
+                            </div>
+                            <!-- <div class="lux_graph_level_temp_value_div">
+                                {{ value }}<span>&deg;C</span>
+                            </div> -->
+
+                            <div class="dashboard_temp_min_max_main_div">
+                                <div>
+                                    <div class="dashboard_temp_min_div">Min</div>
+                                    <div class="dashboard_temp_min_value_div" data-device="{{ device_id  }}"
+                                        data-sensor="{{ phase_name }}">
+                                        {{ result.get(device_id, {}).get(phase_name, {}).get('MIN', '-') }}&deg;C
+                                    </div>
+                                </div>
+
+                                <div class="lux_graph_level_temp_value_div">{{ value }}&deg;C</div>
+
+                                <div>
+                                    <div class="dashboard_temp_max_div">Max</div>
+                                    <div class="dashboard_temp_max_value_div" data-device="{{ device_id }}"
+                                        data-sensor="{{ phase_name }}">
+                                        {{ result.get(device_id, {}).get(phase_name, {}).get('MAX', '-') }}&deg;C
+                                    </div>
+                                </div>
+                            </div>
+
+
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+                {% endfor %}
+
+
+            </div>
+
+            <!-- ****************************** -->
+            <!-- ------------temperature r y b Graph Start--------------------- -->
+            <div id="alertActionContainer"></div>
+            <div class="running_light_lux_main_div mt-4">
+                <div class="running_light_lux_main_heading" id="temperatureHeading">
+                    Temperature Graph (R, Y, B)
+                </div>
+                <div class="running_graph_lux_main_div mt-4">
+                    <div class="px-3">
+                        <div>
+                            <div class="d-flex justify-content-end ">
+                                <div class="temperature_r_y_b_control_panel me-2">
+                                    <select id="controlPanelSelect_temp_r_y_b" class="running_light_start_end_div">
+                                        <option value="all">All</option>
+                                        {% for device_id, panels in device_data.items() %}
+                                        {% for panel_name in panels.keys() %}
+                                        <option value="{{ panel_name }}">{{ panel_name }}</option>
+                                        {% endfor %}
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="temperature_r_y_b_today_set_date">
+                                    <select id="timeframeSelect_temp_r_y_b" class="running_light_start_end_div">
+                                        <option value="daily">Today</option>
+                                        <option value="set-date">Set Date</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="py-2 temp_annotation_div" style="display: none;">
+                                <input id="annotationInput" type="number" placeholder="Enter Threshold Value"
+                                    class="running_light_start_end_div">
+                                <button id="applyAnnotation" class="running_light_start_end_div">Apply
+                                    Threshold</button>
+                                <div id="errorMessage_threshold" class="error" style="color: #f77367;;"></div>
+                            </div>
+                            <div id="dateRangeContainer_temp_r_y_b" class="dateRangeContainer_css_temp_r_y_b mt-2">
+                                <label for="dateRange_temp_r_y_b">Select Date Range:</label>
+                                <input id="dateRange_temp_r_y_b" type="text" placeholder="Select Date Range"
+                                    class="running_light_start_end_div">
+
+                                <button id="applyDateRange_temp_r_y_b"
+                                    class="running_light_start_end_div">Apply</button>
+                            </div>
+                            <div>
+                                <div class="temp_r_y_b_start_end_date_main_div">
+                                    <div id="startDateDisplay_temp_r_y_b"></div>
+                                    <div id="endDateDisplay_temp_r_y_b"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="main_power_consumption_graph_div">
+                        <div class="main_canvas_wrapper">
+                            <canvas id="myChart_temp_r_y_b" class="main_power_consumption_graph_main_div"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- ------------temperature r y b End--------------------- -->
+        </div>
+
+
+        <!-- pls inset footer backend -->
+        <footer class="py-2 mt-auto text-center">
+            <div> Powered By <span>EVOLUZN</span></div>
+        </footer>
+        <!-- pls inset footer backend-->
+
+    </div>
+
+     <script>
+        function submitAction(button) {
+
+            const alertBox = button.closest('.alert-box');
+            const input = alertBox.querySelector('.action-input');
+
+            const actionText = input.value.trim();
+            if (!actionText) {
+                alert("Please enter action taken");
+                return;
+            }
+
+            // ? FIX HERE
+            const deviceName = alertBox.dataset.deviceName;
+            const message = alertBox.dataset.alertMessage;
+
+            console.log("Device Name:", deviceName);
+            console.log("Message:", message);
+
+            fetch('/save-alert-action', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    device_name: deviceName,
+                    message: message,
+                    action_taken: actionText
+                })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    alert("Action saved successfully ?");
+                    input.disabled = true;
+                    button.disabled = true;
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert("Error saving action ?");
+                });
+        }
+
+    </script>
+    <script src="../static/js/temperature.js"></script>
+</body>
+
+</html>

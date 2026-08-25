@@ -457,7 +457,7 @@ const createStyles = (colors) => StyleSheet.create({
   accentLine: {
     height: 3,
     borderRadius: 2,
-    backgroundColor: colors.subText,
+    backgroundColor: '#9C3AB3',
     marginTop: 18,
     opacity: 0.6,
   },
@@ -480,7 +480,7 @@ const createStyles = (colors) => StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(120,120,128,0.14)',
+    backgroundColor: 'rgba(156,58,179,0.14)',
     marginBottom: 16,
   },
   cardTitle: {
@@ -497,7 +497,7 @@ const createStyles = (colors) => StyleSheet.create({
     marginBottom: 22,
   },
 
-  // Buttons — monochromatic system matching DeviceConfig
+  // Buttons — purple accent system matching Evoluzn brand
   button: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -507,8 +507,8 @@ const createStyles = (colors) => StyleSheet.create({
     paddingHorizontal: 32,
     borderRadius: 16,
     width: '100%',
-    backgroundColor: '#111111',
-    shadowColor: '#0B0D12',
+    backgroundColor: '#9C3AB3',
+    shadowColor: '#7F2E94',
     shadowOpacity: 0.16,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 8 },
@@ -637,7 +637,7 @@ const createStyles = (colors) => StyleSheet.create({
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(120,120,128,0.14)',
+    backgroundColor: 'rgba(156,58,179,0.14)',
   },
   wifiSsid: {
     fontSize: 15,

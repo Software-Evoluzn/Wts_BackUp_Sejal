@@ -41,3 +41,10 @@ class RegisterProduct(db.Model):
     #new column
     access_point = db.Column(db.String(100),nullable=False)
     
+    # NEW COLUMN
+    location = db.Column(db.String(255) , nullable = True)
+    
+
+    
+
+    

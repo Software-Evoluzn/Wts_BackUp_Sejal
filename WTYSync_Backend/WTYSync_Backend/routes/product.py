@@ -84,7 +84,9 @@ def register_product():
         sms_enabled=data.get("sms_enabled", False),
          
         sms_phone=data.get('sms_phone'),
-        access_point=access_point
+        
+        access_point=access_point,
+        location=data.get("location")
        
         
 
@@ -106,6 +108,9 @@ def register_product():
     print("sms_enabled" ,  product.sms_enabled )
     print("alert_phone",product.sms_phone)
     print("Access Point:", product.access_point)
+    
+     # NEW
+    print("Location:", product.location)
     
 
     db.session.add(product)
@@ -188,6 +193,9 @@ def get_products():
                 
                 "alert_phone": product.sms_phone,
                 "access_point": product.access_point,
+                
+                   # NEW
+                "location": product.location
                  
                  
             })

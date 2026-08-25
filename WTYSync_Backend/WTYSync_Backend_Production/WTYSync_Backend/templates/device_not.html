@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="icon" type="image/png" href="../static/img/evoluzn_title_logo.png">
+    <link href="../static/css/bootstrap.css" rel="stylesheet" />
+    <link href="../static/css/dashboard.css" rel="stylesheet" />
+<style>
+  
+.btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+    border-color: #004085;
+}
+
+</style>
+
+</head>
+
+<body>
+    <div class="d-flex flex-column min-vh-100">
+        <div>
+            <div>
+                <div class="p-3 dashboard_main_heading_logout">
+                    <h6>Main Dashboard</h6>
+                    {% include 'setting.html' %}
+                </div>
+
+                <div class="p-3 d-flex justify-content-center align-items-center mt-5">
+                    <div class="text-center p-4" style="max-width: 500px; width: 100%; border-radius: 10px; margin-top: 5%;">
+                        <div class="">
+                            <div class="mb-4">
+                                <img src="../static/img/sensor.png" alt="No Devices Icon" height="50">
+                            </div>
+                            <h4 class=" mb-3" style="font-weight: 600; font-size: 1.5rem; color: #333;">
+                                Sorry, No Devices Found
+                            </h4>
+                            <p class="" style="font-size: 1rem; color: #666;">
+                                It looks like your company doesn't have any devices registered. Please contact Evoluzn to add your devices.
+                            </p>
+                            <a href="/" class="btn btn-primary mt-3" style="font-size: 1rem; padding: 10px 20px; border-radius: 5px;">
+                                Contact Evoluzn
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                
+                
+            </div>
+        </div>
+
+        <!-- pls inset footer backend-->
+        <footer class="py-2 mt-auto text-center">
+            <div> Powered By <span>EVOLUZN</span></div>
+        </footer>
+        <!-- pls inset footer backend-->
+
+    </div>
+    <script src="../static/js/socket.io.js"></script>
+    <script src="../static/js/graph.js"></script>
+    <script src="../static/js/dashboard.js"></script>
+</body>
+
+</html>

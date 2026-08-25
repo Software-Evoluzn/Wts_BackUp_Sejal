@@ -5,6 +5,37 @@ import IP_ADDRESS from '../services/ipconfig'
 
 const BASE_URL = `http://${IP_ADDRESS}:5006`;
 
+export const saveDeviceWifi = async ({
+  deviceId, firebaseUid, ssid, password
+}) => {
+
+  try {
+    const response = await fetch(`${BASE_URL}/save-device-wifi`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          device_id: deviceId,
+          firebase_uid: firebaseUid,
+          ssid: ssid,
+          password: password,
+        }),
+      });
+
+    return await response.json();
+
+  } catch (error) {
+    console.log('Error calling saveDeviceWifi:', error);
+    return {
+      success: false,
+      message: 'Network error saving Wifi details'
+    };
+  }
+
+}
+
 
 export const verifyDeviceWifi = async (deviceId) => {
   console.log(`${BASE_URL}/get-device-wifi/${deviceId}`);

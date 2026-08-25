@@ -121,6 +121,20 @@ const HomeScreen = ({ navigation }) => {
 
 
 
+  // "Register Another Product" is the only button that needs to flip to
+  // a light surface in dark mode (it otherwise inherits the shared black
+  // `styles.button` look, which disappears against a dark background).
+  // The base button style (size/padding/radius/shadow/typography) is left
+  // completely untouched — only background + text/icon color are
+  // overridden here, and only for this button.
+  //
+  // Note: the theme's `card`/`text` tokens are inverted for this purpose
+  // in dark mode (card is a dark surface, text is light-on-dark), so
+  // there's no existing token for "light surface + dark text". This
+  // stays theme-aware via the `isDark` flag from useAppTheme(); light
+  // theme is untouched and keeps the original hardcoded black/white.
+  const secondaryButtonSurfaceStyle = isDark ? { backgroundColor: '#F5EAF8' } : null;
+  const secondaryButtonTextColor = isDark ? '#0B0D12' : '#fff';
 
 
   const loadHomeData = async () => {
@@ -176,7 +190,7 @@ const HomeScreen = ({ navigation }) => {
           <Animated.Text
             style={[styles.brand, { transform: [{ scale: brandScale }] }]}
           >
-            WireTempSync
+            Intelli Temp
           </Animated.Text>
 
           <Animated.View
@@ -192,7 +206,7 @@ const HomeScreen = ({ navigation }) => {
 
             <View style={styles.card}>
               <View style={styles.iconWrap}>
-                <Feather name="package" size={30} color="#4F46E5" />
+                <Feather name="package" size={30} color="#A44ABB" />
               </View>
 
               <Text style={styles.title}>No Product Registered</Text>
@@ -328,10 +342,10 @@ const HomeScreen = ({ navigation }) => {
 
 
             <TouchableOpacity
-              style={styles.button}
+              style={[styles.button, secondaryButtonSurfaceStyle]}
               onPress={() => navigation.navigate("Register")}>
-              <Feather name="plus" size={16} color="#fff" />
-              <Text style={styles.buttonText}>
+              <Feather name="plus" size={16} color={secondaryButtonTextColor} />
+              <Text style={[styles.buttonText, { color: secondaryButtonTextColor }]}>
                 Register Another Product
               </Text>
 
@@ -344,9 +358,9 @@ const HomeScreen = ({ navigation }) => {
         }
 
         {/* Small footer hint */}
-        <Text style={styles.footerHint}>
+        {/* <Text style={styles.footerHint}>
           Have a QR code? Head to the Register tab to scan it.
-        </Text>
+        </Text> */}
       </View>
     </SafeAreaView>
   );
@@ -387,7 +401,7 @@ const createStyles = (colors) => StyleSheet.create({
   accentLine: {
     height: 2,
     borderRadius: 1,
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#9C3AB3',
     marginTop: 14,
   },
 
@@ -435,7 +449,7 @@ const createStyles = (colors) => StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#F4F4FE',
+    backgroundColor: '#F5EAF8',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 22,
@@ -545,7 +559,7 @@ const createStyles = (colors) => StyleSheet.create({
   },
 
   button: {
-    backgroundColor: '#0B0D12',
+    backgroundColor: '#9C3AB3',
     paddingHorizontal: 32,
     paddingVertical: 16,
     borderRadius: 16,
