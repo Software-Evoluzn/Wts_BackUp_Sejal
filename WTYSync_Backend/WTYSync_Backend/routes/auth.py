@@ -83,7 +83,7 @@ def get_user():
     })
     
 
-@auth.route("/update-profile", methods=["PUT"])
+@auth.route("/update- ", methods=["PUT"])
 def update_profile():
 
     try:
