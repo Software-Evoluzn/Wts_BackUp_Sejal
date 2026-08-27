@@ -65,7 +65,7 @@ import { useAppTheme } from '../services/theme';
 // -------------------------------------------------------------------------
 // BACKEND CONFIG
 // -------------------------------------------------------------------------
-const BACKEND_URL = `http://${IP_ADDRESS}:5006`;
+const BACKEND_URL = IP_ADDRESS;
 
 // -------------------------------------------------------------------------
 // COLOR CONSTANTS  (matches web dashboard color rules)
@@ -2012,7 +2012,7 @@ const WtsDashboard = () => {
         </TouchableOpacity>
 
         <View style={styles.headerTitleWrap}>
-          <Text style={styles.headerTitle}>Intelli Temp Dashboard</Text>
+          <Text style={styles.headerTitle}>IntelliTemp Dashboard</Text>
         </View>
 
         <HeaderMenu onSelect={handleMenuSelect} />

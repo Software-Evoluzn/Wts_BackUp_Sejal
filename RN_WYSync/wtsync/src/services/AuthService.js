@@ -25,7 +25,7 @@ export const registerUser = async (name, email, password, contact) => {
         console.log("uid here ", uid);
 
         // Flask API Call
-        const BASE_URL = `http://${IP_ADDRESS}:5006`;
+        const BASE_URL = `${IP_ADDRESS}`;
         console.log('==============================');
         console.log('Calling Flask Register API...');
         console.log('URL:', `${BASE_URL}/register`);
@@ -146,7 +146,7 @@ export const googleLogin = async () => {
         // ===============================
         // Save Google user in MySQL
         // ===============================
-        const BASE_URL = `http://${IP_ADDRESS}:5006`;
+        const BASE_URL = `${IP_ADDRESS}`;
 
         const apiResponse = await fetch(`${BASE_URL}/register`, {
             method: "POST",
@@ -201,7 +201,7 @@ export const getUserDetails = async () => {
         const uid = auth.currentUser ? auth.currentUser.uid : null;
         if (!uid) throw new Error("No user currently logged in.");
 
-        const BASE_URL = `http://${IP_ADDRESS}:5006`;
+        const BASE_URL = `${IP_ADDRESS}`;
 
         const response = await fetch(`${BASE_URL}/get-user`, {
             method: 'POST',
@@ -231,7 +231,7 @@ export const updateProfile = async (body) => {
   try {
 
     const response = await axios.put(
-      `http://${IP_ADDRESS}:5006/update-profile`,
+      `${IP_ADDRESS}/update-profile`,
       body
     );
 

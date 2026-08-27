@@ -346,6 +346,6 @@ const createStyles = (colors, isDark) =>
     },
     googleText: { color: colors.text, fontSize: 14, fontWeight: '600' },
     footer: { marginTop: 28, alignItems: 'center' },
-    footerText: { color: colors.subText, fontSize: 14 },
-    footerLink: { color: ACCENT, fontWeight: '700' },
+    footerText: { color: colors.subText, fontSize: 17 },
+    footerLink: { color: ACCENT, fontWeight: '900' },
   });

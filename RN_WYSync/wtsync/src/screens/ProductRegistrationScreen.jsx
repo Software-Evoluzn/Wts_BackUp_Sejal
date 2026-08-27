@@ -31,8 +31,7 @@ const DEVICE_LIST = [
   'Smoke Detector',
   '3PhaseWTS',
   'Gas Detector',
-  'RTU'
- 
+  'RTU',
 ];
 
 const PROBE_OPTIONS = {
@@ -68,6 +67,48 @@ const EMPTY_FORM = {
   'MDF By': '',
 };
 
+// Reusable Counter Input Component with Plus & Minus Buttons
+const CounterInput = ({ value, onChange, placeholder, styles, colors }) => {
+  const numericVal = parseFloat(value) || 0;
+
+  const handleDecrement = () => {
+    const newVal = numericVal - 1;
+    onChange(newVal.toString());
+  };
+
+  const handleIncrement = () => {
+    const newVal = numericVal + 1;
+    onChange(newVal.toString());
+  };
+
+  return (
+    <View style={styles.counterContainer}>
+      <TouchableOpacity
+        style={styles.counterBtn}
+        onPress={handleDecrement}
+        activeOpacity={0.7}>
+        <Feather name="minus" size={18} color={colors.text} />
+      </TouchableOpacity>
+
+      <TextInput
+        style={styles.counterInput}
+        placeholder={placeholder}
+        placeholderTextColor={colors.subText}
+        keyboardType="numeric"
+        value={value}
+        onChangeText={onChange}
+      />
+
+      <TouchableOpacity
+        style={styles.counterBtn}
+        onPress={handleIncrement}
+        activeOpacity={0.7}>
+        <Feather name="plus" size={18} color={colors.text} />
+      </TouchableOpacity>
+    </View>
+  );
+};
+
 const ProductRegistrationScreen = ({ navigation }) => {
   const { colors } = useAppTheme();
   const styles = createStyles(colors);
@@ -94,8 +135,8 @@ const ProductRegistrationScreen = ({ navigation }) => {
   const [alertEmail, setAlertEmail] = useState('');
   const [smsPhone, setSmsPhone] = useState('');
   const [location, setLocation] = useState('');
-  const [whatsAppEnabled , setWhatsAppEnabled] = useState('');
-  const [whatsAppAlert , setWhatsAppAlert] = useState('');
+  const [whatsAppEnabled, setWhatsAppEnabled] = useState(false);
+  const [whatsAppAlert, setWhatsAppAlert] = useState('');
 
   useEffect(() => {
     loadUser();
@@ -125,6 +166,8 @@ const ProductRegistrationScreen = ({ navigation }) => {
     setAlertEmail('');
     setSmsPhone('');
     setLocation('');
+    setWhatsAppEnabled(false);
+    setWhatsAppAlert('');
   }, []);
 
   useFocusEffect(
@@ -148,7 +191,6 @@ const ProductRegistrationScreen = ({ navigation }) => {
     updateManualField('Device Name', device);
     setShowDevicePicker(false);
 
-    // Reset probe if device doesn't support probes
     if (!PROBE_OPTIONS[device]) {
       setSelectedProbe('');
       setIndividualThresholds({});
@@ -225,6 +267,8 @@ const ProductRegistrationScreen = ({ navigation }) => {
       alert_email: alertEmail,
       sms_enabled: smsEnabled,
       sms_phone: smsPhone,
+      whatsapp_enabled: whatsAppEnabled,
+      whatsapp_phone: whatsAppAlert,
     };
 
     try {
@@ -350,7 +394,6 @@ const ProductRegistrationScreen = ({ navigation }) => {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Enter Product Details</Text>
 
-            {/* Device Name Dropdown Trigger */}
             <View style={styles.fieldGroup}>
               <Text style={styles.inputLabel}>Device Name *</Text>
               <TouchableOpacity
@@ -363,7 +406,6 @@ const ProductRegistrationScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Subtype/Probe Dropdown (if IntelliTemp) */}
             {PROBE_OPTIONS[manualForm['Device Name']] && (
               <View style={styles.fieldGroup}>
                 <Text style={styles.inputLabel}>Probe Subtype *</Text>
@@ -425,17 +467,6 @@ const ProductRegistrationScreen = ({ navigation }) => {
               />
             </View>
 
-            {/* <View style={[styles.fieldGroup, { marginBottom: 4 }]}>
-              <Text style={styles.inputLabel}>Manufacturer (optional)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. ABC Electronics"
-                placeholderTextColor={colors.subText}
-                value={manualForm['MDF By']}
-                onChangeText={(text) => updateManualField('MDF By', text)}
-              />
-            </View> */}
-
             <TouchableOpacity
               style={styles.registerButton}
               activeOpacity={0.85}
@@ -459,7 +490,6 @@ const ProductRegistrationScreen = ({ navigation }) => {
             <Row label="Model No" value={product['Model No']} styles={styles} />
             <Row label="Serial No" value={product['Serial No']} styles={styles} />
             <Row label="MAC ID" value={product['MAC ID']} styles={styles} />
-            {/* <Row label="Manufacturer" value={product['MDF By']} last styles={styles} /> */}
 
             <TouchableOpacity
               style={styles.editLinkRow}
@@ -481,7 +511,7 @@ const ProductRegistrationScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* Additional Common Fields (Purchase Date, Location, Alert Config) */}
+        {/* Additional Common Fields */}
         {product && (
           <>
             {/* Purchase Date & Location Card */}
@@ -526,7 +556,7 @@ const ProductRegistrationScreen = ({ navigation }) => {
                   style={[styles.tabButton, thresholdType === 'global' && styles.tabButtonActive]}
                   onPress={() => setThresholdType('global')}>
                   <Text style={[styles.tabText, thresholdType === 'global' && styles.tabTextActive]}>
-                    Globally
+                    Group Threshold
                   </Text>
                 </TouchableOpacity>
 
@@ -539,35 +569,33 @@ const ProductRegistrationScreen = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
 
-              {/* Global Input */}
+              {/* Global Threshold Input with - and + */}
               {thresholdType === 'global' && (
                 <View style={{ marginTop: 12 }}>
                   <Text style={styles.inputLabel}>Global Threshold Temperature (°C)</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter temperature value"
-                    placeholderTextColor={colors.subText}
-                    keyboardType="numeric"
+                  <CounterInput
                     value={globalThreshold}
-                    onChangeText={setGlobalThreshold}
+                    onChange={setGlobalThreshold}
+                    placeholder="0"
+                    styles={styles}
+                    colors={colors}
                   />
                 </View>
               )}
 
-              {/* Individual Inputs (Auto Generated per probe) */}
+              {/* Individual Threshold Inputs with - and + */}
               {thresholdType === 'individual' && (
                 <View style={{ marginTop: 12 }}>
                   {probeCount > 0 ? (
                     Array.from({ length: probeCount }).map((_, idx) => (
                       <View key={idx} style={styles.fieldGroup}>
                         <Text style={styles.inputLabel}>Probe {idx + 1} Temperature (°C)</Text>
-                        <TextInput
-                          style={styles.input}
-                          placeholder={`Enter Temp for Probe ${idx + 1}`}
-                          placeholderTextColor={colors.subText}
-                          keyboardType="numeric"
+                        <CounterInput
                           value={individualThresholds[`probe_${idx + 1}`] || ''}
-                          onChangeText={(val) => handleIndividualThresholdChange(idx, val)}
+                          onChange={(val) => handleIndividualThresholdChange(idx, val)}
+                          placeholder="0"
+                          styles={styles}
+                          colors={colors}
                         />
                       </View>
                     ))
@@ -620,8 +648,7 @@ const ProductRegistrationScreen = ({ navigation }) => {
                 />
               )}
 
-
-               <TouchableOpacity
+              <TouchableOpacity
                 style={styles.checkboxRow}
                 onPress={() => setWhatsAppEnabled(!whatsAppEnabled)}>
                 <Text style={styles.checkbox}>{whatsAppEnabled ? '☑' : '☐'}</Text>
@@ -631,7 +658,7 @@ const ProductRegistrationScreen = ({ navigation }) => {
               {whatsAppEnabled && (
                 <TextInput
                   style={styles.input}
-                  placeholder="Enter WhatsApp  Number"
+                  placeholder="Enter WhatsApp Number"
                   placeholderTextColor={colors.subText}
                   keyboardType="phone-pad"
                   value={whatsAppAlert}
@@ -820,6 +847,30 @@ const createStyles = (colors) =>
       paddingVertical: 12,
       fontSize: 15,
       color: colors.text,
+    },
+    counterContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+      borderRadius: 12,
+      overflow: 'hidden',
+    },
+    counterBtn: {
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.border,
+    },
+    counterInput: {
+      flex: 1,
+      textAlign: 'center',
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      paddingVertical: 10,
     },
     dropdownTrigger: {
       borderWidth: 1.5,

@@ -190,7 +190,7 @@ const HomeScreen = ({ navigation }) => {
           <Animated.Text
             style={[styles.brand, { transform: [{ scale: brandScale }] }]}
           >
-            Intelli Temp
+            IntelliTemp
           </Animated.Text>
 
           <Animated.View

@@ -3,7 +3,7 @@ import WifiManager from 'react-native-wifi-reborn';
 
 import IP_ADDRESS from '../services/ipconfig'
 
-const BASE_URL = `http://${IP_ADDRESS}:5006`;
+const BASE_URL = IP_ADDRESS;
 
 export const saveDeviceWifi = async ({
   deviceId, firebaseUid, ssid, password
