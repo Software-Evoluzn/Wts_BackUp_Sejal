@@ -13,6 +13,7 @@ import HomeWifiListScreen from '../screens/HomeWifiListScreen';
 import PasswordScreen from '../screens/PasswordScreen';
 import ResetWifiNetwork from '../screens/ResetWifiNetwork';
 import WtsDashboard from '../screens/WtsDashboard';
+import ProductRegistrationScreen from '../screens/ProductRegistrationScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -30,6 +31,7 @@ const AppNavigator = () => {
                 <Stack.Screen name="Register" component={RegisterScreen}/>
                 <Stack.Screen name="Main" component={BottomNavigator}/>
                 <Stack.Screen name="Home" component={HomeScreen}/>
+                <Stack.Screen name="ProductRegister" component={ProductRegistrationScreen}/>
                 <Stack.Screen name="Forgotpassword" component={ForgotPassword}/>
                 <Stack.Screen name="EditProfile" component={EditProfile}/>
                 <Stack.Screen name="DeviceConfig" component={DeviceConfig}/>

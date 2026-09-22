@@ -17,6 +17,7 @@ import Feather from 'react-native-vector-icons/Feather';
 import { loginUser } from '../services/AuthService';
 import { googleLogin } from '../services/AuthService';
 import { useAppTheme } from '../services/theme';
+import AutoLogin from '../components/AutoLogin';
 
 // Accent color used throughout the login flow (links, focus borders,
 // primary button, footer link) — matches the brand's plum/purple identity.
@@ -89,8 +90,8 @@ const LoginScreen = ({ navigation }) => {
           />
         </View>
 
-        <Text style={styles.title}>Welcome back</Text>
-        <Text style={styles.subtitle}>Sign in to continue to IntelliTemp</Text>
+        <Text style={styles.title}>Welcome back !</Text>
+        <Text style={styles.subtitle}>Welcome to IntelliTemp Sign in to continue</Text>
 
         <View style={styles.form}>
           <View style={styles.fieldGroup}>
@@ -136,6 +137,7 @@ const LoginScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
           </View>
+          <AutoLogin />
 
           <TouchableOpacity
             onPress={() => navigation.navigate('Forgotpassword')}

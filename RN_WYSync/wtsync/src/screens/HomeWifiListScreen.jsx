@@ -10,7 +10,9 @@ import { useAppTheme } from '../services/theme';
 
 
 
-export default function HomeWifiListScreen({ navigation }) {
+export default function HomeWifiListScreen({ navigation , route }) {
+
+  const {product} = route.params || {}
   // ── Theme (new) ───────────────────────────────────────
   // Follows Android system Light/Dark mode automatically via
   // useColorScheme() inside useAppTheme(). No manual toggle.
@@ -158,7 +160,7 @@ export default function HomeWifiListScreen({ navigation }) {
     <TouchableOpacity
       style={styles.networkRow}
       activeOpacity={0.85}
-      onPress={() => navigation.navigate('Password', { network: item })}
+      onPress={() => navigation.navigate('Password', { network: item , product })}
     >
       <View style={styles.deviceIconWrap}>
         <Feather name="wifi" size={20} color={colors.text} />

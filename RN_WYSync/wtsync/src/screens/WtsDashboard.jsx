@@ -22,6 +22,18 @@
  *   socket, so nothing is duplicated or lost.
  * - The existing Panel dropdown ("All Panels" / "Panel 1" / ...) acts as
  *   the control-panel filter for which phase lines are drawn.
+ *
+ * PHASE NAMING (custom labels)
+ * -----------------------------------------------------------------------
+ * - Raw phase codes (R1, Y1, B1, N1 ... R6, Y6, B6, N6) never change —
+ *   they stay the data keys everywhere (matching, sorting, colors).
+ * - A user-editable display name per (device, phase) is fetched from
+ *   the backend via wtsApi.js and shown instead of the raw code
+ *   wherever a phase is rendered (temperature cards, legend).
+ * - Long-press a TemperatureCard's phase code to rename it.
+ * - The pencil ("edit") icon on a PanelCard opens a bulk-edit modal for
+ *   renaming every phase in that panel at once (uses the same
+ *   phaseLabelsRef cache / updatePhaseLabelsBulk from wtsApi.js).
  * -----------------------------------------------------------------------
  */
 
@@ -49,6 +61,7 @@ import {
   Platform,
   PanResponder,
   StatusBar,
+  TextInput,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Svg, { Line as SvgLine, Path, Text as SvgText, Circle } from 'react-native-svg';
@@ -61,6 +74,14 @@ import IP_ADDRESS from '../services/ipconfig';
 import { verifyDeviceWifi,resetDeviceWifi } from '../services/WifiService';
 import { resetDeviceRemote } from './DeviceConfig';
 import { useAppTheme } from '../services/theme';
+
+// All phase-label (custom naming) API calls live in wtsApi.js —
+// this file never calls fetch() directly for that feature.
+import {
+  fetchPhaseLabels,
+  updatePhaseLabel,
+  updatePhaseLabelsBulk,
+} from '../services/WtsApi';
 
 // -------------------------------------------------------------------------
 // BACKEND CONFIG
@@ -270,16 +291,26 @@ const StatusBadge = memo(({ status }) => {
 
 // -------------------------------------------------------------------------
 // TemperatureCard — single phase reading (R1 / 31.10°C / Min / Max)
+// Long-press the phase label to rename it (calls updatePhaseLabel from
+// wtsApi.js via the onRenamePhase callback passed down from the top).
 // -------------------------------------------------------------------------
-const TemperatureCard = memo(({ temperature }) => {
+const TemperatureCard = memo(({ temperature, displayLabel, onRenamePhase }) => {
   const { colors } = useAppTheme();
   const styles = createStyles(colors);
   const { phase, current, min, max } = temperature;
   const phaseColor = useMemo(() => getPhaseColor(phase), [phase]);
 
+  const handleLongPress = useCallback(() => {
+    onRenamePhase && onRenamePhase(phase, displayLabel || phase);
+  }, [onRenamePhase, phase, displayLabel]);
+
   return (
     <View style={styles.tempCard}>
-      <Text style={[styles.tempPhase, { color: phaseColor }]}>{phase}</Text>
+      <TouchableOpacity onLongPress={handleLongPress} activeOpacity={0.6}>
+        <Text style={[styles.tempPhase, { color: phaseColor }]}>
+          {displayLabel || phase}
+        </Text>
+      </TouchableOpacity>
       <Text style={styles.tempValue}>
         {current != null ? `${current.toFixed(2)}°C` : '--'}
       </Text>
@@ -297,14 +328,16 @@ const TemperatureCard = memo(({ temperature }) => {
 
 // -------------------------------------------------------------------------
 // PanelCard — Custom Panel Name header + wrapped grid of TemperatureCards
+// The pencil icon opens the bulk "Edit Phase Names" modal for every
+// phase in this panel (onEditPress receives panel_no + temperatures).
 // -------------------------------------------------------------------------
-const PanelCard = memo(({ panel, onEditPress }) => {
+const PanelCard = memo(({ panel, onEditPress, phaseLabels, onRenamePhase }) => {
   const { colors } = useAppTheme();
   const styles = createStyles(colors);
 
   const handleEdit = useCallback(() => {
-    onEditPress && onEditPress(panel.panel_no);
-  }, [onEditPress, panel.panel_no]);
+    onEditPress && onEditPress(panel.panel_no, panel.temperatures);
+  }, [onEditPress, panel.panel_no, panel.temperatures]);
 
   // Only show phase blocks (R/Y/B/N) that actually have a current
   // reading. Phases with no live value (null/undefined) are hidden
@@ -334,7 +367,12 @@ const PanelCard = memo(({ panel, onEditPress }) => {
 
       <View style={styles.tempGrid}>
         {visibleTemperatures.map((temp) => (
-          <TemperatureCard key={temp.phase} temperature={temp} />
+          <TemperatureCard
+            key={temp.phase}
+            temperature={temp}
+            displayLabel={phaseLabels?.[temp.phase]}
+            onRenamePhase={onRenamePhase}
+          />
         ))}
       </View>
     </View>
@@ -352,6 +390,168 @@ const EmptyPanel = memo(() => {
       <Icon name="power-off" size={34} color={colors.subText} />
       <Text style={styles.emptyPanelText}>No panel data available</Text>
     </View>
+  );
+});
+
+// -------------------------------------------------------------------------
+// RenamePhaseModal — small popup for editing a single phase's display
+// name (long-press on a TemperatureCard). Saves via updatePhaseLabel()
+// from wtsApi.js.
+// -------------------------------------------------------------------------
+const RenamePhaseModal = memo(({ visible, phaseCode, initialValue, onClose, onSaved }) => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
+  const [value, setValue] = useState(initialValue || '');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      setValue(initialValue || '');
+    }
+  }, [visible, initialValue]);
+
+  const handleSave = useCallback(async () => {
+    const trimmed = value.trim();
+    if (!trimmed || !phaseCode) return;
+    try {
+      setSaving(true);
+      await onSaved(phaseCode, trimmed);
+      onClose();
+    } catch (error) {
+      Alert.alert('Rename Failed', error?.message || 'Could not save the new name.');
+    } finally {
+      setSaving(false);
+    }
+  }, [value, phaseCode, onSaved, onClose]);
+
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
+        <TouchableOpacity activeOpacity={1} style={styles.renameCard}>
+          <Text style={styles.renameTitle}>Rename {phaseCode}</Text>
+          <TextInput
+            style={styles.renameInput}
+            value={value}
+            onChangeText={setValue}
+            placeholder={phaseCode}
+            placeholderTextColor={colors.subText}
+            autoFocus
+          />
+          <View style={styles.renameButtonRow}>
+            <TouchableOpacity style={styles.renameButton} onPress={onClose}>
+              <Text style={styles.renameButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.renameButton, styles.renameButtonPrimary]}
+              onPress={handleSave}
+              disabled={saving}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={[styles.renameButtonText, styles.renameButtonTextPrimary]}>
+                  Save
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
+  );
+});
+
+// -------------------------------------------------------------------------
+// EditPanelLabelsModal — bulk-edit popup opened from a PanelCard's pencil
+// icon. Shows one text field per phase in that panel (pre-filled with
+// its current custom name, or raw code if never renamed) and saves all
+// of them in one call via updatePhaseLabelsBulk() from wtsApi.js.
+//
+// `phases` is an array of { code, label } built by the parent screen
+// from that panel's temperatures + the cached phaseLabels map.
+// -------------------------------------------------------------------------
+const EditPanelLabelsModal = memo(({ visible, phases, onClose, onSaved }) => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
+  const [values, setValues] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      const initial = {};
+      phases.forEach((p) => {
+        initial[p.code] = p.label;
+      });
+      setValues(initial);
+    }
+  }, [visible, phases]);
+
+  const handleChange = useCallback((code, text) => {
+    setValues((prev) => ({ ...prev, [code]: text }));
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    try {
+      setSaving(true);
+      const labelsMap = {};
+      phases.forEach((p) => {
+        const trimmed = (values[p.code] || '').trim();
+        // Falling back to the raw code keeps the bulk payload valid —
+        // the backend already skips empty labels, but this also makes
+        // sure a cleared field visibly resets to the phase code.
+        labelsMap[p.code] = trimmed || p.code;
+      });
+      await onSaved(labelsMap);
+      onClose();
+    } catch (error) {
+      Alert.alert('Save Failed', error?.message || 'Could not save the new names.');
+    } finally {
+      setSaving(false);
+    }
+  }, [values, phases, onSaved, onClose]);
+
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
+        <TouchableOpacity activeOpacity={1} style={styles.editPanelCard}>
+          <Text style={styles.renameTitle}>Edit Phase Names</Text>
+
+          <ScrollView style={styles.editPanelScroll}>
+            {phases.map((p) => (
+              <View key={p.code} style={styles.editPanelFieldWrap}>
+                <Text style={styles.editPanelFieldLabel}>{p.code}</Text>
+                <TextInput
+                  style={styles.renameInput}
+                  value={values[p.code] ?? ''}
+                  onChangeText={(text) => handleChange(p.code, text)}
+                  placeholder={p.code}
+                  placeholderTextColor={colors.subText}
+                />
+              </View>
+            ))}
+          </ScrollView>
+
+          <View style={styles.renameButtonRow}>
+            <TouchableOpacity style={styles.renameButton} onPress={onClose}>
+              <Text style={styles.renameButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.renameButton, styles.renameButtonPrimary]}
+              onPress={handleSave}
+              disabled={saving}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={[styles.renameButtonText, styles.renameButtonTextPrimary]}>
+                  Save All
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
   );
 });
 
@@ -851,7 +1051,7 @@ const clampView = (start, end) => {
  * RealtimeChart — draws one line per phase on a fixed 00:00-23:59 axis.
  * seriesMap: { [phaseCode]: [{ t: minutesSinceMidnight, v: number }, ...] }
  */
-const RealtimeChart = memo(({ seriesMap, nowMinutes, loading }) => {
+const RealtimeChart = memo(({ seriesMap, nowMinutes, loading, phaseLabels }) => {
   const { colors } = useAppTheme();
   const styles = createStyles(colors);
   const [view, setView] = useState({ start: 0, end: DAY_MINUTES });
@@ -1139,7 +1339,7 @@ const RealtimeChart = memo(({ seriesMap, nowMinutes, loading }) => {
         </Text>
       </View>
 
-      {/* Legend */}
+      {/* Legend — shows the custom name when one exists, raw code otherwise */}
       <View style={styles.legendRow}>
         {phases.map((phase) => (
           <View key={phase} style={styles.legendItem}>
@@ -1149,7 +1349,7 @@ const RealtimeChart = memo(({ seriesMap, nowMinutes, loading }) => {
                 { backgroundColor: getSeriesColor(phase) },
               ]}
             />
-            <Text style={styles.legendText}>{phase}</Text>
+            <Text style={styles.legendText}>{phaseLabels?.[phase] || phase}</Text>
           </View>
         ))}
       </View>
@@ -1168,6 +1368,7 @@ const TemperatureGraph = memo(
     onRequestHistory,
     panelOptions,
     onLayout,
+    phaseLabels,
   }) => {
     const { colors } = useAppTheme();
     const styles = createStyles(colors);
@@ -1249,6 +1450,7 @@ const TemperatureGraph = memo(
           seriesMap={seriesMap}
           nowMinutes={isToday ? nowMinutes : null}
           loading={historyLoading}
+          phaseLabels={phaseLabels}
         />
       </View>
     );
@@ -1268,6 +1470,8 @@ const DeviceCard = memo(
     historyRef,
     historyVersion,
     onRequestHistory,
+    phaseLabels,
+    onRenamePhase,
   }) => {
     const { colors } = useAppTheme();
     const styles = createStyles(colors);
@@ -1447,6 +1651,23 @@ const DeviceCard = memo(
       [device.panels]
     );
 
+    const handleRenamePhaseForDevice = useCallback(
+      (phaseCode, currentLabel) => {
+        onRenamePhase && onRenamePhase(device.serial_no, phaseCode, currentLabel);
+      },
+      [onRenamePhase, device.serial_no]
+    );
+
+    // Forwards the panel_no + that panel's temperatures up to the screen,
+    // along with this device's serial_no, so the screen can open the
+    // bulk "Edit Phase Names" modal already pre-filled with current names.
+    const handleEditPanelForDevice = useCallback(
+      (panelNo, temperatures) => {
+        onEditPanel && onEditPanel(device.serial_no, panelNo, temperatures);
+      },
+      [onEditPanel, device.serial_no]
+    );
+
     return (
       <Animated.View
         style={[styles.deviceCard, { opacity: fadeAnim }]}
@@ -1503,9 +1724,9 @@ const DeviceCard = memo(
               <PanelCard
                 key={panel.panel_no}
                 panel={panel}
-                onEditPress={(panelNo) =>
-                  onEditPanel(device.serial_no, panelNo)
-                }
+                onEditPress={handleEditPanelForDevice}
+                phaseLabels={phaseLabels}
+                onRenamePhase={handleRenamePhaseForDevice}
               />
             ))}
           </View>
@@ -1521,6 +1742,7 @@ const DeviceCard = memo(
             onRequestHistory={onRequestHistory}
             panelOptions={panelOptions}
             onLayout={handleGraphLayout}
+            phaseLabels={phaseLabels}
           />
         )}
       </Animated.View>
@@ -1651,6 +1873,128 @@ const WtsDashboard = () => {
   const deviceHistoryRef = useRef({});
   const historyLoadedRef = useRef({}); // `${serial}|${dateKey}` -> true once fetched
   const [historyVersion, setHistoryVersion] = useState(0);
+
+  // ---------------------------------------------------------------------
+  // Phase-label (custom naming) storage.
+  // Structure: phaseLabelsRef.current = { [serial_no]: { R1: "...", ... } }
+  // All reads/writes to the backend go through wtsApi.js — this screen
+  // just keeps the fetched maps in a ref + a version counter so
+  // components re-render when a label changes.
+  // ---------------------------------------------------------------------
+  const phaseLabelsRef = useRef({});
+  const phaseLabelsLoadedRef = useRef({}); // serial_no -> true once fetched
+  const [phaseLabelsVersion, setPhaseLabelsVersion] = useState(0);
+
+  const [renameModal, setRenameModal] = useState({
+    visible: false,
+    serialNo: null,
+    phaseCode: null,
+    initialValue: '',
+  });
+
+  // Bulk "Edit Phase Names" modal state, opened from a PanelCard's
+  // pencil icon. `phases` is built fresh each time it opens from that
+  // panel's temperatures + whatever custom names are already cached.
+  const [editPanelModal, setEditPanelModal] = useState({
+    visible: false,
+    serialNo: null,
+    panelNo: null,
+    phases: [], // [{ code, label }]
+  });
+
+  // Load each device's custom phase names once per session (skip devices
+  // already fetched, same caching pattern as the telemetry history).
+  useEffect(() => {
+    filteredDevices.forEach((device) => {
+      const serial = device.serial_no;
+      if (!serial || phaseLabelsLoadedRef.current[serial]) return;
+
+      phaseLabelsLoadedRef.current[serial] = true;
+      fetchPhaseLabels(serial)
+        .then((labels) => {
+          phaseLabelsRef.current[serial] = labels;
+          setPhaseLabelsVersion((v) => v + 1);
+        })
+        .catch((error) => {
+          console.warn('Phase label fetch error:', error);
+          // Allow a retry on the next devices update if this failed.
+          phaseLabelsLoadedRef.current[serial] = false;
+        });
+    });
+  }, [filteredDevices]);
+
+  const openRenameModal = useCallback((serialNo, phaseCode, currentLabel) => {
+    setRenameModal({
+      visible: true,
+      serialNo,
+      phaseCode,
+      initialValue: currentLabel,
+    });
+  }, []);
+
+  const closeRenameModal = useCallback(() => {
+    setRenameModal((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  const saveRenamedPhase = useCallback(async (phaseCode, newLabel) => {
+    const serial = renameModal.serialNo;
+    if (!serial) return;
+
+    // updatePhaseLabel() lives in wtsApi.js — this screen only calls it
+    // and updates its local cache with the result.
+    await updatePhaseLabel(serial, phaseCode, newLabel);
+
+    // IMPORTANT: build a brand-new object instead of mutating the
+    // existing one in place. DeviceCard/PanelCard/TemperatureCard are
+    // all wrapped in memo(), so they only re-render when the phaseLabels
+    // reference actually changes — mutating the same object silently
+    // skips the re-render and the UI looks like it "didn't update".
+    phaseLabelsRef.current = {
+      ...phaseLabelsRef.current,
+      [serial]: {
+        ...(phaseLabelsRef.current[serial] || {}),
+        [phaseCode]: newLabel,
+      },
+    };
+    setPhaseLabelsVersion((v) => v + 1);
+  }, [renameModal.serialNo]);
+
+  // Opens the bulk edit modal for one panel, pre-filling each phase with
+  // its current custom name (falling back to the raw code).
+  const openEditPanelModal = useCallback((serialNo, panelNo, temperatures) => {
+    const labelsForSerial = phaseLabelsRef.current[serialNo] || {};
+    const phases = temperatures.map((t) => ({
+      code: t.phase,
+      label: labelsForSerial[t.phase] || t.phase,
+    }));
+    setEditPanelModal({ visible: true, serialNo, panelNo, phases });
+  }, []);
+
+  const closeEditPanelModal = useCallback(() => {
+    setEditPanelModal((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  // Saves every phase name in the panel at once via updatePhaseLabelsBulk()
+  // from wtsApi.js, then updates the local cache so cards/legend re-render.
+  const saveEditPanelLabels = useCallback(async (labelsMap) => {
+    const serial = editPanelModal.serialNo;
+    if (!serial) return;
+
+    await updatePhaseLabelsBulk(serial, labelsMap);
+
+    // Same fix as saveRenamedPhase: never mutate the existing map in
+    // place (Object.assign here was the bug) — always produce a new
+    // object so memo() on DeviceCard/PanelCard/TemperatureCard sees a
+    // changed prop and actually re-renders with the new names.
+    phaseLabelsRef.current = {
+      ...phaseLabelsRef.current,
+      [serial]: {
+        ...(phaseLabelsRef.current[serial] || {}),
+        ...labelsMap,
+      },
+    };
+    setPhaseLabelsVersion((v) => v + 1);
+  }, [editPanelModal.serialNo]);
 
   // Live socket data -> append to TODAY's entry for each online device
   useEffect(() => {
@@ -1844,10 +2188,6 @@ const WtsDashboard = () => {
     setRefreshing(false);
   }, [fetchDashboardData]);
 
-  const handleEditPanel = useCallback((serialNo, panelNo) => {
-    console.log(`Edit requested: device=${serialNo} panel=${panelNo}`);
-  }, []);
-
   const handleMenuSelect = useCallback(async (option) => {
 
     if (!selectedProduct) return;
@@ -1959,22 +2299,26 @@ const WtsDashboard = () => {
     ({ item }) => (
       <DeviceCard
         device={item}
-        onEditPanel={handleEditPanel}
+        onEditPanel={openEditPanelModal}
         onChartPress={handleChartPress}
         onCardLayout={handleCardLayout}
         onGraphLayout={handleGraphLayout}
         historyRef={deviceHistoryRef}
         historyVersion={historyVersion}
         onRequestHistory={requestHistory}
+        phaseLabels={phaseLabelsRef.current[item.serial_no]}
+        onRenamePhase={openRenameModal}
       />
     ),
     [
-      handleEditPanel,
+      openEditPanelModal,
       handleChartPress,
       handleCardLayout,
       handleGraphLayout,
       historyVersion,
       requestHistory,
+      phaseLabelsVersion,
+      openRenameModal,
     ]
   );
 
@@ -2042,6 +2386,21 @@ const WtsDashboard = () => {
           }
         />
       )}
+
+      <RenamePhaseModal
+        visible={renameModal.visible}
+        phaseCode={renameModal.phaseCode}
+        initialValue={renameModal.initialValue}
+        onClose={closeRenameModal}
+        onSaved={saveRenamedPhase}
+      />
+
+      <EditPanelLabelsModal
+        visible={editPanelModal.visible}
+        phases={editPanelModal.phases}
+        onClose={closeEditPanelModal}
+        onSaved={saveEditPanelLabels}
+      />
     </View>
   );
 };
@@ -2476,6 +2835,73 @@ const createStyles = (colors) =>
       borderWidth: 1,
       borderColor: colors.border,
       ...cardShadow,
+    },
+    renameCard: {
+      backgroundColor: colors.card,
+      borderRadius: 14,
+      padding: 18,
+      width: 280,
+      ...cardShadow,
+    },
+    renameTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 12,
+    },
+    renameInput: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      fontSize: 13,
+      color: colors.text,
+      marginBottom: 16,
+    },
+    renameButtonRow: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+    },
+    renameButton: {
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 8,
+      marginLeft: 8,
+    },
+    renameButtonPrimary: {
+      backgroundColor: COLORS.B,
+    },
+    renameButtonText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    renameButtonTextPrimary: {
+      color: '#FFFFFF',
+    },
+
+    // Bulk "Edit Phase Names" modal (opened from a PanelCard's pencil icon)
+    editPanelCard: {
+      backgroundColor: colors.card,
+      borderRadius: 14,
+      padding: 18,
+      width: 300,
+      maxHeight: '80%',
+      ...cardShadow,
+    },
+    editPanelScroll: {
+      maxHeight: 320,
+      marginBottom: 4,
+    },
+    editPanelFieldWrap: {
+      marginBottom: 12,
+    },
+    editPanelFieldLabel: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.subText,
+      marginBottom: 4,
     },
   });
 

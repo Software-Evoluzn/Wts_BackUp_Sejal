@@ -27,7 +27,7 @@ const STATUS = {
 };
 
 export default function PasswordScreen({ route, navigation }) {
-  const { network } = route.params;
+  const { network , product} = route.params;
 
   // ── Theme (unchanged) ─────────────────────────────────
   // Follows Android system Light/Dark mode automatically via
@@ -39,9 +39,12 @@ export default function PasswordScreen({ route, navigation }) {
   const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState(STATUS.IDLE);
   const [errorMsg, setErrorMsg] = useState('');
+  const [user , setUser] = useState(null);
 
   const [phoneConnected, setPhoneConnected] = useState(false)
   const phoneWifiTimer = useRef(null)
+
+  
 
   const stopPhoneWifiPolling = () => {
     if (phoneWifiTimer.current) {
@@ -406,12 +409,12 @@ export default function PasswordScreen({ route, navigation }) {
 
               <TouchableOpacity
                 disabled={!phoneConnected}
-                onPress={() => navigation.navigate('Home')}
+                onPress={() => navigation.navigate('ProductRegister',{product})}
                 activeOpacity={0.85}
                 style={[styles.button, styles.statusButtonSpacing, !phoneConnected && styles.buttonDisabled]}
               >
                 <Feather name="arrow-right" size={16} color="#fff" />
-                <Text style={styles.buttonText}>Continue</Text>
+                <Text style={styles.buttonText}>Continue to Installation</Text>
               </TouchableOpacity>
             </View>
           )}

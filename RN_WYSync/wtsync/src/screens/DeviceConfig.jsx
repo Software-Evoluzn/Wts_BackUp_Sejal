@@ -13,40 +13,29 @@ import { useAppTheme } from '../services/theme';
 
 const ESP_AP_PASSWORD = '12345678';
 const ESP_SSID_PREFIX = 'WTS';
-// const DEVICE_URL = 'http://abc.local';
 
-// ---------------------------------------------------------------------
-// AUTO-CONNECT HELPERS (new)
-// ---------------------------------------------------------------------
-// Serial number pattern:  WTSXXXXXXXX
-// Access Point pattern:   WTSAPXXXXXXXX
-// i.e. insert "AP" right after the "WTS" prefix.
-//   WTSF0C045  ->  WTSAPF0C045
 export const generateApSsid = (serialNo) => {
   if (!serialNo) return null;
   const clean = String(serialNo).trim().toUpperCase();
 
-  // Guard: if this is already an AP-style name (e.g. someone passed
-  // "WTSAPF0C045" in by mistake, or this function ever gets called
-  // twice on the same value), do NOT insert "AP" a second time.
-  if (clean.startsWith('WTSAP')) {
+  if (clean.startsWith('WTSAp')) {
     return clean;
   }
 
   if (!clean.startsWith(ESP_SSID_PREFIX)) {
-    // Fallback: unexpected serial format, don't crash — just log and
-    // return null so callers can show the "not found" state.
+    
     console.log('generateApSsid: serial does not start with WTS ->', clean);
     return null;
   }
 
-  // Insert "AP" exactly once, right after the "WTS" prefix.
-  // WTSF0C045  ->  WTS + AP + F0C045  ->  WTSAPF0C045
+ 
   const rest = clean.slice(ESP_SSID_PREFIX.length);
   return `${ESP_SSID_PREFIX}AP${rest}`;
 };
 
 export default function DeviceConfig({ navigation, route }) {
+
+
   // ── Theme (new) ───────────────────────────────────────
   // Follows Android system Light/Dark mode automatically via
   // useColorScheme() inside useAppTheme(). No manual toggle.
@@ -62,10 +51,7 @@ export default function DeviceConfig({ navigation, route }) {
 
   const [espOnline, setEspOnline] = useState(false);
 
-  // ── Visual-only animation values (new) ────────────────
-  // Mirrors HomeScreen's entrance + pulse treatment. These do not
-  // affect any business logic, data flow, or navigation — purely
-  // presentational, and run independently of the effects below.
+ 
   const headerFade = useRef(new Animated.Value(0)).current;
   const headerSlide = useRef(new Animated.Value(10)).current;
   const accentLineWidth = useRef(new Animated.Value(0)).current;
@@ -100,29 +86,14 @@ export default function DeviceConfig({ navigation, route }) {
     ).start();
   }, []);
 
-  // -----------------------------------------------------------------
-  // AUTO-CONNECT MODE (new)
-  // -----------------------------------------------------------------
-  // Triggered when the Home screen taps an OFFLINE device and passes:
-  //   navigation.navigate('DeviceConfig', {
-  //     product: device.serial_no,
-  //     autoConnect: true,
-  //   })
-  // If `autoConnect` isn't passed, DeviceConfig behaves exactly as
-  // before (manual scan + select list — used by Reset WiFi / Change WiFi).
+
   const productParam = route?.params?.product;
   const autoSerial =
     (typeof productParam === 'string' ? productParam : productParam?.serial_no) ||
     route?.params?.serialNo ||
     route?.params?.serial_no;
 
-  // Preferred source: the Access Point name already stored in the
-  // RegisterProduct table (product.access_point), returned by the
-  // /get-products API. This is the SAME string the ESP32 firmware
-  // actually broadcasts, so using it directly avoids ever having to
-  // guess/re-derive it (and avoids any casing mismatch).
-  // generateApSsid() is kept only as a fallback for older callers that
-  // haven't been updated to pass access_point yet.
+
   const dbAccessPoint =
     route?.params?.accessPoint ||
     (productParam && typeof productParam === 'object' ? productParam.access_point : null);
@@ -214,8 +185,8 @@ export default function DeviceConfig({ navigation, route }) {
 
       const filtered = targetSsid
         ? list.filter(
-            (i) => i.SSID && i.SSID.toUpperCase() === targetSsid.toUpperCase()
-          )
+          (i) => i.SSID && i.SSID.toUpperCase() === targetSsid.toUpperCase()
+        )
         : list.filter((i) => i.SSID && i.SSID.startsWith(ESP_SSID_PREFIX));
 
       setNetworks(filtered);
@@ -247,11 +218,18 @@ export default function DeviceConfig({ navigation, route }) {
       setConnectingSSID(network.SSID);
       await WifiManager.connectToProtectedSSID(network.SSID, ESP_AP_PASSWORD, false, false);
       if (Platform.OS === 'android') {
-        try { await WifiManager.forceWifiUsageWithOptions(true, { noResetOnDisconnect: false }); } catch (e) { }
+        try { 
+          await WifiManager.forceWifiUsageWithOptions(true, { noResetOnDisconnect: false }); 
+        } catch (e) 
+        { 
+          console.log("connectToEsp function issue");
+        }
       }
       const connected = await waitForConnection(ESP_SSID_PREFIX);
       if (connected) {
-        navigation.navigate('HomeWifiListScreen');
+        navigation.navigate('HomeWifiListScreen', {
+          product: productParam,
+        });
       } else {
         Alert.alert('Failed', 'Could not connect to ESP32.', [
           { text: 'Try Again', onPress: () => connectToESP(network) },
@@ -269,19 +247,9 @@ export default function DeviceConfig({ navigation, route }) {
     }
   };
 
-  // -----------------------------------------------------------------
+ 
   // AUTO-CONNECT FLOW (new)
-  // -----------------------------------------------------------------
-  // 1. Read the Access Point name straight from the database
-  //    (product.access_point) — no client-side guessing needed.
-  // 2. Scan WiFi silently (no list shown to the user).
-  // 3. If the expected SSID is found -> connect immediately, reusing
-  //    connectToProtectedSSID()/waitForConnection(), then navigate to
-  //    HomeWifiListScreen exactly like the manual flow does.
-  // 4. If not found -> show "Device not found" state (Scan Again / Cancel).
-  // 5. If found but connection fails -> show "Unable to connect" state
-  //    (Retry / Cancel). Retry repeats the whole scan process.
-  // Scanning stops the instant a match is found — no continued/extra scans.
+
   const runAutoConnect = useCallback(async () => {
     const ssid = dbAccessPoint || generateApSsid(autoSerial);
 
@@ -296,7 +264,7 @@ export default function DeviceConfig({ navigation, route }) {
 
     const ok = await requestPermissions();
     if (!ok) {
-      Alert.alert('Permission Required', 'Location permission chahiye.', [
+      Alert.alert('Permission Required', 'Location permission needed.', [
         { text: 'Open Settings', onPress: () => Linking.openSettings() },
       ]);
       setAutoStatus('failed');
@@ -341,7 +309,9 @@ export default function DeviceConfig({ navigation, route }) {
       if (connected) {
         console.log('Connected Successfully');
         console.log('Navigating to HomeWifiListScreen');
-        navigation.navigate('HomeWifiListScreen');
+        navigation.navigate('HomeWifiListScreen',{
+          product:productParam
+        });
       } else {
         console.log('Connection Failed');
         setAutoStatus('failed');
@@ -427,7 +397,7 @@ export default function DeviceConfig({ navigation, route }) {
                 { backgroundColor: signal.color, transform: [{ scale: pulseAnim }] },
               ]}
             />
-            <Text style={styles.metaText}>ESP32 Device · {signal.label}</Text>
+            <Text style={styles.metaText}> Intelli Temp  Device · {signal.label}</Text>
           </View>
         </View>
         {isConn

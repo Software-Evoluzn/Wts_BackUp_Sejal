@@ -27,15 +27,9 @@ const HomeScreen = ({ navigation }) => {
 
   const [products, setProducts] = useState([])
   const intervalRef = useRef(null);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // --- Header animation values (header only) ---
-  const headerFade = useRef(new Animated.Value(0)).current;
-  const headerSlide = useRef(new Animated.Value(10)).current;
-  const accentLineWidth = useRef(new Animated.Value(0)).current;
-  const accentOpacity = useRef(new Animated.Value(0.4)).current;
-  const brandScale = useRef(new Animated.Value(0.98)).current;
-  const greetingFade = useRef(new Animated.Value(0)).current;
+  // Pulse used only by the product ONLINE/OFFLINE status dots
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.loop(
@@ -49,55 +43,6 @@ const HomeScreen = ({ navigation }) => {
           toValue: 1,
           duration: 700,
           useNativeDriver: true
-        }),
-      ])
-    ).start();
-  }, []);
-
-  // --- Header entrance animation (runs once on mount) ---
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(headerFade, {
-        toValue: 1,
-        duration: 550,
-        useNativeDriver: true,
-      }),
-      Animated.timing(headerSlide, {
-        toValue: 0,
-        duration: 550,
-        useNativeDriver: true,
-      }),
-      Animated.timing(greetingFade, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      Animated.timing(brandScale, {
-        toValue: 1,
-        duration: 500,
-        delay: 90,
-        useNativeDriver: true,
-      }),
-      Animated.timing(accentLineWidth, {
-        toValue: 80,
-        duration: 700,
-        delay: 200,
-        useNativeDriver: false, // width cannot use native driver
-      }),
-    ]).start();
-
-    // Very soft, slow, infinite opacity pulse on the underline only
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(accentOpacity, {
-          toValue: 1,
-          duration: 2400,
-          useNativeDriver: true,
-        }),
-        Animated.timing(accentOpacity, {
-          toValue: 0.4,
-          duration: 2400,
-          useNativeDriver: true,
         }),
       ])
     ).start();
@@ -173,36 +118,38 @@ const HomeScreen = ({ navigation }) => {
       />
 
       <View style={styles.container}>
-        {/* Header */}
-        <Animated.View
-          style={[
-            styles.header,
-            {
-              opacity: headerFade,
-              transform: [{ translateY: headerSlide }],
-            },
-          ]}
-        >
-          <Animated.Text style={[styles.greeting, { opacity: greetingFade }]}>
-            {loading ? 'WELCOME' : `HELLO, ${firstName.toUpperCase()}`}
-          </Animated.Text>
+        {/* Header: app identity + profile shortcut */}
+        <View style={styles.header}>
+          <View style={styles.topRow}>
+            <View style={styles.brandRow} accessibilityRole="header">
+              <View style={styles.brandTile}>
+                <Feather name="thermometer" size={17} color="#fff" />
+              </View>
+              <Text style={styles.brand} numberOfLines={1}>
+                Intelli Temp
+              </Text>
+            </View>
 
-          <Animated.Text
-            style={[styles.brand, { transform: [{ scale: brandScale }] }]}
-          >
-            IntelliTemp
-          </Animated.Text>
+            <TouchableOpacity
+              style={styles.avatar}
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate('Settings')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Open profile and settings"
+            >
+              {firstName ? (
+                <Text style={styles.avatarText}>{initial}</Text>
+              ) : (
+                <Feather name="user" size={16} color="#9C3AB3" />
+              )}
+            </TouchableOpacity>
+          </View>
 
-          <Animated.View
-            style={[
-              styles.accentLine,
-              { width: accentLineWidth, opacity: accentOpacity },
-            ]}
-          />
-        </Animated.View>
+        </View>
 
         {products.length === 0 ? (
-          <>
+          <View style={styles.emptyWrap}>
 
             <View style={styles.card}>
               <View style={styles.iconWrap}>
@@ -230,9 +177,7 @@ const HomeScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-
-
-          </>
+          </View>
         ) : (
           <>
             <View style={styles.sectionHeaderRow}>
@@ -377,32 +322,56 @@ const createStyles = (colors) => StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 8,
+  },
+  emptyWrap: {
+    flex: 1,
     justifyContent: 'center',
+    paddingBottom: 24,
   },
 
+  // Header: app identity + profile shortcut
   header: {
     paddingTop: 12,
-    marginBottom: 36,
+    marginBottom: 28,
   },
-
-  greeting: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.subText,
-    letterSpacing: 0.8,
-    marginBottom: 8,
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+  },
+  brandTile: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    backgroundColor: '#9C3AB3',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
   },
   brand: {
-    fontSize: 29,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
     color: colors.text,
-    letterSpacing: -0.4,
+    letterSpacing: -0.3,
   },
-  accentLine: {
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: '#9C3AB3',
-    marginTop: 14,
+  avatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(156, 58, 179, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  avatarText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#9C3AB3',
   },
 
   sectionHeaderRow: {

@@ -20,6 +20,7 @@ import Feather from 'react-native-vector-icons/Feather';
 import { registerProduct } from '../services/ProductApi';
 import { getUserDetails } from '../services/AuthService';
 import { useAppTheme } from '../services/theme';
+import PowerSupplyAlert from '../components/PowerSupplyAlert';
 
 const DEVICE_LIST = [
   'IntelliTemp',
@@ -109,7 +110,7 @@ const CounterInput = ({ value, onChange, placeholder, styles, colors }) => {
   );
 };
 
-const ProductRegistrationScreen = ({ navigation }) => {
+const ProductRegistrationScreen = ({ navigation, route }) => {
   const { colors } = useAppTheme();
   const styles = createStyles(colors);
 
@@ -138,6 +139,9 @@ const ProductRegistrationScreen = ({ navigation }) => {
   const [whatsAppEnabled, setWhatsAppEnabled] = useState(false);
   const [whatsAppAlert, setWhatsAppAlert] = useState('');
 
+  const [deviceSetupComplete, setDeviceSetupComplete] = useState(false);
+  const [showPowerAlert, setShowPowerAlert] = useState(false); // NEW
+
   useEffect(() => {
     loadUser();
   }, []);
@@ -150,6 +154,8 @@ const ProductRegistrationScreen = ({ navigation }) => {
       console.log('Failed to load user:', e);
     }
   };
+
+  const consumedProductRef = useRef(null);
 
   const resetForm = useCallback(() => {
     setMode('scan');
@@ -168,12 +174,45 @@ const ProductRegistrationScreen = ({ navigation }) => {
     setLocation('');
     setWhatsAppEnabled(false);
     setWhatsAppAlert('');
+    setDeviceSetupComplete(false);
   }, []);
+
+  // useFocusEffect(
+  //   useCallback(() => {
+  //     resetForm();
+  //   }, [resetForm])
+  // );
+
 
   useFocusEffect(
     useCallback(() => {
-      resetForm();
-    }, [resetForm])
+
+      const incomingProduct = route.params?.product;
+
+      if (incomingProduct) {
+        // wifi setup complete karke wapas aaye hai reset mat karo , reore karo
+        if (consumedProductRef.current !== incomingProduct) {
+          consumedProductRef.current = incomingProduct;
+          setProduct(incomingProduct);
+          setMode('manual');
+          setDeviceSetupComplete(true);
+
+        }
+
+        // NEW — device already powered on + WiFi configured in the
+        // previous screen, so don't ask again on the way back here.
+        setShowPowerAlert(false);
+
+        //navigation.setParams({product:undefined});
+
+      } else {
+        resetForm();
+        // NEW — this is a fresh entry into the screen (new scan/manual
+        // flow), so remind the user to power the device on.
+        setShowPowerAlert(true);
+      }
+
+    }, [route.params?.product, resetForm, navigation])
   );
 
   const switchMode = (newMode) => {
@@ -212,6 +251,15 @@ const ProductRegistrationScreen = ({ navigation }) => {
     }));
   };
 
+  const handleConfirmPower = useCallback(() => {
+    setShowPowerAlert(false);
+  }, []);
+
+  const handleCancelPower = useCallback(() => {
+    setShowPowerAlert(false);
+    if (navigation.canGoBack()) navigation.goBack();
+  }, [navigation]);
+
   const getProbeCount = () => {
     if (!selectedProbe) return 0;
     const match = selectedProbe.match(/\d+/);
@@ -235,6 +283,25 @@ const ProductRegistrationScreen = ({ navigation }) => {
     });
 
     setProduct(cleaned);
+  };
+
+  const onContinueToConfig = () => {
+    if (!product) {
+      Alert.alert('Validation Error', 'Product details are missing');
+    }
+
+    const serialNumber = product['Serial No'] || product['serial_no'] || '';
+
+    if (!serialNumber) {
+      Alert.alert('Validation Error', 'Serial Number is missing in product details.');
+      return;
+    }
+
+    navigation.navigate('DeviceConfig', {
+      product: product,
+      autoConnect: true,
+      serialNo: serialNumber,
+    });
   };
 
   const onRegister = async () => {
@@ -280,7 +347,10 @@ const ProductRegistrationScreen = ({ navigation }) => {
             text: 'OK',
             onPress: () => {
               resetForm();
-              navigation.goBack();
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Main' }],
+              });
             },
           },
         ]);
@@ -385,7 +455,7 @@ const ProductRegistrationScreen = ({ navigation }) => {
               <View style={[styles.corner, styles.bottomLeft]} />
               <View style={[styles.corner, styles.bottomRight]} />
             </View>
-            <Text style={styles.scanText}>Align QR code inside the frame</Text>
+            <Text style={styles.scanText}>To scan, please locate the QR code on the back side of the device and align it within the frame</Text>
           </View>
         )}
 
@@ -498,6 +568,7 @@ const ProductRegistrationScreen = ({ navigation }) => {
                   setManualForm({ ...EMPTY_FORM, ...product });
                 }
                 setProduct(null);
+                setDeviceSetupComplete(false);
               }}>
               <Feather
                 name={mode === 'scan' ? 'refresh-cw' : 'edit-3'}
@@ -508,6 +579,24 @@ const ProductRegistrationScreen = ({ navigation }) => {
                 {mode === 'scan' ? 'Scan Again' : 'Edit Details'}
               </Text>
             </TouchableOpacity>
+
+            {deviceSetupComplete ? (
+              <View style={styles.setupCompleteBadge}>
+                <View style={styles.setupCompleteIconWrap}>
+                  <Feather name="check" size={14} color="#fff" />
+                </View>
+                <Text style={styles.setupCompleteText}>Device Setup Complete</Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[styles.registerButton, { marginTop: 16 }]}
+                activeOpacity={0.85}
+                onPress={onContinueToConfig}>
+                <Text style={styles.registerButtonText}> Continue to Device Setup</Text>
+                <Feather name="arror-right" size={16} color="#fff" />
+              </TouchableOpacity>
+            )}
+
           </View>
         )}
 
@@ -703,6 +792,11 @@ const ProductRegistrationScreen = ({ navigation }) => {
           </View>
         </TouchableOpacity>
       </Modal>
+      <PowerSupplyAlert
+        visible={showPowerAlert}
+        onConfirm={handleConfirmPower}
+        onCancel={handleCancelPower}
+      />
     </SafeAreaView>
   );
 };
@@ -717,6 +811,8 @@ const Row = ({ label, value, last, styles }) => {
     </View>
   );
 };
+
+
 
 export default ProductRegistrationScreen;
 
@@ -808,7 +904,7 @@ const createStyles = (colors) =>
     topRight: { top: 20, right: 20, borderTopWidth: 2.5, borderRightWidth: 2.5, borderTopRightRadius: 8 },
     bottomLeft: { bottom: 20, left: 20, borderBottomWidth: 2.5, borderLeftWidth: 2.5, borderBottomLeftRadius: 8 },
     bottomRight: { bottom: 20, right: 20, borderBottomWidth: 2.5, borderRightWidth: 2.5, borderBottomRightRadius: 8 },
-    scanText: { fontSize: 13, color: colors.subText, marginTop: 16 },
+    scanText: { fontSize: 14, color: colors.subText, marginTop: 16 },
     card: {
       backgroundColor: colors.card,
       borderRadius: 20,
@@ -994,4 +1090,33 @@ const createStyles = (colors) =>
       justifyContent: 'space-between',
     },
     deviceOptionText: { fontSize: 15, color: colors.text },
+
+    setupCompleteBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      marginTop: 16,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      borderRadius: 14,
+      backgroundColor: '#F0FDF4',
+      borderWidth: 1,
+      borderColor: '#BBF7D0',
+    },
+    setupCompleteIconWrap: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: '#22C55E',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    setupCompleteText: {
+      fontSize: 14.5,
+      fontWeight: '700',
+      color: '#15803D',
+      letterSpacing: -0.1,
+    },
   });
