@@ -1,77 +1,45 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
-  View, Text, FlatList, TouchableOpacity,
-  Alert, ActivityIndicator, StyleSheet, Animated,
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  StyleSheet,
+  StatusBar,
 } from 'react-native';
 import WifiManager from 'react-native-wifi-reborn';
 import Feather from 'react-native-vector-icons/Feather';
 import { useAppTheme } from '../services/theme';
 
+export default function HomeWifiListScreen({ navigation, route }) {
+  const { product,
+    autoConnect,
+    serialNo,
+    ssid,
+   } = route.params || {};
 
-
-export default function HomeWifiListScreen({ navigation , route }) {
-
-  const {product} = route.params || {}
-  // ── Theme (new) ───────────────────────────────────────
-  // Follows Android system Light/Dark mode automatically via
-  // useColorScheme() inside useAppTheme(). No manual toggle.
-  const { colors, isDark } = useAppTheme();
+   
+  const { colors } = useAppTheme();
   const styles = createStyles(colors);
 
   const [networks, setNetworks] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedSsid, setSelectedSsid] = useState(null);
 
-  // ── Auto-refresh-on-scroll-end guards (new) ───────────
-  // isScanningRef is a ref (not state) so checking/setting it never
-  // triggers a re-render — this is purely a lock, not UI state.
-  // It protects ALL scan entry points (initial load, pull-to-refresh,
-  // Scan Again button, bottom-reached auto-refresh) from overlapping.
   const isScanningRef = useRef(false);
-  // Tracks whether the component is still mounted, to avoid setting
-  // state after unmount (memory-leak guard) for in-flight scans.
   const isMountedRef = useRef(true);
-  // Simple time-based throttle so rapid repeated onEndReached firings
-  // (which FlatList can call more than once near the edge) don't queue
-  // up multiple silent refreshes back-to-back.
   const lastAutoRefreshAtRef = useRef(0);
   const AUTO_REFRESH_THROTTLE_MS = 4000;
 
   useEffect(() => {
     isMountedRef.current = true;
-    return () => { isMountedRef.current = false; };
-  }, []);
-
-  // ── Visual-only animation values (new) ────────────────
-  // Mirrors the header entrance treatment used on the other setup
-  // screens. Purely presentational — no effect on data flow,
-  // scanning, or navigation.
-  const headerFade = useRef(new Animated.Value(0)).current;
-  const headerSlide = useRef(new Animated.Value(10)).current;
-  const eyebrowFade = useRef(new Animated.Value(0)).current;
-  const accentLineWidth = useRef(new Animated.Value(0)).current;
-  const accentOpacity = useRef(new Animated.Value(0.4)).current;
-  const listFade = useRef(new Animated.Value(0)).current;
-  const listSlide = useRef(new Animated.Value(14)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(headerFade, { toValue: 1, duration: 550, useNativeDriver: true }),
-      Animated.timing(headerSlide, { toValue: 0, duration: 550, useNativeDriver: true }),
-      Animated.timing(eyebrowFade, { toValue: 1, duration: 500, useNativeDriver: true }),
-      Animated.timing(accentLineWidth, { toValue: 56, duration: 700, delay: 200, useNativeDriver: false }),
-      Animated.timing(listFade, { toValue: 1, duration: 600, delay: 150, useNativeDriver: true }),
-      Animated.timing(listSlide, { toValue: 0, duration: 600, delay: 150, useNativeDriver: true }),
-    ]).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(accentOpacity, { toValue: 1, duration: 2400, useNativeDriver: true }),
-        Animated.timing(accentOpacity, { toValue: 0.4, duration: 2400, useNativeDriver: true }),
-      ])
-    ).start();
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
   const onRefresh = async () => {
@@ -80,41 +48,27 @@ export default function HomeWifiListScreen({ navigation , route }) {
     setRefreshing(false);
   };
 
-  useEffect(() => { fetchWifiList(); }, []);
+  useEffect(() => {
+    fetchWifiList();
+  }, []);
 
-  // ── Core scan + filter logic (unchanged behavior) ─────
-  // silent = true means: no full-screen loader, no pull-to-refresh
-  // spinner — just swap the list data in place once the new scan
-  // resolves. Used by the bottom-reached auto-refresh path.
   const fetchWifiList = async ({ silent = false } = {}) => {
-    // Guard: never allow two scans to run concurrently, regardless
-    // of which trigger (initial load, pull-to-refresh, Scan Again
-    // button, or auto-refresh) initiated them.
-    if (isScanningRef.current) {
-      return;
-    }
+    if (isScanningRef.current) return;
     isScanningRef.current = true;
 
     try {
       const wifiList = await WifiManager.reScanAndLoadWifiList();
-      console.log('HOME WIFI', wifiList);
 
-      // ── SIRF 2.4GHz FILTER ─────────────────────────
-      // frequency 2400-2500 = 2.4GHz
-      // frequency 5000-5900 = 5GHz
-      const filteredList = wifiList.filter(item =>
-        item.SSID &&
-        item.SSID.length > 0 &&
-        !item.SSID.startsWith('WTS') &&   // ESP AP hide
-        item.frequency >= 2400 &&
-        item.frequency <= 2500
+      const filteredList = (wifiList || []).filter(
+        (item) =>
+          item.SSID &&
+          item.SSID.length > 0 &&
+          !item.SSID.startsWith('WTS') &&
+          item.frequency >= 2400 &&
+          item.frequency <= 2500
       );
 
-      console.log('2.4GHz networks:', filteredList.length);
-
       if (isMountedRef.current) {
-        // Always REPLACE the list (never append), so new networks
-        // appear and stale/out-of-range ones disappear automatically.
         setNetworks(filteredList);
         if (!silent) {
           setLoading(false);
@@ -122,10 +76,6 @@ export default function HomeWifiListScreen({ navigation , route }) {
       }
     } catch (error) {
       console.log(error);
-      // Only surface a blocking alert for non-silent scans. A silent
-      // background refresh failing shouldn't interrupt the user —
-      // the existing list simply stays as-is and they can still pull
-      // to refresh or tap Scan Again.
       if (!silent) {
         Alert.alert('Error', 'Unable to scan WiFi');
         if (isMountedRef.current) setLoading(false);
@@ -135,12 +85,8 @@ export default function HomeWifiListScreen({ navigation , route }) {
     }
   };
 
-  // ── Bottom-reached silent auto-refresh (new) ──────────
   const handleEndReached = useCallback(() => {
     const now = Date.now();
-
-    // Skip if a scan (of any kind) is already in flight, if the very
-    // first load hasn't finished yet, or if we refreshed too recently.
     if (
       isScanningRef.current ||
       loading ||
@@ -150,239 +96,420 @@ export default function HomeWifiListScreen({ navigation , route }) {
     }
 
     lastAutoRefreshAtRef.current = now;
-    // Fire-and-forget: silent refresh keeps the current list on
-    // screen, doesn't touch the loading/refreshing UI state, and
-    // simply swaps in the fresh results when the scan resolves.
     fetchWifiList({ silent: true });
   }, [loading]);
 
-  const renderItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.networkRow}
-      activeOpacity={0.85}
-      onPress={() => navigation.navigate('Password', { network: item , product })}
-    >
-      <View style={styles.deviceIconWrap}>
-        <Feather name="wifi" size={20} color={colors.text} />
+  const getSignalLabel = (level) => {
+    if (level >= -60) return 'Strong signal';
+    if (level >= -75) return 'Good signal';
+    return 'Fair signal';
+  };
+
+  const renderItem = ({ item, index }) => {
+    const isSelected = selectedSsid === item.SSID;
+    const isLastItem = index === networks.length - 1;
+
+    return (
+      <View style={styles.networkRowContainer}>
+        <TouchableOpacity
+          style={styles.networkRow}
+          activeOpacity={0.7}
+          onPress={() => {
+            setSelectedSsid(item.SSID);
+            navigation.navigate('Password', 
+              { 
+                network: item, 
+                product ,
+                autoConnect,
+                serialNo,
+                ssid
+              });
+          }}
+        >
+          <Feather name="wifi" size={18} color="#8C3182" style={styles.wifiIcon} />
+
+          <View style={{ flex: 1, paddingRight: 8 }}>
+            <Text style={styles.ssidText} numberOfLines={1}>
+              {item.SSID}
+            </Text>
+            <Text style={styles.metaText}>
+              {getSignalLabel(item.level)} · Password protected
+            </Text>
+          </View>
+
+          {isSelected ? (
+            <View style={styles.selectedCheckWrap}>
+              <Feather name="check" size={12} color="#FFFFFF" />
+            </View>
+          ) : (
+            <Feather name="chevron-right" size={18} color="#A0A0A0" />
+          )}
+        </TouchableOpacity>
+
+        {!isLastItem && <View style={styles.rowDivider} />}
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.ssidText} numberOfLines={1}>{item.SSID}</Text>
-        <Text style={styles.metaText}>2.4 GHz</Text>
+    );
+  };
+
+  const renderHeader = () => (
+    <View style={styles.scrollContent}>
+      {/* Progress Bar (Step 2 Active) */}
+      <View style={styles.progressBarContainer}>
+        <View style={[styles.progressSegment, styles.progressActive]} />
+        <View style={[styles.progressSegment, styles.progressActive]} />
+        <View style={[styles.progressSegment, styles.progressInactive]} />
+        <View style={[styles.progressSegment, styles.progressInactive]} />
+        <View style={[styles.progressSegment, styles.progressInactive]} />
+        <View style={[styles.progressSegment, styles.progressInactive]} />
       </View>
-      <Feather name="chevron-right" size={20} color={colors.subText} />
-    </TouchableOpacity>
+
+      {/* Step Info */}
+      <Text style={styles.stepText}>STEP 2 OF 6 · CONNECT</Text>
+      <Text style={styles.mainTitle}>Choose site Wi-Fi.</Text>
+      <Text style={styles.subTitle}>Select the network IntelliTemp should use.</Text>
+
+      {/* Section Title with Badge */}
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionTitle}>Available networks</Text>
+        <View style={styles.badge24}>
+          <Text style={styles.badge24Text}>2.4 GHz</Text>
+        </View>
+      </View>
+
+      {loading && (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="small" color="#8C3182" />
+          <Text style={styles.loadingText}>Scanning 2.4GHz WiFi...</Text>
+        </View>
+      )}
+    </View>
+  );
+
+  const renderFooter = () => (
+    <View style={styles.scrollContent}>
+      {/* Scan Again Button */}
+      <TouchableOpacity
+        style={styles.scanAgainButton}
+        activeOpacity={0.7}
+        onPress={() => {
+          setLoading(true);
+          fetchWifiList();
+        }}
+      >
+        <Feather name="rotate-cw" size={16} color="#8C3182" style={{ marginRight: 8 }} />
+        <Text style={styles.scanAgainText}>Scan again</Text>
+      </TouchableOpacity>
+
+      {/* Network Not Listed Button */}
+      <TouchableOpacity style={styles.notListedBox} activeOpacity={0.8}>
+        <Text style={styles.notListedText}>My network is not listed</Text>
+      </TouchableOpacity>
+    </View>
   );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <View style={styles.container}>
-        <Animated.View
-          style={[
-            styles.header,
-            { opacity: headerFade, transform: [{ translateY: headerSlide }] },
-          ]}
-        >
-          <Animated.Text style={[styles.eyebrow, { opacity: eyebrowFade }]}>
-            NETWORK SETUP
-          </Animated.Text>
-          <Text style={styles.heading}>Select WiFi</Text>
-          <Text style={styles.subtitle}>Choose Home WiFi (2.4 GHz only)</Text>
-          <Animated.View
-            style={[styles.accentLine, { width: accentLineWidth, opacity: accentOpacity }]}
-          />
-        </Animated.View>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-        {loading ? (
-          <View style={styles.loadingWrap}>
-            <ActivityIndicator size="large" color={colors.text} />
-            <Text style={styles.loadingText}>Scanning 2.4GHz WiFi...</Text>
-          </View>
-        ) : (
-          <Animated.View
-            style={{ flex: 1, opacity: listFade, transform: [{ translateY: listSlide }] }}
-          >
-            <FlatList
-              data={networks}
-              keyExtractor={(item, index) => index.toString()}
-              renderItem={renderItem}
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              onEndReached={handleEndReached}
-              onEndReachedThreshold={0.5}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={networks.length === 0 ? { flex: 1 } : { paddingBottom: 40 }}
-              ListEmptyComponent={
-                <View style={styles.emptyWrap}>
-                  <View style={styles.iconWrap}>
-                    <Feather name="wifi-off" size={30} color={colors.text} />
-                  </View>
-                  <Text style={styles.emptyTitle}>No 2.4GHz networks found</Text>
-                  <Text style={styles.emptyDescription}>
-                    Make sure your home WiFi is broadcasting on the 2.4GHz band, then try again.
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.button}
-                    activeOpacity={0.85}
-                    onPress={() => { setLoading(true); fetchWifiList(); }}
-                  >
-                    <Feather name="refresh-cw" size={16} color="#fff" />
-                    <Text style={styles.buttonText}>Scan Again</Text>
-                  </TouchableOpacity>
-                </View>
-              }
-            />
-          </Animated.View>
-        )}
+      {/* Top Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation?.goBack()}>
+          <Feather name="arrow-left" size={22} color="#333333" />
+        </TouchableOpacity>
+
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitleBold}>IntelliTemp </Text>
+          <Text style={styles.headerTitleSub}>4P</Text>
+        </View>
+
+        <View style={styles.logoContainer}>
+          <Text style={styles.logoText}>evoluzn</Text>
+        </View>
+      </View>
+
+      <FlatList
+        data={loading ? [] : networks}
+        keyExtractor={(item, index) => item.SSID || index.toString()}
+        renderItem={renderItem}
+        ListHeaderComponent={renderHeader}
+        ListFooterComponent={renderFooter}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.5}
+        contentContainerStyle={styles.listContainer}
+        ListEmptyComponent={
+          !loading ? (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyTitle}>No 2.4GHz networks found</Text>
+              <Text style={styles.emptyDescription}>
+                Make sure your home WiFi is broadcasting on 2.4GHz.
+              </Text>
+            </View>
+          ) : null
+        }
+      />
+
+      {/* Footer Actions */}
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={styles.continueButton}
+          activeOpacity={0.8}
+          onPress={() => {
+            if (networks.length > 0) {
+              const selectedNetwork = networks.find((n) => n.SSID === selectedSsid) || networks[0];
+              navigation.navigate('Password', { network: selectedNetwork, product });
+            }
+          }}
+        >
+          <Text style={styles.continueButtonText}>Continue</Text>
+          <Feather name="arrow-right" size={18} color="#FFFFFF" style={{ marginLeft: 6 }} />
+        </TouchableOpacity>
+
+        <View style={styles.footerBrand}>
+          <Text style={styles.poweredByText}>Powered By </Text>
+          <Text style={styles.brandText}>EVOLUZN</Text>
+        </View>
       </View>
     </SafeAreaView>
   );
 }
 
-const createStyles = (colors) => StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 8,
-  },
-
-  header: {
-    paddingTop: 12,
-    marginBottom: 28,
-  },
-  eyebrow: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.subText,
-    letterSpacing: 1,
-    marginBottom: 10,
-    textTransform: 'uppercase',
-  },
-  heading: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.text,
-    letterSpacing: -0.6,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.subText,
-    marginTop: 8,
-    lineHeight: 21,
-    maxWidth: 300,
-  },
-  accentLine: {
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: '#9C3AB3',
-    marginTop: 18,
-  },
-
-  loadingWrap: {
-    marginTop: 80,
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 14,
-    color: colors.subText,
-    fontWeight: '500',
-  },
-
-  // Network list rows
-  networkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 22,
-    padding: 18,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#0B0D12',
-    shadowOpacity: 0.05,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 2,
-  },
-  deviceIconWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: 'rgba(120,120,128,0.14)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  ssidText: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.text,
-    letterSpacing: -0.2,
-  },
-  metaText: {
-    fontSize: 13,
-    color: colors.subText,
-    fontWeight: '500',
-    marginTop: 4,
-  },
-
-  // Empty state
-  emptyWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 28,
-  },
-  iconWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(120,120,128,0.14)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 22,
-  },
-  emptyTitle: {
-    fontSize: 19,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 10,
-    textAlign: 'center',
-    letterSpacing: -0.3,
-  },
-  emptyDescription: {
-    fontSize: 14,
-    color: colors.subText,
-    textAlign: 'center',
-    lineHeight: 21,
-    marginBottom: 28,
-    maxWidth: 260,
-  },
-
-  // Monochromatic primary button
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 16,
-    backgroundColor: '#9C3AB3',
-    shadowColor: '#0B0D12',
-    shadowOpacity: 0.16,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 3,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.1,
-  },
-});
+const createStyles = (colors) =>
+  StyleSheet.create({
+    safe: {
+      flex: 1,
+      backgroundColor: '#F8F8FC',
+    },
+    header: {
+      height: 56,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      backgroundColor: '#FFFFFF',
+      borderBottomWidth: 1,
+      borderBottomColor: '#F0F0F0',
+    },
+    backButton: {
+      paddingRight: 12,
+    },
+    headerTitleContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    headerTitleBold: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: '#1F1F1F',
+    },
+    headerTitleSub: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: '#8E8E93',
+    },
+    logoContainer: {
+      justify: 'center',
+    },
+    logoText: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: '#8C3182',
+    },
+    listContainer: {
+      paddingHorizontal: 20,
+    },
+    scrollContent: {
+      paddingTop: 16,
+    },
+    progressBarContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 20,
+    },
+    progressSegment: {
+      flex: 1,
+      height: 3,
+      borderRadius: 2,
+      marginHorizontal: 3,
+    },
+    progressActive: {
+      backgroundColor: '#8C3182',
+    },
+    progressInactive: {
+      backgroundColor: '#E5E5EA',
+    },
+    stepText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: '#8C3182',
+      letterSpacing: 0.8,
+      marginBottom: 8,
+    },
+    mainTitle: {
+      fontSize: 24,
+      fontWeight: '800',
+      color: '#1A1A1A',
+      marginBottom: 6,
+    },
+    subTitle: {
+      fontSize: 14,
+      color: '#666666',
+      marginBottom: 24,
+    },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    sectionTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: '#1C1C1E',
+    },
+    badge24: {
+      backgroundColor: '#FDF0F9',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 4,
+    },
+    badge24Text: {
+      color: '#8C3182',
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    networkRowContainer: {
+      backgroundColor: '#FFFFFF',
+      paddingHorizontal: 16,
+      borderColor: '#EFEFEF',
+      borderLeftWidth: 1,
+      borderRightWidth: 1,
+    },
+    networkRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 14,
+    },
+    wifiIcon: {
+      marginRight: 14,
+    },
+    ssidText: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: '#1C1C1E',
+      marginBottom: 3,
+    },
+    metaText: {
+      fontSize: 12.5,
+      color: '#8E8E93',
+    },
+    rowDivider: {
+      height: 1,
+      backgroundColor: '#F2F2F7',
+      marginLeft: 32,
+    },
+    selectedCheckWrap: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      backgroundColor: '#8C3182',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    scanAgainButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 20,
+      marginTop: 16,
+    },
+    scanAgainText: {
+      color: '#8C3182',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    notListedBox: {
+      backgroundColor: '#FAFAFC',
+      borderRadius: 10,
+      paddingVertical: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: '#F0F0F5',
+      marginBottom: 20,
+    },
+    notListedText: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: '#8C3182',
+    },
+    loadingWrap: {
+      paddingVertical: 30,
+      alignItems: 'center',
+      backgroundColor: '#FFFFFF',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#EFEFEF',
+      marginBottom: 16,
+    },
+    loadingText: {
+      marginTop: 12,
+      fontSize: 14,
+      color: '#8E8E93',
+    },
+    emptyWrap: {
+      paddingVertical: 24,
+      alignItems: 'center',
+      backgroundColor: '#FFFFFF',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#EFEFEF',
+    },
+    emptyTitle: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: '#1C1C1E',
+      marginBottom: 4,
+    },
+    emptyDescription: {
+      fontSize: 13,
+      color: '#8E8E93',
+      textAlign: 'center',
+    },
+    footer: {
+      paddingHorizontal: 20,
+      paddingBottom: 20,
+      backgroundColor: '#FFFFFF',
+      borderTopWidth: 1,
+      borderTopColor: '#F0F0F0',
+    },
+    continueButton: {
+      backgroundColor: '#8C3182',
+      borderRadius: 10,
+      height: 50,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 16,
+      marginBottom: 12,
+    },
+    continueButtonText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    footerBrand: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    poweredByText: {
+      fontSize: 12,
+      color: '#8E8E93',
+    },
+    brandText: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: '#8C3182',
+    },
+  });

@@ -1,560 +1,877 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
+
 import {
+
   View,
+
   Text,
+
   TouchableOpacity,
+
   StyleSheet,
+
   StatusBar,
+
   FlatList,
-  Animated
+
+  Image,
+
+  Platform,
+
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { useFocusEffect } from '@react-navigation/native';
+
 import Feather from 'react-native-vector-icons/Feather';
+
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+
+
 
 import { getUserDetails } from '../services/AuthService';
 
 import { getProducts } from '../services/ProductApi';
+
 import { useAppTheme } from '../services/theme';
 
 
+
+const ACCENT = '#8E338A';
+
+
+
 const HomeScreen = ({ navigation }) => {
+
   const { colors, isDark } = useAppTheme();
-  const styles = createStyles(colors);
+
+  const insets = useSafeAreaInsets();
+
+  const styles = createStyles(colors, isDark, insets);
+
+
 
   const [user, setUser] = useState(null);
+
   const [loading, setLoading] = useState(true);
 
-  const [products, setProducts] = useState([])
+  const [products, setProducts] = useState([]);
+
   const intervalRef = useRef(null);
 
-  // Pulse used only by the product ONLINE/OFFLINE status dots
-  const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.4,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 700,
-          useNativeDriver: true
-        }),
-      ])
-    ).start();
-  }, []);
+
+  const loadHomeData = async () => {
+
+    try {
+
+      setLoading(true);
+
+      const userResult = await getUserDetails();
+
+      if (userResult.success) {
+
+        setUser(userResult.user);
+
+      }
+
+
+
+      const productResult = await getProducts();
+
+      if (productResult.success) {
+
+        setProducts(productResult.products);
+
+      }
+
+    } catch (e) {
+
+      console.log('Home Screen Error', e);
+
+    } finally {
+
+      setLoading(false);
+
+    }
+
+  };
+
 
 
   useFocusEffect(
+
     useCallback(() => {
+
       loadHomeData();
 
+
+
       intervalRef.current = setInterval(() => {
+
         loadHomeData();
-      }, 5000);//every 5 sec
+
+      }, 5000); // every 5 sec
+
+
 
       return () => {
+
         clearInterval(intervalRef.current);
-      }
+
+      };
 
     }, [])
+
   );
 
 
 
-  // "Register Another Product" is the only button that needs to flip to
-  // a light surface in dark mode (it otherwise inherits the shared black
-  // `styles.button` look, which disappears against a dark background).
-  // The base button style (size/padding/radius/shadow/typography) is left
-  // completely untouched — only background + text/icon color are
-  // overridden here, and only for this button.
-  //
-  // Note: the theme's `card`/`text` tokens are inverted for this purpose
-  // in dark mode (card is a dark surface, text is light-on-dark), so
-  // there's no existing token for "light surface + dark text". This
-  // stays theme-aware via the `isDark` flag from useAppTheme(); light
-  // theme is untouched and keeps the original hardcoded black/white.
-  const secondaryButtonSurfaceStyle = isDark ? { backgroundColor: '#F5EAF8' } : null;
-  const secondaryButtonTextColor = isDark ? '#0B0D12' : '#fff';
+  const renderDeviceCard = ({ item }) => {
+
+    const isConnected = item.online ?? true;
 
 
-  const loadHomeData = async () => {
-    try {
 
-      setLoading(true);
-      const userResult = await getUserDetails();
+    return (
 
-      //User Details
-      if (userResult.success) {
-        setUser(userResult.user);
-      }
+      <TouchableOpacity
 
-      //products
-      const productResult = await getProducts();
-      if (productResult.success) {
-        setProducts(productResult.products);
-      }
+        style={styles.card}
 
-    } catch (e) {
-      console.log("Home Screen Error", e);
-    } finally {
-      setLoading(false);
-    }
+        activeOpacity={0.88}
 
-  }
+        onPress={() => {
 
-  const firstName = user?.name ? user.name.split(' ')[0] : '';
-  const initial = firstName ? firstName.charAt(0).toUpperCase() : '?';
+          if (isConnected) {
 
-  return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={colors.background}
-      />
+            navigation.navigate('WtsDashboard', { product: item });
 
-      <View style={styles.container}>
-        {/* Header: app identity + profile shortcut */}
-        <View style={styles.header}>
-          <View style={styles.topRow}>
-            <View style={styles.brandRow} accessibilityRole="header">
-              <View style={styles.brandTile}>
-                <Feather name="thermometer" size={17} color="#fff" />
-              </View>
-              <Text style={styles.brand} numberOfLines={1}>
-                Intelli Temp
-              </Text>
-            </View>
+          } else {
 
-            <TouchableOpacity
-              style={styles.avatar}
-              activeOpacity={0.7}
-              onPress={() => navigation.navigate('Settings')}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel="Open profile and settings"
-            >
-              {firstName ? (
-                <Text style={styles.avatarText}>{initial}</Text>
-              ) : (
-                <Feather name="user" size={16} color="#9C3AB3" />
-              )}
-            </TouchableOpacity>
+            navigation.navigate('DeviceConfig', { product: item });
+
+          }
+
+        }}>
+
+        {/* Device Name + Status Badge */}
+
+        <View style={styles.cardHeader}>
+
+          <Text style={styles.deviceName} numberOfLines={1}>
+
+            {item.device_name || 'Floor 3 · MCC-01'}
+
+          </Text>
+
+
+
+          <View
+
+            style={[
+
+              styles.statusBadge,
+
+              isConnected ? styles.badgeConnected : styles.badgeWarning,
+
+            ]}>
+
+            <MaterialCommunityIcons
+
+              name={isConnected ? 'shield-check-outline' : 'alert-circle-outline'}
+
+              size={14}
+
+              color={isConnected ? '#2D7A53' : '#9E6410'}
+
+              style={styles.badgeIcon}
+
+            />
+
+            <Text
+
+              style={[
+
+                styles.statusBadgeText,
+
+                isConnected ? styles.textConnected : styles.textWarning,
+
+              ]}>
+
+              {isConnected ? 'Connected' : 'No recent report'}
+
+            </Text>
+
           </View>
 
         </View>
 
-        {products.length === 0 ? (
-          <View style={styles.emptyWrap}>
 
-            <View style={styles.card}>
-              <View style={styles.iconWrap}>
-                <Feather name="package" size={30} color="#A44ABB" />
-              </View>
 
-              <Text style={styles.title}>No Product Registered</Text>
+        {/* Model & Description */}
 
-              <Text style={styles.subtitle}>
-                Register your first device to activate its warranty and start
-                syncing temperature data.
-              </Text>
+        <Text style={styles.deviceSubtitle}>
 
-              <View style={styles.statusPill}>
-                <View style={[styles.statusDot, { backgroundColor: '#EF4444' }]} />
-                <Text style={styles.statusText}>Warranty inactive</Text>
-              </View>
+          {item.model_no || 'IntelliTemp 4P'} · Electrical panel
 
-              <TouchableOpacity
-                style={styles.button}
-                activeOpacity={0.85}
-                onPress={() => navigation.navigate('Register')}>
-                <Feather name="plus" size={16} color="#fff" />
-                <Text style={styles.buttonText}>Register Product</Text>
-              </TouchableOpacity>
-            </View>
-
-          </View>
-        ) : (
-          <>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>My Products</Text>
-              <View style={styles.countBadge}>
-                <Text style={styles.countBadgeText}>{products.length}</Text>
-              </View>
-            </View>
-
-            <FlatList
-
-              data={products}
-              keyExtractor={(item) => item.id.toString()}
-              showVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 120 }}
-              renderItem={({ item }) => (
-                <TouchableOpacity style={styles.productCard}
-                  activeOpacity={0.9}
-                  onPress={() => {
-                    if (item.online) {
-                      navigation.navigate("WtsDashboard", {
-                        product: item,
-                      });
-                    } else {
-                      navigation.navigate("DeviceConfig", {
-                        product: item,
-                      });
-                    }
-                  }}
-                >
-
-                  <View style={styles.productHeader}>
-                    <Text style={styles.productName} numberOfLines={1}>
-                      {item.device_name}
-                    </Text>
-
-                    <View
+        </Text>
 
 
 
-                      style={[
-                        styles.statusBadge,
-                        {
-                          backgroundColor: item.online
-                            ? "#EDFBF3"
-                            : "#FDF0F0"
-                        }
-                      ]}>
-
-
-                      <Animated.View
-                        style={[
-                          styles.statusDot,
-                          {
-                            backgroundColor: item.online
-                              ? "#22C55E"
-                              : "#EF4444",
-                            transform: [{ scale: pulseAnim }],
-                            opacity: pulseAnim,
-                          }
-                        ]}
-                      />
-
-
-                      <Text
-                        style={[
-                          styles.statusBadgeText,
-                          {
-                            color: item.online
-                              ? "#15803D"
-                              : "#B91C1C"
-                          }
-                        ]}
-                      >
-
-                        {item.online ? "ONLINE" : "OFFLINE"}
-
-                      </Text>
+        <View style={styles.cardDivider} />
 
 
 
-                    </View>
+        {/* Footer info metrics */}
 
-                  </View>
+        <View style={styles.cardFooter}>
 
-                  <Text style={styles.model}>
-                    {item.model_no}
-                  </Text>
+          <View style={styles.metricItem}>
 
-                  <View style={styles.divider} />
+            <Feather
 
-                  <View style={styles.metaRow}>
-                    <View>
-                      <Text style={styles.metaLabel}>Serial Number</Text>
-                      <Text style={styles.metaValue}>{item.serial_no}</Text>
-                    </View>
-                    <View style={styles.metaRight}>
-                      <Text style={styles.metaLabel}>Warranty</Text>
-                      <Text style={styles.metaValue}>{item.warranty_expiry}</Text>
-                    </View>
-                  </View>
+              name={isConnected ? 'thermometer' : 'disc'}
 
+              size={13}
 
-                </TouchableOpacity>
-              )}
+              color={isDark ? colors.subText : '#716C7B'}
+
+              style={styles.metricIcon}
+
             />
 
+            <Text style={styles.metricText}>
 
-            <TouchableOpacity
-              style={[styles.button, secondaryButtonSurfaceStyle]}
-              onPress={() => navigation.navigate("Register")}>
-              <Feather name="plus" size={16} color={secondaryButtonTextColor} />
-              <Text style={[styles.buttonText, { color: secondaryButtonTextColor }]}>
-                Register Another Product
-              </Text>
+              {item.probes_valid || (isConnected ? '4 / 4 valid' : 'Readings stale')}
 
-            </TouchableOpacity>
+            </Text>
 
-          </>
+          </View>
 
-        )
 
-        }
 
-        {/* Small footer hint */}
-        {/* <Text style={styles.footerHint}>
-          Have a QR code? Head to the Register tab to scan it.
-        </Text> */}
+          <View style={styles.metricItem}>
+
+            <Feather
+
+              name="clock"
+
+              size={13}
+
+              color={isDark ? colors.subText : '#716C7B'}
+
+              style={styles.metricIcon}
+
+            />
+
+            <Text style={styles.metricText}>
+
+              {item.last_updated || (isConnected ? '20 seconds ago' : '8 minutes ago')}
+
+            </Text>
+
+          </View>
+
+        </View>
+
+      </TouchableOpacity>
+
+    );
+
+  };
+
+
+
+  const ListHeader = () => (
+
+    <View style={styles.headerContent}>
+
+      <Text style={styles.categoryTag}>MY DEVICES</Text>
+
+      <Text style={styles.title}>Your sites, at a glance.</Text>
+
+      <Text style={styles.subtitle}>
+
+        See what needs attention before opening a device.
+
+      </Text>
+
+
+
+      <View style={styles.sectionRow}>
+
+        <Text style={styles.sectionTitle}>Assigned devices</Text>
+
+        <Text style={styles.sectionCount}>
+
+          {products.length} {products.length === 1 ? 'device' : 'devices'}
+
+        </Text>
+
       </View>
-    </SafeAreaView>
+
+    </View>
+
   );
+
+
+
+  const ListFooter = () => (
+
+    <View style={styles.footerContent}>
+
+      {/* Add Device Button */}
+
+      <TouchableOpacity
+
+        style={styles.addDeviceBtn}
+
+        activeOpacity={0.8}
+
+        onPress={() => navigation.navigate('Register')}>
+
+        <View style={styles.addIconContainer}>
+
+          <Feather name="plus" size={16} color={ACCENT} />
+
+        </View>
+
+        <Text style={styles.addDeviceText}>Add a device</Text>
+
+      </TouchableOpacity>
+
+
+
+      {/* Info Callout Box */}
+
+      <View style={styles.noticeBox}>
+
+        <MaterialCommunityIcons
+
+          name="cellphone-wireless"
+
+          size={20}
+
+          color={ACCENT}
+
+          style={styles.noticeIcon}
+
+        />
+
+        <Text style={styles.noticeText}>
+
+          A connected device can still have a disconnected or stale probe. Inspect
+
+          readings separately.
+
+        </Text>
+
+      </View>
+
+    </View>
+
+  );
+
+
+
+  return (
+
+    <View style={styles.container}>
+
+      <StatusBar
+
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+
+        backgroundColor="#FFFFFF"
+
+        translucent={true}
+
+      />
+
+
+
+      {/* Top Header Row with Logo placed in the upper right */}
+
+      <View style={styles.topHeaderContainer}>
+
+        <View style={styles.brandRow}>
+
+          <Feather name="thermometer" size={22} color={ACCENT} />
+
+          <Text style={styles.brandTitle}>IntelliTemp</Text>
+
+        </View>
+
+        <TouchableOpacity
+
+          activeOpacity={0.8}
+
+          onPress={() => navigation.navigate('Settings')}>
+
+          <Image
+
+            source={require('../assests/images/logo.png')}
+
+            style={styles.logoImage}
+
+            resizeMode="contain"
+
+          />
+
+        </TouchableOpacity>
+
+      </View>
+
+
+
+      <FlatList
+
+        data={products}
+
+        keyExtractor={(item, index) => (item.id ? item.id.toString() : index.toString())}
+
+        ListHeaderComponent={ListHeader}
+
+        ListFooterComponent={ListFooter}
+
+        renderItem={renderDeviceCard}
+
+        contentContainerStyle={styles.listContainer}
+
+        showsVerticalScrollIndicator={false}
+
+      />
+
+    </View>
+
+  );
+
 };
+
+
 
 export default HomeScreen;
 
-const createStyles = (colors) => StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 8,
-  },
-  emptyWrap: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingBottom: 24,
-  },
 
-  // Header: app identity + profile shortcut
-  header: {
-    paddingTop: 12,
-    marginBottom: 28,
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 1,
-  },
-  brandTile: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
-    backgroundColor: '#9C3AB3',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  brand: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.text,
-    letterSpacing: -0.3,
-  },
-  avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(156, 58, 179, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 12,
-  },
-  avatarText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#9C3AB3',
-  },
 
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    paddingHorizontal: 2,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.text,
-    letterSpacing: -0.2,
-  },
-  countBadge: {
-    backgroundColor: colors.border,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  countBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.subText,
-  },
+const createStyles = (colors, isDark, insets) =>
 
-  // Empty state card
-  card: {
-    backgroundColor: colors.card,
-    paddingVertical: 36,
-    paddingHorizontal: 24,
-    borderRadius: 24,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#0B0D12',
-    shadowOpacity: 0.05,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 2,
-  },
-  iconWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#F5EAF8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 22,
-  },
-  title: {
-    fontSize: 19,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  subtitle: {
-    fontSize: 14,
-    lineHeight: 21,
-    textAlign: 'center',
-    marginTop: 10,
-    color: colors.subText,
-    maxWidth: 260,
-  },
-  statusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FDF0F0',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    marginTop: 20,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#B91C1C',
-  },
+  StyleSheet.create({
 
-  // Product cards
-  productCard: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#0B0D12',
-    shadowOpacity: 0.04,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 1,
-  },
-  productHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  productName: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.text,
-    flex: 1,
-    marginRight: 10,
-  },
-  model: {
-    marginTop: 6,
-    color: colors.subText,
-    fontSize: 13,
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
-    marginVertical: 14,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  metaRight: {
-    alignItems: 'flex-end',
-  },
-  metaLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.subText,
-    letterSpacing: 0.3,
-    marginBottom: 3,
-    textTransform: 'uppercase',
-  },
-  metaValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
+    container: {
 
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  statusBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 6,
-  },
+      flex: 1,
 
-  button: {
-    backgroundColor: '#9C3AB3',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 16,
-    marginTop: 8,
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    shadowColor: '#0B0D12',
-    shadowOpacity: 0.16,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 3,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 15,
-  },
+      backgroundColor: isDark ? colors.background : '#F5F4F7',
 
-  footerHint: {
-    textAlign: 'center',
-    color: colors.subText,
-    fontSize: 12,
-    fontWeight: '500',
-    marginTop: 20,
-  },
-});
+    },
+
+
+
+    /* Top Header Bar */
+
+    topHeaderContainer: {
+
+      flexDirection: 'row',
+
+      alignItems: 'center',
+
+      justifyContent: 'space-between',
+
+      paddingHorizontal: 20,
+
+      paddingTop: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight || 24) + 12,
+
+      paddingBottom: 12,
+
+      backgroundColor: isDark ? colors.card : '#FFFFFF',
+
+      borderBottomWidth: 1,
+
+      borderBottomColor: isDark ? colors.border : '#EFECEF',
+
+    },
+
+    brandRow: {
+
+      flexDirection: 'row',
+
+      alignItems: 'center',
+
+      gap: 8,
+
+    },
+
+    brandTitle: {
+
+      fontSize: 18,
+
+      fontWeight: '800',
+
+      color: isDark ? colors.text : '#1A1622',
+
+      letterSpacing: -0.3,
+
+    },
+
+    logoImage: {
+
+      width: 90,
+
+      height: 28,
+
+    },
+
+
+
+    /* List Layout */
+
+    listContainer: {
+
+      paddingHorizontal: 20,
+
+      paddingTop: 20,
+
+      paddingBottom: 20,
+
+    },
+
+    headerContent: {
+
+      marginBottom: 16,
+
+    },
+
+    categoryTag: {
+
+      fontSize: 11,
+
+      fontWeight: '800',
+
+      color: ACCENT,
+
+      letterSpacing: 1.1,
+
+      marginBottom: 6,
+
+    },
+
+    title: {
+
+      fontSize: 26,
+
+      fontWeight: '800',
+
+      color: isDark ? colors.text : '#1B1721',
+
+      letterSpacing: -0.5,
+
+      marginBottom: 6,
+
+    },
+
+    subtitle: {
+
+      fontSize: 14.5,
+
+      color: isDark ? colors.subText : '#716C7B',
+
+      lineHeight: 21,
+
+      marginBottom: 24,
+
+    },
+
+    sectionRow: {
+
+      flexDirection: 'row',
+
+      justify: 'space-between',
+
+      alignItems: 'center',
+
+      marginBottom: 12,
+
+    },
+
+    sectionTitle: {
+
+      fontSize: 16,
+
+      fontWeight: '700',
+
+      color: isDark ? colors.text : '#1B1721',
+
+    },
+
+    sectionCount: {
+
+      fontSize: 13,
+
+      fontWeight: '500',
+
+      color: isDark ? colors.subText : '#8B8796',
+
+    },
+
+
+
+    /* Card Styling */
+
+    card: {
+
+      backgroundColor: isDark ? colors.card : '#FFFFFF',
+
+      borderRadius: 14,
+
+      padding: 16,
+
+      marginBottom: 14,
+
+      borderWidth: 1,
+
+      borderColor: isDark ? colors.border : '#EAE6EE',
+
+      shadowColor: '#000',
+
+      shadowOpacity: 0.03,
+
+      shadowRadius: 8,
+
+      shadowOffset: { width: 0, height: 2 },
+
+      elevation: 1,
+
+    },
+
+    cardHeader: {
+
+      flexDirection: 'row',
+
+      justify: 'space-between',
+
+      alignItems: 'center',
+
+      marginBottom: 4,
+
+    },
+
+    deviceName: {
+
+      fontSize: 16,
+
+      fontWeight: '700',
+
+      color: isDark ? colors.text : '#1B1721',
+
+      flex: 1,
+
+      marginRight: 8,
+
+    },
+
+    statusBadge: {
+
+      flexDirection: 'row',
+
+      alignItems: 'center',
+
+      paddingHorizontal: 10,
+
+      paddingVertical: 5,
+
+      borderRadius: 8,
+
+    },
+
+    badgeConnected: {
+
+      backgroundColor: isDark ? 'rgba(34, 197, 94, 0.12)' : '#EBF7F0',
+
+    },
+
+    badgeWarning: {
+
+      backgroundColor: isDark ? 'rgba(234, 179, 8, 0.12)' : '#FEF6E8',
+
+    },
+
+    badgeIcon: {
+
+      marginRight: 4,
+
+    },
+
+    statusBadgeText: {
+
+      fontSize: 12,
+
+      fontWeight: '600',
+
+    },
+
+    textConnected: {
+
+      color: isDark ? '#4ADE80' : '#2D7A53',
+
+    },
+
+    textWarning: {
+
+      color: isDark ? '#FACC15' : '#9E6410',
+
+    },
+
+    deviceSubtitle: {
+
+      fontSize: 13,
+
+      color: isDark ? colors.subText : '#8B8796',
+
+      marginBottom: 12,
+
+    },
+
+    cardDivider: {
+
+      height: 1,
+
+      backgroundColor: isDark ? colors.border : '#F0ECF3',
+
+      marginVertical: 10,
+
+    },
+
+    cardFooter: {
+
+      flexDirection: 'row',
+
+      alignItems: 'center',
+
+      gap: 16,
+
+    },
+
+    metricItem: {
+
+      flexDirection: 'row',
+
+      alignItems: 'center',
+
+    },
+
+    metricIcon: {
+
+      marginRight: 6,
+
+    },
+
+    metricText: {
+
+      fontSize: 12.5,
+
+      color: isDark ? colors.subText : '#716C7B',
+
+      fontWeight: '500',
+
+    },
+
+
+
+    /* List Footer Components */
+
+    footerContent: {
+
+      marginTop: 4,
+
+      marginBottom: 12,
+
+    },
+
+    addDeviceBtn: {
+
+      height: 50,
+
+      backgroundColor: isDark ? colors.card : '#FFFFFF',
+
+      borderRadius: 12,
+
+      borderWidth: 1,
+
+      borderColor: isDark ? colors.border : '#E1DAE4',
+
+      flexDirection: 'row',
+
+      alignItems: 'center',
+
+      justifyContent: 'center',
+
+      marginBottom: 16,
+
+    },
+
+    addIconContainer: {
+
+      width: 24,
+
+      height: 24,
+
+      borderRadius: 12,
+
+      backgroundColor: isDark ? 'rgba(142, 51, 138, 0.15)' : '#F5EBF6',
+
+      alignItems: 'center',
+
+      justifyContent: 'center',
+
+      marginRight: 8,
+
+    },
+
+    addDeviceText: {
+
+      fontSize: 15,
+
+      fontWeight: '700',
+
+      color: ACCENT,
+
+    },
+
+    noticeBox: {
+
+      flexDirection: 'row',
+
+      alignItems: 'flex-start',
+
+      backgroundColor: isDark ? 'rgba(142, 51, 138, 0.08)' : '#FAEFFB',
+
+      borderRadius: 12,
+
+      padding: 14,
+
+    },
+
+    noticeIcon: {
+
+      marginRight: 10,
+
+      marginTop: 2,
+
+    },
+
+    noticeText: {
+
+      flex: 1,
+
+      fontSize: 12.5,
+
+      lineHeight: 18,
+
+      color: isDark ? colors.subText : '#686070',
+
+    },
+
+  });

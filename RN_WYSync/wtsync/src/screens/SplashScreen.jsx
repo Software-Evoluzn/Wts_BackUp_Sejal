@@ -2,6 +2,8 @@ import React, { useEffect } from 'react';
 import { View, Image, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import auth from '@react-native-firebase/auth';
 
+const ACCENT = '#8E338A';
+
 const SplashScreen = ({ navigation }) => {
   useEffect(() => {
     console.log("Splash screen Mounted");
@@ -9,22 +11,18 @@ const SplashScreen = ({ navigation }) => {
     let authResolved = false;
     let timerDone = false;
 
-    // Jab dono cheezein ready ho tab hi navigate karo
+    // Navigate only when both timer and auth check are resolved
     const tryNavigate = () => {
-
-
-      console.log("Ckecking Navigation.......");
+      console.log("Checking Navigation.......");
       console.log("authResolved:", authResolved);
       console.log("timerDone:", timerDone);
       console.log("user:", user);
-
 
       if (authResolved && timerDone) {
         if (user) {
           console.log("✅ User Found -> Navigate to Home");
           navigation.replace('Main');
         } else {
-
           console.log("❌ No User -> Navigate to Login");
           navigation.replace('Login');
         }
@@ -33,7 +31,7 @@ const SplashScreen = ({ navigation }) => {
       }
     };
 
-    // Minimum 2 second ka timer
+    // Minimum 2 second splash timer
     const timer = setTimeout(() => {
       console.log("⏰ 2 Seconds Completed");
       timerDone = true;
@@ -41,7 +39,6 @@ const SplashScreen = ({ navigation }) => {
     }, 2000);
 
     const unsubscribe = auth().onAuthStateChanged(currentUser => {
-
       console.log("🔥 Firebase Auth Response");
       console.log("Current User:", currentUser);
 
@@ -51,9 +48,7 @@ const SplashScreen = ({ navigation }) => {
     });
 
     return () => {
-
       console.log("🧹 SplashScreen Unmounted");
-
       clearTimeout(timer);
       unsubscribe();
     };
@@ -61,7 +56,8 @@ const SplashScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.logoCircle}>
+      {/* Container for Horizontal Logo + Wordmark */}
+      <View style={styles.logoContainer}>
         <Image
           source={require('../assests/images/logo.png')}
           style={styles.logo}
@@ -69,12 +65,11 @@ const SplashScreen = ({ navigation }) => {
         />
       </View>
 
-      <Text style={styles.appName}>Evoluzn</Text>
       <Text style={styles.tagline}>Welcome back</Text>
 
       <ActivityIndicator
         size="large"
-        color="#6366F1"
+        color={ACCENT}
         style={styles.loader}
       />
     </View>
@@ -88,39 +83,26 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
   },
-  logoCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 28,
-    backgroundColor: '#0f0f0f',
+  logoContainer: {
+    width: 260,
+    height: 90,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
-    shadowColor: '#490735',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 12,
+    marginBottom: 8,
   },
-  logoText: {
-    fontSize: 44,
-    fontWeight: '800',
-    color: '#fff',
-  },
-  appName: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#F8FAFC',
-    letterSpacing: 0.5,
+  logo: {
+    width: '100%',
+    height: '100%',
   },
   tagline: {
-    fontSize: 15,
-    color: '#94A3B8',
-    marginTop: 6,
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#6B6775',
+    marginTop: 4,
   },
   loader: {
-    marginTop: 48,
+    marginTop: 40,
   },
 });

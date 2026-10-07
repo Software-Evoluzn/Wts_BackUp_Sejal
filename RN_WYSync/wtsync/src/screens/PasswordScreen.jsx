@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   View, Text, TouchableOpacity, TextInput,
-  Alert, ActivityIndicator, ScrollView, StyleSheet, Animated,
+  Alert, ActivityIndicator, ScrollView, StyleSheet, Animated, Image, KeyboardAvoidingView, Platform
 } from 'react-native';
 import WifiManager from 'react-native-wifi-reborn';
 import Feather from 'react-native-vector-icons/Feather';
@@ -27,40 +27,35 @@ const STATUS = {
 };
 
 export default function PasswordScreen({ route, navigation }) {
-  const { network , product} = route.params;
+  const { network, product, autoConnect, serialNo, ssid, deviceId, firebaseUid } = route.params || {};
 
-  // ── Theme (unchanged) ─────────────────────────────────
-  // Follows Android system Light/Dark mode automatically via
-  // useColorScheme() inside useAppTheme(). No manual toggle.
+  console.log("Password screen serialNo", serialNo);
+
   const { colors, isDark } = useAppTheme();
+
   const styles = createStyles(colors);
 
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState(STATUS.IDLE);
   const [errorMsg, setErrorMsg] = useState('');
-  const [user , setUser] = useState(null);
+  const [user, setUser] = useState(null);
 
-  const [phoneConnected, setPhoneConnected] = useState(false)
-  const phoneWifiTimer = useRef(null)
-
-  
+  const [phoneConnected, setPhoneConnected] = useState(false);
+  const phoneWifiTimer = useRef(null);
 
   const stopPhoneWifiPolling = () => {
     if (phoneWifiTimer.current) {
       clearInterval(phoneWifiTimer.current);
-      phoneWifiTimer.current = null
-
+      phoneWifiTimer.current = null;
     }
-
   };
-
 
   // 4. Database Sync Handler
   const handleSaveToDatabase = async () => {
     try {
       const res = await saveDeviceWifi({
-        deviceId: deviceId || 'ESP32_DEFAULT_ID', // Route params or default fallback
+        deviceId: deviceId || 'ESP32_DEFAULT_ID',
         firebaseUid: firebaseUid || 'DEFAULT_UID',
         ssid: network.SSID,
         password: password,
@@ -74,35 +69,31 @@ export default function PasswordScreen({ route, navigation }) {
     } catch (err) {
       console.log('[DB Save Error]:', err);
     }
-  }; 
+  };
 
   const startPhoneWifiPolling = () => {
     setPhoneConnected(false);
 
     phoneWifiTimer.current = setInterval(async () => {
       try {
-
         const ssid = await WifiManager.getCurrentWifiSSID();
 
-        // Android sometimes returns SSID with quotes
         const currentSSID = ssid.replace(/"/g, "");
 
         console.log("Current SSID:", currentSSID);
-        console.log("Target SSID :", network.SSID);
+        console.log("Target SSID :", network?.SSID);
 
-        if (currentSSID === network.SSID) {
+        if (currentSSID === network?.SSID) {
           stopPhoneWifiPolling();
           setPhoneConnected(true);
 
           await handleSaveToDatabase();
         }
-
       } catch (error) {
         console.log("SSID Check Error:", error);
       }
-
     }, 2000);
-  }
+  };
 
   useEffect(() => {
     return () => {
@@ -111,12 +102,9 @@ export default function PasswordScreen({ route, navigation }) {
     };
   }, []);
 
-  // verification loop ke internal counters (re-render trigger na karein isliye refs)
   const pollTimer = useRef(null);
   const elapsedRef = useRef(0);
   const unreachableStreak = useRef(0);
-
-
 
   const stopPolling = () => {
     if (pollTimer.current) {
@@ -125,39 +113,36 @@ export default function PasswordScreen({ route, navigation }) {
     }
   };
 
-  // ----------------------------------------------------------------
-  // ESP AP (192.168.4.1) reachable hai ya nahi — short timeout ke saath
-  // ----------------------------------------------------------------
   const isEspApReachable = async () => {
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), 2000);
     try {
       await fetch(`${ESP_AP_IP}/`, { method: 'GET', signal: controller.signal });
       clearTimeout(t);
-      return true; // jawab aaya => AP abhi up hai => portal abhi khula hai
+      return true;
     } catch (e) {
       clearTimeout(t);
-      return false; // timeout/abort => AP gir gaya => ESP ne WiFi switch kar liya (ya channel jump)
+      return false;
     }
   };
 
-  // ----------------------------------------------------------------
-  // STEP 1: creds bhejo  (WiFiManager ka /wifisave, params: s + p)
-  // ----------------------------------------------------------------
   const handleConnect = async () => {
+    if (!network?.SSID) {
+      Alert.alert('No network selected', 'Please choose a Wi-Fi network first');
+      return;
+    }
     if (password.length < 8) {
-      Alert.alert('Error', 'Password length is less that 8 ');
+      Alert.alert('Error', 'Password length is less than 8');
       return;
     }
 
     setErrorMsg('');
     setStatus(STATUS.SENDING);
 
-    // Phone ko ESP32 AP pe pinned rakho (Android internet-less network se bhaagta hai)
     try {
       await WifiManager.forceWifiUsageWithOptions(true, { noResetOnDisconnect: false });
     } catch (e) {
-      // non-fatal — kuch devices pe ye method available nahi hota
+      // non-fatal
     }
 
     try {
@@ -172,25 +157,14 @@ export default function PasswordScreen({ route, navigation }) {
       });
       clearTimeout(t);
 
-      // NOTE: WiFiManager yahan 200 deta hai chahe password sahi ho ya galat.
-      // Iska matlab sirf itna hai ki creds receive ho gaye — connect ka result abhi pata nahi.
       console.log('[wifisave] status:', res.status);
-
     } catch (e) {
-      // POST ke beech AP drop ho sakta hai (ESP switch kar raha hai) — ye normal hai,
-      // hum verification phase me asli result nikaalenge.
       console.log('[wifisave] post error (expected possible):', e.message);
     }
 
-    // STEP 2: ab verify karo
     startVerification();
   };
 
-  // ----------------------------------------------------------------
-  // STEP 2: ESP connect hua ya nahi — AP reachability se infer karo
-  //   - baar baar reachable rehna  => portal khula => connect FAIL (wrong pass)
-  //   - reachable hona band ho jaye => AP band => connect SUCCESS
-  // ----------------------------------------------------------------
   const startVerification = () => {
     setStatus(STATUS.VERIFYING);
     elapsedRef.current = 0;
@@ -203,10 +177,8 @@ export default function PasswordScreen({ route, navigation }) {
       const reachable = await isEspApReachable();
 
       if (reachable) {
-        // AP abhi bhi zinda — ESP ne abhi tak target WiFi join nahi kiya
         unreachableStreak.current = 0;
       } else {
-        // AP gir gaya — possibly ESP ne WiFi join kar liya
         unreachableStreak.current += 1;
         if (unreachableStreak.current >= UNREACHABLE_STREAK_OK) {
           stopPolling();
@@ -215,7 +187,6 @@ export default function PasswordScreen({ route, navigation }) {
         }
       }
 
-      // Time khatam aur AP abhi bhi reachable => connect fail (sabse common: wrong password)
       if (elapsedRef.current >= MAX_VERIFY_MS) {
         stopPolling();
         onFailed();
@@ -242,15 +213,23 @@ export default function PasswordScreen({ route, navigation }) {
     setErrorMsg('');
   };
 
+  const handleProceedToConnected = () => {
+    navigation.navigate('WifiConnectedScreen', {
+      product,
+      network,
+      password,
+      deviceId,
+      firebaseUid,
+      autoConnect,
+      serialNo,
+      ssid
+    });
+  };
+
   const busy = status === STATUS.SENDING || status === STATUS.VERIFYING;
 
-  // ── Visual-only entrance animation (new) ──────────────
-  // Mirrors DeviceConfig's header/card entrance treatment. Purely
-  // presentational — does not touch state machine, polling, or nav.
   const headerFade = useRef(new Animated.Value(0)).current;
   const headerSlide = useRef(new Animated.Value(10)).current;
-  const accentLineWidth = useRef(new Animated.Value(0)).current;
-  const eyebrowFade = useRef(new Animated.Value(0)).current;
   const cardFade = useRef(new Animated.Value(0)).current;
   const cardSlide = useRef(new Animated.Value(14)).current;
 
@@ -258,16 +237,11 @@ export default function PasswordScreen({ route, navigation }) {
     Animated.parallel([
       Animated.timing(headerFade, { toValue: 1, duration: 550, useNativeDriver: true }),
       Animated.timing(headerSlide, { toValue: 0, duration: 550, useNativeDriver: true }),
-      Animated.timing(eyebrowFade, { toValue: 1, duration: 500, useNativeDriver: true }),
-      Animated.timing(accentLineWidth, { toValue: 56, duration: 700, delay: 200, useNativeDriver: false }),
       Animated.timing(cardFade, { toValue: 1, duration: 600, delay: 150, useNativeDriver: true }),
       Animated.timing(cardSlide, { toValue: 0, duration: 600, delay: 150, useNativeDriver: true }),
     ]).start();
   }, []);
 
-  // Theme-aware tints for status cards / pills (unchanged logic,
-  // restyled to match the reference screen's soft-tint system —
-  // background tint + foreground color, no saturated fills).
   const statusColors = {
     success: {
       bg: isDark ? 'rgba(29,158,117,0.14)' : '#F0FDF4',
@@ -281,342 +255,447 @@ export default function PasswordScreen({ route, navigation }) {
     },
   };
 
-  // ----------------------------------------------------------------
-  // UI
-  // ----------------------------------------------------------------
   return (
-    <ScrollView
-      contentContainerStyle={{ flexGrow: 1, backgroundColor: colors.background }}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          disabled={busy}
-          activeOpacity={0.7}
-          style={styles.backRow}
-        >
-          <Feather name="chevron-left" size={18} color={colors.subText} />
-          <Text style={styles.backText}>Back</Text>
-        </TouchableOpacity>
-
-        <Animated.View
-          style={[
-            styles.header,
-            { opacity: headerFade, transform: [{ translateY: headerSlide }] },
-          ]}
-        >
-          <Animated.Text style={[styles.eyebrow, { opacity: eyebrowFade }]}>
-            DEVICE SETUP
-          </Animated.Text>
-          <Text style={styles.heading}>Configure Device</Text>
-          <Text style={styles.subtitle}>
-            Enter the WiFi password so your ESP32 device can join this network.
-          </Text>
-          <Animated.View style={[styles.accentLine, { width: accentLineWidth }]} />
-        </Animated.View>
-
-        <Animated.View style={{ opacity: cardFade, transform: [{ translateY: cardSlide }] }}>
-
-          {/* Target network row */}
-          <View style={styles.networkCard}>
-            <View style={styles.networkIconWrap}>
-              <Feather name="wifi" size={18} color={colors.text} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        style={{ flex: 1 }}
+      >
+        {/* App Bar Header */}
+        <View style={styles.topHeader}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            disabled={busy}
+            activeOpacity={0.7}
+            style={styles.backButton}
+          >
+            <Feather name="arrow-left" size={20} color="#333333" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>IntelliTemp <Text style={styles.headerSubTitle}>4P</Text></Text>
+          <View style={styles.logoContainer}>
+            <View style={styles.logoIcon}>
+              <Text style={styles.logoTextSymbol}>e</Text>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.networkLabel}>CONNECTING TO</Text>
-              <Text style={styles.networkSsid} numberOfLines={1}>{network.SSID}</Text>
-            </View>
+            <Text style={styles.brandName}>evoluzn</Text>
+          </View>
+        </View>
+
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Progress Indicator Steps */}
+          <View style={styles.stepProgressContainer}>
+            <View style={[styles.stepSegment, styles.stepSegmentActive]} />
+            <View style={[styles.stepSegment, styles.stepSegmentActive]} />
+            <View style={styles.stepSegment} />
+            <View style={styles.stepSegment} />
+            <View style={styles.stepSegment} />
+            <View style={styles.stepSegment} />
           </View>
 
-          {/* Password field */}
-          <View style={styles.fieldCard}>
-            <View style={styles.fieldIconWrap}>
-              <Feather name="lock" size={16} color={colors.subText} />
-            </View>
-            <TextInput
-              style={styles.passwordInput}
-              placeholder="Enter Password"
-              placeholderTextColor={colors.subText}
-              secureTextEntry={!showPassword}
-              value={password}
-              onChangeText={setPassword}
-              editable={status === STATUS.IDLE}
-            />
-            <TouchableOpacity
-              onPress={() => setShowPassword(!showPassword)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              activeOpacity={0.7}
-            >
-              <Feather
-                name={showPassword ? 'eye-off' : 'eye'}
-                size={18}
-                color={colors.subText}
-              />
-            </TouchableOpacity>
-          </View>
+          {/* Heading Section */}
+          <Animated.View
+            style={[
+              styles.header,
+              { opacity: headerFade, transform: [{ translateY: headerSlide }] },
+            ]}
+          >
+            <Text style={styles.eyebrow}>STEP 2 OF 6 · CONNECT</Text>
+            <Text style={styles.heading}>Connect IntelliTemp.</Text>
+            <Text style={styles.subtitle}>
+              Enter the password for your selected site network.
+            </Text>
+          </Animated.View>
 
-          {/* ---- IDLE: configure button ---- */}
-          {status === STATUS.IDLE && (
-            <TouchableOpacity style={styles.button} onPress={handleConnect} activeOpacity={0.85}>
-              <Feather name="link" size={16} color="#fff" />
-              <Text style={styles.buttonText}>Configure Device</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* ---- SENDING / VERIFYING: spinner ---- */}
-          {busy && (
-            <View style={[styles.button, styles.buttonBusy]}>
-              <ActivityIndicator size="small" color="#fff" />
-              <Text style={styles.buttonText}>
-                {status === STATUS.SENDING ? 'Sending credentials...' : 'Verifying connection...'}
-              </Text>
-            </View>
-          )}
-
-          {/* ---- SUCCESS ---- */}
-          {status === STATUS.SUCCESS && (
-            <View
-              style={[
-                styles.statusCard,
-                { backgroundColor: statusColors.success.bg, borderColor: statusColors.success.border },
-              ]}
-            >
-              <View style={[styles.statusIconWrap, { backgroundColor: `${statusColors.success.fg}1A` }]}>
-                <Feather name="check" size={22} color={statusColors.success.fg} />
+          <Animated.View style={{ opacity: cardFade, transform: [{ translateY: cardSlide }] }}>
+            
+            {/* Target Network Card */}
+            <View style={styles.networkCard}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.networkLabel}>SITE WI-FI NETWORK</Text>
+                <Text style={styles.networkSsid} numberOfLines={1}>{network?.SSID || 'Evoluzn_Demo_2G'}</Text>
+                <Text style={styles.networkSubDetails}>2.4 GHz · Password protected</Text>
               </View>
-              <Text style={[styles.statusTitle, { color: statusColors.success.fg }]}>
-                Connected
-              </Text>
-              <Text style={styles.statusBody}>
-                Device connected to "{network.SSID}".
-              </Text>
+              <Feather name="wifi" size={20} color="#4A4A4A" />
+            </View>
 
-              <View style={styles.phonePill}>
-                <View
-                  style={[
-                    styles.phonePillDot,
-                    { backgroundColor: phoneConnected ? statusColors.success.fg : colors.subText },
-                  ]}
+            {/* Password Field Label */}
+            <View style={styles.labelRow}>
+              <Text style={styles.fieldLabel}>Password</Text>
+              <Text style={styles.requiredAsterisk}>*</Text>
+            </View>
+
+            {/* Password Input Box */}
+            <View style={styles.fieldCard}>
+              <Feather name="lock" size={18} color="#8E8E93" style={{ marginRight: 10 }} />
+              <TextInput
+                style={styles.passwordInput}
+                placeholder=""
+                placeholderTextColor={colors.subText}
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+                editable={status === STATUS.IDLE}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                activeOpacity={0.7}
+              >
+                <Feather
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  size={18}
+                  color="#8E8E93"
                 />
-                <Text style={styles.phonePillText} numberOfLines={1}>
-                  {phoneConnected
-                    ? `Phone connected to "${network.SSID}"`
-                    : `Waiting for phone to connect to "${network.SSID}"...`}
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.helperText}>Passwords remain hidden by default.</Text>
+
+            {/* Power Note Box */}
+            <View style={styles.infoBox}>
+              <Feather name="zap" size={16} color="#9C3AB3" style={{ marginRight: 10 }} />
+              <Text style={styles.infoBoxText}>
+                Keep IntelliTemp powered while the connection is configured.
+              </Text>
+            </View>
+
+            {/* Choose another network button */}
+            <TouchableOpacity 
+              onPress={() => navigation.goBack()}
+              disabled={busy}
+              style={styles.chooseNetworkButton}
+            >
+              <Text style={styles.chooseNetworkText}>Choose another network</Text>
+            </TouchableOpacity>
+
+            {/* ---- SENDING / VERIFYING: spinner ---- */}
+            {busy && (
+              <View style={[styles.button, styles.buttonBusy]}>
+                <ActivityIndicator size="small" color="#fff" />
+                <Text style={styles.buttonText}>
+                  {status === STATUS.SENDING ? 'Sending credentials...' : 'Verifying connection...'}
                 </Text>
               </View>
+            )}
 
-              <TouchableOpacity
-                disabled={!phoneConnected}
-                onPress={() => navigation.navigate('ProductRegister',{product})}
-                activeOpacity={0.85}
-                style={[styles.button, styles.statusButtonSpacing, !phoneConnected && styles.buttonDisabled]}
+            {/* ---- SUCCESS ---- */}
+            {status === STATUS.SUCCESS && (
+              <View
+                style={[
+                  styles.statusCard,
+                  { backgroundColor: statusColors.success.bg, borderColor: statusColors.success.border },
+                ]}
               >
-                <Feather name="arrow-right" size={16} color="#fff" />
-                <Text style={styles.buttonText}>Continue to Installation</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+                <View style={[styles.statusIconWrap, { backgroundColor: `${statusColors.success.fg}1A` }]}>
+                  <Feather name="check" size={22} color={statusColors.success.fg} />
+                </View>
+                <Text style={[styles.statusTitle, { color: statusColors.success.fg }]}>
+                  Connected
+                </Text>
+                <Text style={styles.statusBody}>
+                  Device connected to "{network.SSID}".
+                </Text>
 
-          {/* ---- FAILED ---- */}
-          {status === STATUS.FAILED && (
-            <View
-              style={[
-                styles.statusCard,
-                { backgroundColor: statusColors.error.bg, borderColor: statusColors.error.border },
-              ]}
-            >
-              <View style={[styles.statusIconWrap, { backgroundColor: `${statusColors.error.fg}1A` }]}>
-                <Feather name="x" size={22} color={statusColors.error.fg} />
+                <View style={styles.phonePill}>
+                  <View
+                    style={[
+                      styles.phonePillDot,
+                      { backgroundColor: phoneConnected ? statusColors.success.fg : colors.subText },
+                    ]}
+                  />
+                  <Text style={styles.phonePillText} numberOfLines={1}>
+                    {phoneConnected
+                      ? `Phone connected to "${network.SSID}"`
+                      : `Waiting for phone to connect to "${network.SSID}"...`}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  disabled={!phoneConnected}
+                  onPress={handleProceedToConnected}
+                  activeOpacity={0.85}
+                  style={[styles.button, styles.statusButtonSpacing, !phoneConnected && styles.buttonDisabled]}
+                >
+                  <Text style={styles.buttonText}>Continue to Installation</Text>
+                  <Feather name="arrow-right" size={16} color="#fff" />
+                </TouchableOpacity>
               </View>
-              <Text style={[styles.statusTitle, { color: statusColors.error.fg }]}>
-                Not Connected
-              </Text>
-              <Text style={[styles.statusBody, { color: isDark ? '#FCA5A5' : '#7F1D1D' }]}>
-                {errorMsg}
-              </Text>
+            )}
 
-              <TouchableOpacity
-                onPress={handleRetry}
-                activeOpacity={0.85}
-                style={[styles.button, styles.buttonDestructive, styles.statusButtonSpacing]}
+            {/* ---- FAILED ---- */}
+            {status === STATUS.FAILED && (
+              <View
+                style={[
+                  styles.statusCard,
+                  { backgroundColor: statusColors.error.bg, borderColor: statusColors.error.border },
+                ]}
               >
-                <Feather name="refresh-cw" size={16} color={statusColors.error.fg} />
-                <Text style={[styles.buttonText, { color: statusColors.error.fg }]}>Try Again</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </Animated.View>
-      </View>
-    </ScrollView>
+                <View style={[styles.statusIconWrap, { backgroundColor: `${statusColors.error.fg}1A` }]}>
+                  <Feather name="x" size={22} color={statusColors.error.fg} />
+                </View>
+                <Text style={[styles.statusTitle, { color: statusColors.error.fg }]}>
+                  Not Connected
+                </Text>
+                <Text style={[styles.statusBody, { color: isDark ? '#FCA5A5' : '#7F1D1D' }]}>
+                  {errorMsg}
+                </Text>
+
+                <TouchableOpacity
+                  onPress={handleRetry}
+                  activeOpacity={0.85}
+                  style={[styles.button, styles.buttonDestructive, styles.statusButtonSpacing]}
+                >
+                  <Feather name="refresh-cw" size={16} color={statusColors.error.fg} />
+                  <Text style={[styles.buttonText, { color: statusColors.error.fg }]}>Try Again</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </Animated.View>
+        </ScrollView>
+
+        {/* Bottom Bar containing Primary Action Button */}
+        {status === STATUS.IDLE && (
+          <View style={styles.bottomBar}>
+            <TouchableOpacity style={styles.button} onPress={handleConnect} activeOpacity={0.85}>
+              <Text style={styles.buttonText}>Connect to site Wi-Fi</Text>
+              <Feather name="arrow-right" size={18} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.poweredByText}>
+              Powered By <Text style={styles.poweredByBrand}>EVOLUZN</Text>
+            </Text>
+          </View>
+        )}
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const createStyles = (colors) => StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 8,
-    paddingBottom: 40,
-  },
-
-  backRow: {
+  topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    marginTop: 12,
-    marginBottom: 8,
-    alignSelf: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
   },
-  backText: {
+  backButton: {
+    padding: 4,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#222222',
+  },
+  headerSubTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#777777',
+  },
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  logoIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#9C27B0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoTextSymbol: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginTop: -2,
+  },
+  brandName: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.subText,
+    color: '#333333',
   },
-
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 20,
+    backgroundColor: '#F8F9FB',
+  },
+  stepProgressContainer: {
+    flexDirection: 'row',
+    gap: 6,
+    marginVertical: 16,
+  },
+  stepSegment: {
+    flex: 1,
+    height: 3,
+    backgroundColor: '#E5E5EA',
+    borderRadius: 2,
+  },
+  stepSegmentActive: {
+    backgroundColor: '#8E24AA',
+  },
   header: {
-    paddingTop: 12,
-    marginBottom: 28,
+    marginBottom: 20,
   },
   eyebrow: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: colors.subText,
-    letterSpacing: 1,
-    marginBottom: 10,
-    textTransform: 'uppercase',
+    color: '#8E24AA',
+    letterSpacing: 0.8,
+    marginBottom: 6,
   },
   heading: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.text,
-    letterSpacing: -0.6,
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#111111',
+    letterSpacing: -0.4,
   },
   subtitle: {
     fontSize: 14,
-    color: colors.subText,
-    marginTop: 8,
-    lineHeight: 21,
-    maxWidth: 320,
+    color: '#666666',
+    marginTop: 6,
+    lineHeight: 20,
   },
-  accentLine: {
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: '#9C3AB3',
-    marginTop: 18,
-    opacity: 0.6,
-  },
-
-  // Target network summary row
   networkCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 20,
     borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#0B0D12',
-    shadowOpacity: 0.05,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 2,
-  },
-  networkIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-    backgroundColor: 'rgba(120,120,128,0.14)',
+    borderColor: '#EFEFEF',
   },
   networkLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.subText,
+    color: '#8E24AA',
     letterSpacing: 0.8,
-    marginBottom: 3,
+    marginBottom: 4,
   },
   networkSsid: {
     fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    letterSpacing: -0.2,
+    fontWeight: '700',
+    color: '#111111',
   },
-
-  // Password field
+  networkSubDetails: {
+    fontSize: 13,
+    color: '#777777',
+    marginTop: 4,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333333',
+  },
+  requiredAsterisk: {
+    color: '#D32F2F',
+    marginLeft: 4,
+    fontSize: 14,
+  },
   fieldCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     borderWidth: 1,
-    borderColor: colors.border,
-    gap: 12,
-  },
-  fieldIconWrap: {
-    width: 30,
-    alignItems: 'center',
+    borderColor: '#E0E0E0',
   },
   passwordInput: {
     flex: 1,
     fontSize: 16,
-    fontWeight: '500',
-    color: colors.text,
-    paddingVertical: 4,
+    color: '#111111',
+    paddingVertical: 0,
   },
-
-  // Buttons — monochromatic system matching DeviceConfig: rich-black
-  // primary, bordered destructive/muted variants. No saturated fills.
+  helperText: {
+    fontSize: 12,
+    color: '#777777',
+    marginTop: 6,
+    marginBottom: 20,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 24,
+  },
+  infoBoxText: {
+    fontSize: 13,
+    color: '#666666',
+    flex: 1,
+    lineHeight: 18,
+  },
+  chooseNetworkButton: {
+    alignSelf: 'flex-start',
+    marginBottom: 20,
+  },
+  chooseNetworkText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#8E24AA',
+  },
+  bottomBar: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    alignItems: 'center',
+  },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
     width: '100%',
-    backgroundColor: '#9C3AB3',
-    shadowColor: '#0B0D12',
-    shadowOpacity: 0.16,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 3,
+    backgroundColor: '#8E24AA',
   },
   buttonBusy: {
     opacity: 0.9,
   },
   buttonDisabled: {
     opacity: 0.4,
-    shadowOpacity: 0,
-    elevation: 0,
   },
   buttonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
-    letterSpacing: 0.1,
   },
   buttonDestructive: {
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: 'rgba(185,28,28,0.28)',
-    shadowOpacity: 0,
-    elevation: 0,
   },
-
-  // Status cards (success / failed)
+  poweredByText: {
+    fontSize: 11,
+    color: '#888888',
+    marginTop: 10,
+  },
+  poweredByBrand: {
+    fontWeight: '700',
+    color: '#8E24AA',
+  },
   statusCard: {
     marginTop: 4,
     padding: 22,
-    borderRadius: 22,
+    borderRadius: 16,
     borderWidth: 1,
     alignItems: 'center',
   },
@@ -644,7 +723,6 @@ const createStyles = (colors) => StyleSheet.create({
   statusButtonSpacing: {
     marginTop: 18,
   },
-
   phonePill: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -2,665 +2,429 @@ import {
   StyleSheet,
   Text,
   View,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   Switch,
-  Alert,
-  Animated,
   StatusBar,
+  Image,
+  Platform,
 } from 'react-native';
-
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-
-import { getUserDetails } from '../services/AuthService';
-
-import { getProducts } from '../services/ProductApi';
-
-import { logoutUser } from '../services/AuthService';
-
+import React, { useEffect, useState } from 'react';
 import Feather from 'react-native-vector-icons/Feather';
 
+import { getUserDetails, logoutUser } from '../services/AuthService';
 import { useAppTheme } from '../services/theme';
 
 const SettingsScreen = ({ navigation }) => {
-  const { colors, isDark } = useAppTheme();
-  const styles = createStyles(colors);
+  const { colors, isDark, themeMode, setThemeMode } = useAppTheme();
+  const styles = createStyles(colors, isDark);
 
-  const [user, setuser] = useState(null);
-
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const [products, setProducts] = useState([]);
-  const [productCount, setProductCount] = useState(null);
-
-  // Notification preferences
-  const [smsEnabled, setSmsEnabled] = useState(false);
-  const [smsNumber, setSmsNumber] = useState('');
-  const [emailEnabled, setEmailEnabled] = useState(false);
-  const [notificationEmail, setNotificationEmail] = useState('');
-  const [notificationErrors, setNotificationErrors] = useState({});
-
-  // Header fade-in animation
-  const headerFade = useRef(new Animated.Value(0)).current;
+  // Master & Notification Toggles
+  const [masterEnabled, setMasterEnabled] = useState(false);
+  const [emailEnabled, setEmailEnabled] = useState(true);
 
   useEffect(() => {
     loadSettingData();
-
-    Animated.timing(headerFade, {
-      toValue: 1,
-      duration: 400,
-      useNativeDriver: true,
-    }).start();
   }, []);
 
   const loadSettingData = async () => {
     try {
       setLoading(true);
-
       const userResult = await getUserDetails();
-
       if (userResult.success) {
-        console.log('sejal want to see this user details ', userResult.user);
-        setuser(userResult.user);
-
-        // Default the notification destinations to the account's
-        // email/contact the first time we load, user can still change them
-        setSmsNumber((prev) => prev || userResult.user?.contact || '');
-        setNotificationEmail((prev) => prev || userResult.user?.email || '');
-      }
-
-      const productResult = await getProducts();
-      if (productResult.success) {
-        console.log(
-          'sejal want to see the product list and no',
-          productResult.products,
-        );
-        console.log(
-          'sejal want to see the product list and no',
-          productResult.products.length,
-        );
-
-        setProducts(productResult.products);
-        setProductCount(productResult.products.length);
+        setUser(userResult.user);
       }
     } catch (error) {
-      console.log('Setting screen ', error);
+      console.log('Setting screen error:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const userName = user?.name || '';
-  const email = user?.email || '';
-  const contact = user?.contact || '';
+  const handleThemeToggle = (value) => {
+    setThemeMode(value ? 'dark' : 'light');
+  };
 
-  const validateNotificationSettings = useCallback(() => {
-    const newErrors = {};
+  const userName = user?.name || 'Demo facility manager';
+  const email = user?.email || 'operator@demo.example';
 
-    if (smsEnabled) {
-      const digitsOnly = (smsNumber || '').replace(/\D/g, '');
-      if (!digitsOnly) {
-        newErrors.smsNumber = 'Enter a phone number for SMS alerts';
-      } else if (digitsOnly.length !== 10) {
-        newErrors.smsNumber = 'Phone number must be 10 digits';
-      }
-    }
-
-    if (emailEnabled) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!notificationEmail || !notificationEmail.trim()) {
-        newErrors.notificationEmail = 'Enter an email for alerts';
-      } else if (!emailRegex.test(notificationEmail.trim())) {
-        newErrors.notificationEmail = 'Enter a valid email address';
-      }
-    }
-
-    setNotificationErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  }, [smsEnabled, smsNumber, emailEnabled, notificationEmail]);
-
-  const handleSaveNotifications = useCallback(() => {
-    const isValid = validateNotificationSettings();
-
-    if (!isValid) {
-      Alert.alert('Please fix the highlighted fields', 'Some information needs your attention.');
-      return;
-    }
-
-    const notificationSettings = {
-      smsEnabled,
-      smsNumber: smsEnabled ? smsNumber.trim() : '',
-      emailEnabled,
-      notificationEmail: emailEnabled ? notificationEmail.trim() : '',
-    };
-
-    console.log(notificationSettings);
-
-    // API integration will be added here later
-  }, [validateNotificationSettings, smsEnabled, smsNumber, emailEnabled, notificationEmail]);
+  // Get initials for avatar badge
+  const initials = userName
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .substring(0, 2)
+    .toUpperCase();
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
+    <View style={styles.container}>
       <StatusBar
         barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={colors.background}
+        backgroundColor={colors.card}
+        translucent={true}
       />
 
-      {/* Header */}
-      <Animated.View style={[styles.header, { opacity: headerFade }]}>
-        <Text style={styles.greeting}>Account</Text>
-        <Text style={styles.screenTitle}>Settings</Text>
-      </Animated.View>
-
-      {/* Identity Card */}
-      <View style={styles.identityCard}>
-        <View style={styles.identityTop}>
-          <View style={styles.identityAvatar}>
-            <Text style={styles.identityAvatarText}>
-              {userName ? userName.charAt(0).toUpperCase() : 'U'}
-            </Text>
-          </View>
-          <View style={styles.identityInfo}>
-            <Text style={styles.identityName} numberOfLines={1}>
-              {userName || '—'}
-            </Text>
-            <Text style={styles.identityEmail} numberOfLines={1}>
-              {email || '—'}
-            </Text>
-          </View>
-          <View style={styles.statusBadge}>
-            <View style={styles.statusDot} />
-            <Text style={styles.statusText}>ACTIVE</Text>
-          </View>
+      {/* Top Header Row with Logo placed in the upper right */}
+      <View style={styles.topHeaderContainer}>
+        <View style={styles.brandRow}>
+          <Feather name="thermometer" size={22} color="#8A2586" />
+          <Text style={styles.brandTitle}>IntelliTemp</Text>
         </View>
+        <Image
+          source={require('../assests/images/logo.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
       </View>
 
-      {/* Profile Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Profile</Text>
-          <Feather name="user" size={16} color={colors.subText} />
+      <ScrollView
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Screen Title Header */}
+        <View style={styles.header}>
+          <Text style={styles.categoryLabel}>SETTINGS</Text>
+          <Text style={styles.screenTitle}>Account & preferences.</Text>
+          <Text style={styles.screenSubTitle}>
+            One clear master setting. Device-specific rules remain visible.
+          </Text>
         </View>
 
+        {/* User Card */}
         <View style={styles.card}>
-          <View style={styles.dataRow}>
-            <Text style={styles.dataLabel}>Name</Text>
-            <Text style={styles.dataValue} numberOfLines={1}>
-              {userName || 'Not set'}
-            </Text>
+          <View style={styles.userRow}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{initials}</Text>
+            </View>
+            <View style={styles.userInfo}>
+              <Text style={styles.userName} numberOfLines={1}>
+                {userName}
+              </Text>
+              <Text style={styles.userEmail} numberOfLines={1}>
+                {email}
+              </Text>
+            </View>
           </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.dataRow}>
-            <Text style={styles.dataLabel}>Email</Text>
-            <Text style={styles.dataValue} numberOfLines={1}>
-              {email || 'Not set'}
-            </Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.dataRow}>
-            <Text style={styles.dataLabel}>Phone</Text>
-            <Text style={styles.dataValue} numberOfLines={1}>
-              {contact || 'Not available'}
-            </Text>
-          </View>
-
           <TouchableOpacity
-            style={styles.editButton}
-            activeOpacity={0.85}
+            style={styles.editContactRow}
+            activeOpacity={0.7}
             onPress={() => navigation.navigate('EditProfile')}
           >
-            <Text style={styles.editButtonText}>Edit Profile</Text>
-            <Feather name="arrow-right" size={16} color="#9C3AB3" />
+            <Text style={styles.editContactText}>Edit contact details</Text>
+            <Feather name="chevron-right" size={16} color="#8A2586" />
           </TouchableOpacity>
         </View>
-      </View>
 
-      {/* Notifications Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Notifications</Text>
-          <Feather name="bell" size={16} color={colors.subText} />
-        </View>
-
+        {/* Theme, Master & Email Notification Toggles Card */}
         <View style={styles.card}>
-          {/* SMS Alerts */}
+          {/* Dark Theme Switch */}
           <View style={styles.switchRow}>
             <View style={styles.switchTextWrapper}>
-              <Text style={styles.deviceLabel}>SMS Alerts</Text>
-              <Text style={styles.deviceSubLabel}>
-                Receive updates via text message
+              <Text style={styles.switchTitle}>Dark Mode</Text>
+              <Text style={styles.switchSubTitle}>
+                {isDark ? 'Dark theme enabled.' : 'Light theme enabled.'}
               </Text>
             </View>
             <Switch
-              value={smsEnabled}
-              onValueChange={setSmsEnabled}
-              trackColor={{ false: '#E5E7EB', true: '#34D399' }}
+              value={isDark}
+              onValueChange={handleThemeToggle}
+              trackColor={{ false: '#DCDFE4', true: '#8A2586' }}
               thumbColor="#FFFFFF"
-              ios_backgroundColor="#E5E7EB"
+              ios_backgroundColor="#DCDFE4"
             />
           </View>
 
-          {smsEnabled ? (
-            <View style={styles.fieldWrapper}>
-              <Text style={styles.fieldLabel}>Send SMS To</Text>
-              <View
-                style={[
-                  styles.inputRow,
-                  notificationErrors.smsNumber && styles.inputRowError,
-                ]}
-              >
-                <TextInput
-                  style={styles.textInput}
-                  value={smsNumber}
-                  onChangeText={setSmsNumber}
-                  placeholder="Enter phone number"
-                  placeholderTextColor={colors.subText}
-                  keyboardType="phone-pad"
-                />
-              </View>
-              {notificationErrors.smsNumber ? (
-                <Text style={styles.errorText}>{notificationErrors.smsNumber}</Text>
-              ) : null}
+          <View style={styles.divider} />
+
+          {/* Master notifications */}
+          <View style={styles.switchRow}>
+            <View style={styles.switchTextWrapper}>
+              <Text style={styles.switchTitle}>Master notifications</Text>
+              <Text style={styles.switchSubTitle}>
+                {masterEnabled
+                  ? 'Device email/SMS notifications allowed.'
+                  : 'Device email/SMS notifications blocked.'}
+              </Text>
             </View>
-          ) : null}
+            <Switch
+              value={masterEnabled}
+              onValueChange={setMasterEnabled}
+              trackColor={{ false: '#DCDFE4', true: '#8A2586' }}
+              thumbColor="#FFFFFF"
+              ios_backgroundColor="#DCDFE4"
+            />
+          </View>
 
           <View style={styles.divider} />
 
-          {/* Email Alerts */}
+          {/* Email notifications */}
           <View style={styles.switchRow}>
             <View style={styles.switchTextWrapper}>
-              <Text style={styles.deviceLabel}>Email Alerts</Text>
-              <Text style={styles.deviceSubLabel}>
-                Receive updates via email
-              </Text>
+              <Text style={styles.switchTitle}>Email notifications</Text>
+              <Text style={styles.switchSubTitle}>Device recipients still apply.</Text>
             </View>
             <Switch
               value={emailEnabled}
               onValueChange={setEmailEnabled}
-              trackColor={{ false: '#E5E7EB', true: '#34D399' }}
+              trackColor={{ false: '#DCDFE4', true: '#8A2586' }}
               thumbColor="#FFFFFF"
-              ios_backgroundColor="#E5E7EB"
+              ios_backgroundColor="#DCDFE4"
             />
           </View>
-
-          {emailEnabled ? (
-            <View style={[styles.fieldWrapper, styles.fieldWrapperLast]}>
-              <Text style={styles.fieldLabel}>Send Email To</Text>
-              <View
-                style={[
-                  styles.inputRow,
-                  notificationErrors.notificationEmail && styles.inputRowError,
-                ]}
-              >
-                <TextInput
-                  style={styles.textInput}
-                  value={notificationEmail}
-                  onChangeText={setNotificationEmail}
-                  placeholder="Enter email address"
-                  placeholderTextColor={colors.subText}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              </View>
-              {notificationErrors.notificationEmail ? (
-                <Text style={styles.errorText}>
-                  {notificationErrors.notificationEmail}
-                </Text>
-              ) : null}
-            </View>
-          ) : null}
-
-          {smsEnabled || emailEnabled ? (
-            <TouchableOpacity
-              style={styles.editButton}
-              activeOpacity={0.85}
-              onPress={handleSaveNotifications}
-            >
-              <Text style={styles.editButtonText}>Save Notification Preferences</Text>
-              <Feather name="check" size={16} color="#9C3AB3" />
-            </TouchableOpacity>
-          ) : null}
-        </View>
-      </View>
-
-      {/* Devices Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>My Devices</Text>
-          <Feather name="cpu" size={16} color={colors.subText} />
         </View>
 
-        <View style={styles.card}>
-          <View style={styles.deviceRow}>
-            <View>
-              <Text style={styles.deviceLabel}>Registered Devices</Text>
-              <Text style={styles.deviceSubLabel}>
-                Connected to your account
-              </Text>
-            </View>
-            <Text style={styles.deviceCount}>
-              {loading ? '—' : productCount}
+        {/* Warning Banner */}
+        {!masterEnabled && (
+          <View style={styles.warningBanner}>
+            <Feather name="bell-off" size={18} color="#B4690E" style={styles.warningIcon} />
+            <Text style={styles.warningText}>
+              Your saved device recipients will not receive email/SMS while the master is off.
             </Text>
           </View>
+        )}
+
+        {/* Navigation List Card */}
+        <View style={styles.card}>
+          {/* Device alert recipients */}
+          <TouchableOpacity
+            style={styles.navRow}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('DeviceRecipients')}
+          >
+            <View style={styles.navLeft}>
+              <Feather name="bell" size={18} color={colors.subText} />
+              <Text style={styles.navText}>Device alert recipients</Text>
+            </View>
+            <Feather name="chevron-right" size={18} color={colors.subText} />
+          </TouchableOpacity>
+
+          <View style={styles.divider} />
+
+          {/* Device & service records */}
+          <TouchableOpacity
+            style={styles.navRow}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('ServiceRecords')}
+          >
+            <View style={styles.navLeft}>
+              <Feather name="file-text" size={18} color={colors.subText} />
+              <Text style={styles.navText}>Device & service records</Text>
+            </View>
+            <Feather name="chevron-right" size={18} color={colors.subText} />
+          </TouchableOpacity>
+
+          <View style={styles.divider} />
+
+          {/* Sign out */}
+          <TouchableOpacity
+            style={styles.navRow}
+            activeOpacity={0.7}
+            onPress={() => {
+              logoutUser();
+              navigation.replace('Login');
+            }}
+          >
+            <View style={styles.navLeft}>
+              <Feather name="log-out" size={18} color={colors.subText} />
+              <Text style={styles.navText}>Sign out</Text>
+            </View>
+            <Feather name="chevron-right" size={18} color={colors.subText} />
+          </TouchableOpacity>
         </View>
-      </View>
-
-      {/* Logout */}
-      <TouchableOpacity
-        style={styles.logoutButton}
-        activeOpacity={0.85}
-        onPress={() => {
-          logoutUser();
-          navigation.replace('Login');
-        }}
-      >
-        <Feather
-          name="log-out"
-          size={18}
-          color="#EF4444"
-          style={styles.logoutIcon}
-        />
-        <Text style={styles.logoutText}>Logout</Text>
-      </TouchableOpacity>
-
-      <Text style={styles.version}>IntelliTemp v1.0.0</Text>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
 export default SettingsScreen;
 
-const createStyles = (colors) =>
+const createStyles = (colors, isDark) =>
   StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: colors.background,
     },
+    topHeaderContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingTop: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight || 24) + 12,
+      paddingBottom: 12,
+      backgroundColor: colors.card,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    brandRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    brandTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.text,
+    },
+    logoImage: {
+      width: 90,
+      height: 28,
+    },
     contentContainer: {
-      paddingHorizontal: 24,
-      paddingTop: 24,
-      paddingBottom: 48,
+      paddingHorizontal: 20,
+      paddingTop: 16,
+      paddingBottom: 32,
     },
 
-    // Header
+    // Header Labels
     header: {
-      width: '100%',
-      marginBottom: 32,
+      marginBottom: 20,
     },
-    greeting: {
-      fontSize: 13,
-      fontWeight: '500',
-      color: colors.subText,
-      letterSpacing: 0.4,
-      textTransform: 'uppercase',
+    categoryLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: '#8A2586',
+      letterSpacing: 0.8,
       marginBottom: 6,
     },
     screenTitle: {
-      fontSize: 34,
+      fontSize: 26,
       fontWeight: '800',
       color: colors.text,
-      letterSpacing: -0.6,
-      width: '100%',
+      letterSpacing: -0.4,
+      marginBottom: 6,
+    },
+    screenSubTitle: {
+      fontSize: 14,
+      color: colors.subText,
+      lineHeight: 20,
     },
 
-    // Identity Card (intentionally kept as a fixed brand accent card
-    // in both themes to preserve the existing brand look — not
-    // remapped to colors.card per "identical in light mode" requirement)
-    identityCard: {
-      backgroundColor: '#7F2E94',
-      borderRadius: 24,
-      padding: 22,
-      marginBottom: 32,
-      shadowColor: '#0B0D12',
-      shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: 0.18,
-      shadowRadius: 24,
-      elevation: 3,
+    // White/Dark Card Wrapper
+    card: {
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.02,
+      shadowRadius: 8,
+      elevation: 1,
     },
-    identityTop: {
+
+    // Profile Card Inner UI
+    userRow: {
       flexDirection: 'row',
       alignItems: 'center',
+      marginBottom: 12,
     },
-    identityAvatar: {
-      width: 52,
-      height: 52,
-      borderRadius: 26,
-      backgroundColor: 'rgba(255,255,255,0.12)',
+    avatar: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: isDark ? '#381C37' : '#F4E8F5',
       justifyContent: 'center',
       alignItems: 'center',
       marginRight: 14,
     },
-    identityAvatarText: {
-      fontSize: 20,
+    avatarText: {
+      fontSize: 16,
       fontWeight: '700',
-      color: '#fff',
+      color: '#8A2586',
     },
-    identityInfo: {
+    userInfo: {
       flex: 1,
-      marginRight: 10,
     },
-    identityName: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: '#fff',
-      marginBottom: 3,
-    },
-    identityEmail: {
-      fontSize: 13,
-      fontWeight: '400',
-      color: 'rgba(255,255,255,0.5)',
-    },
-    statusBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: 'rgba(52,211,153,0.16)',
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: 20,
-    },
-    statusDot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: '#34D399',
-      marginRight: 6,
-    },
-    statusText: {
-      fontSize: 11,
-      fontWeight: '700',
-      color: '#34D399',
-      letterSpacing: 0.4,
-    },
-
-    // Sections
-    section: {
-      marginBottom: 28,
-    },
-    sectionHeaderRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 12,
-      paddingHorizontal: 4,
-    },
-    sectionTitle: {
-      fontSize: 15,
+    userName: {
+      fontSize: 16,
       fontWeight: '700',
       color: colors.text,
-      letterSpacing: -0.2,
+      marginBottom: 2,
     },
-
-    card: {
-      backgroundColor: colors.card,
-      borderRadius: 20,
-      paddingHorizontal: 18,
-      paddingVertical: 6,
-      shadowColor: '#0B0D12',
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.04,
-      shadowRadius: 16,
-      elevation: 1,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-
-    dataRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingVertical: 16,
-    },
-    dataLabel: {
-      fontSize: 14,
-      fontWeight: '400',
+    userEmail: {
+      fontSize: 13,
       color: colors.subText,
     },
-    dataValue: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: colors.text,
-      maxWidth: '60%',
-      textAlign: 'right',
-    },
-    divider: {
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: colors.border,
-    },
-
-    editButton: {
-      marginTop: 10,
-      marginBottom: 16,
-      backgroundColor: '#F5EAF8',
-      borderRadius: 14,
-      paddingVertical: 14,
+    editContactRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
-      gap: 6,
+      gap: 4,
     },
-    editButtonText: {
-      color: '#9C3AB3',
-      fontWeight: '700',
+    editContactText: {
       fontSize: 14,
+      fontWeight: '700',
+      color: '#8A2586',
     },
 
-    // Notification switches
+    // Switches
     switchRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingVertical: 16,
+      paddingVertical: 8,
     },
     switchTextWrapper: {
       flex: 1,
       marginRight: 12,
     },
-
-    // Notification destination fields
-    fieldWrapper: {
-      paddingBottom: 16,
-    },
-    fieldWrapperLast: {
-      paddingBottom: 6,
-    },
-    fieldLabel: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: colors.subText,
-      marginBottom: 8,
-      textTransform: 'uppercase',
-      letterSpacing: 0.3,
-    },
-    inputRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.background,
-      borderRadius: 12,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    inputRowError: {
-      borderColor: '#FCA5A5',
-      backgroundColor: '#FEF4F4',
-    },
-    textInput: {
-      flex: 1,
-      fontSize: 14,
-      fontWeight: '600',
-      color: colors.text,
-      padding: 0,
-    },
-    errorText: {
-      fontSize: 12,
-      fontWeight: '500',
-      color: '#EF4444',
-      marginTop: 6,
-    },
-
-    // Devices
-    deviceRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingVertical: 18,
-    },
-    deviceLabel: {
-      fontSize: 14,
-      fontWeight: '600',
+    switchTitle: {
+      fontSize: 15,
+      fontWeight: '700',
       color: colors.text,
       marginBottom: 3,
     },
-    deviceSubLabel: {
+    switchSubTitle: {
       fontSize: 12,
-      fontWeight: '400',
       color: colors.subText,
     },
-    deviceCount: {
-      fontSize: 22,
-      fontWeight: '800',
-      color: colors.text,
-      letterSpacing: -0.4,
+
+    // Warning Banner
+    warningBanner: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      backgroundColor: isDark ? 'rgba(234, 179, 8, 0.12)' : '#FFF6E5',
+      borderRadius: 12,
+      padding: 14,
+      marginBottom: 16,
+      gap: 10,
+    },
+    warningIcon: {
+      marginTop: 2,
+    },
+    warningText: {
+      flex: 1,
+      fontSize: 13,
+      color: isDark ? '#FACC15' : '#A06014',
+      lineHeight: 18,
     },
 
-    // Logout
-    logoutButton: {
-      marginTop: 8,
-      marginBottom: 24,
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: '#FCE4E4',
-      paddingVertical: 16,
-      borderRadius: 16,
+    // Navigation Items
+    navRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 12,
     },
-    logoutIcon: {
-      marginRight: 8,
+    navLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
     },
-    logoutText: {
-      color: '#EF4444',
-      fontWeight: '700',
-      fontSize: 15,
+    navText: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: colors.text,
     },
 
-    version: {
-      textAlign: 'center',
-      color: colors.subText,
-      fontSize: 12,
-      fontWeight: '500',
-      letterSpacing: 0.2,
+    divider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.border,
+      marginVertical: 4,
     },
   });

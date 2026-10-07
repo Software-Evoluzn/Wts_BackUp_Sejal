@@ -13,17 +13,14 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import { loginUser } from '../services/AuthService';
-import { googleLogin } from '../services/AuthService';
 import { useAppTheme } from '../services/theme';
 import AutoLogin from '../components/AutoLogin';
 
-// Accent color used throughout the login flow (links, focus borders,
-// primary button, footer link) — matches the brand's plum/purple identity.
-const ACCENT = '#5B2C74';
-const ACCENT_LIGHT = '#7B4A98';
-const ACCENT_DARK = '#3D1E52';
+const ACCENT = '#8E338A';
+const ACCENT_LIGHT = '#A3429E';
 
 const LoginScreen = ({ navigation }) => {
   const { colors, isDark } = useAppTheme();
@@ -32,29 +29,9 @@ const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [focused, setFocused] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-
-  // The "Login" button uses a solid plum/purple fill in both themes, matching
-  // the reference brand color. In dark mode it lightens slightly for
-  // contrast against a dark card; light mode keeps the same accent fill.
-  // No token in `colors` represents this, so it's expressed explicitly here,
-  // gated on `isDark`.
-  const loginButtonSurfaceStyle = isDark ? { backgroundColor: ACCENT_LIGHT } : null;
-  const loginButtonContentColor = '#fff';
-
-  const handleGoogleLogin = async () => {
-    setGoogleLoading(true);
-    const result = await googleLogin();
-    setGoogleLoading(false);
-
-    if (result.success) {
-      navigation.replace('Main');
-    } else {
-      Alert.alert('Google Login', result.message);
-    }
-  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -82,118 +59,146 @@ const LoginScreen = ({ navigation }) => {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-        <View style={styles.logoCircle}>
-          <Image
-            source={require('../assests/images/logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        </View>
-
-        <Text style={styles.title}>Welcome back !</Text>
-        <Text style={styles.subtitle}>Welcome to IntelliTemp Sign in to continue</Text>
-
-        <View style={styles.form}>
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              placeholder="you@example.com"
-              placeholderTextColor={colors.subText}
-              style={[styles.input, focused === 'email' && styles.inputFocused]}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              onFocus={() => setFocused('email')}
-              onBlur={() => setFocused(null)}
+        
+        {/* Top Content Group */}
+        <View style={styles.topContent}>
+          {/* Header Section */}
+          <View style={styles.headerSection}>
+            <Image
+              source={require('../assests/images/logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
             />
+            <Text style={styles.tagline}>CONDITIONS. CLARITY. CONTROL.</Text>
+            <Text style={styles.title}>Welcome back.</Text>
+            <Text style={styles.subtitle}>
+              Sign in to your IntelliTemp workspace.
+            </Text>
           </View>
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Password</Text>
-            <View
-              style={[
-                styles.passwordWrapper,
-                focused === 'password' && styles.inputFocused,
-              ]}>
+          {/* Form Body */}
+          <View style={styles.form}>
+            {/* Work Email Field */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Work email</Text>
               <TextInput
-                placeholder="••••••••"
-                placeholderTextColor={colors.subText}
-                style={styles.passwordInput}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                onFocus={() => setFocused('password')}
+                placeholder="operator@demo.example"
+                placeholderTextColor={isDark ? colors.subText : '#9E9AA7'}
+                style={[
+                  styles.input,
+                  focused === 'email' && styles.inputFocused,
+                ]}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                onFocus={() => setFocused('email')}
                 onBlur={() => setFocused(null)}
               />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            </View>
+
+            {/* Password Field */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Password</Text>
+              <View
+                style={[
+                  styles.passwordWrapper,
+                  focused === 'password' && styles.inputFocused,
+                ]}>
                 <Feather
-                  name={showPassword ? 'eye-off' : 'eye'}
+                  name="lock"
                   size={18}
-                  color={colors.subText}
+                  color={isDark ? colors.subText : '#8E8B99'}
+                  style={styles.leftIcon}
                 />
+                <TextInput
+                  placeholder="••••••••••••••••"
+                  placeholderTextColor={isDark ? colors.subText : '#9E9AA7'}
+                  style={styles.passwordInput}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  onFocus={() => setFocused('password')}
+                  onBlur={() => setFocused(null)}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Feather
+                    name={showPassword ? 'eye-off' : 'eye'}
+                    size={18}
+                    color={isDark ? colors.subText : '#8E8B99'}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Checkbox & Forgot Password Row */}
+            <View style={styles.optionsRow}>
+              <TouchableOpacity
+                style={styles.checkboxContainer}
+                activeOpacity={0.8}
+                onPress={() => setRememberMe(!rememberMe)}>
+                <View
+                  style={[
+                    styles.checkbox,
+                    rememberMe && styles.checkboxChecked,
+                  ]}>
+                  {rememberMe && (
+                    <Feather name="check" size={12} color="#FFFFFF" />
+                  )}
+                </View>
+                <Text style={styles.checkboxLabel}>Keep me signed in</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Forgotpassword')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={styles.forgotText}>Forgot password?</Text>
               </TouchableOpacity>
             </View>
+
+            {/* Authorised Account Notice */}
+            <View style={styles.infoBox}>
+              <MaterialCommunityIcons
+                name="shield-check-outline"
+                size={20}
+                color={ACCENT}
+                style={styles.infoIcon}
+              />
+              <Text style={styles.infoText}>
+                Use your authorised site account. Access is limited to assigned devices.
+              </Text>
+            </View>
+
+            {/* AutoLogin logic rendered invisibly */}
+            <View style={styles.hiddenComponent}>
+              <AutoLogin />
+            </View>
           </View>
-          <AutoLogin />
+        </View>
 
+        {/* Bottom Section Card (Flat White Background, No Border or Shadow) */}
+        <View style={styles.bottomSection}>
           <TouchableOpacity
-            onPress={() => navigation.navigate('Forgotpassword')}
-            style={styles.forgotWrapper}>
-            <Text style={styles.forgotText}>Forgot Password?</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.button, loginButtonSurfaceStyle]}
+            style={styles.button}
             onPress={handleLogin}
             activeOpacity={0.85}
             disabled={loading}>
             {loading ? (
-              <ActivityIndicator color={loginButtonContentColor} />
+              <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={[styles.buttonText, { color: loginButtonContentColor }]}>Login</Text>
+              <View style={styles.buttonContent}>
+                <Text style={styles.buttonText}>Sign in</Text>
+                <Feather name="arrow-right" size={18} color="#FFFFFF" />
+              </View>
             )}
           </TouchableOpacity>
 
-          <View style={styles.dividerRow}>
-            <View style={styles.divider} />
-            <Text style={styles.dividerText}>OR</Text>
-            <View style={styles.divider} />
-          </View>
-
-          <TouchableOpacity
-            style={styles.googleButton}
-            onPress={handleGoogleLogin}
-            activeOpacity={0.85}
-            disabled={googleLoading}>
-            {googleLoading ? (
-              <ActivityIndicator color={colors.subText} />
-            ) : (
-              <>
-                <Image
-                  source={
-                    isDark
-                      ? require('../assests/images/googledark.png')
-                      : require('../assests/images/google.png')
-                  }
-                  style={styles.googleIconFallback}
-                />
-                <Text style={styles.googleText}>Continue with Google</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Register')}
-          style={styles.footer}>
-          <Text style={styles.footerText}>
-            Don't have an account?{' '}
-            <Text style={styles.footerLink}>Register</Text>
+          <Text style={styles.poweredByText}>
+            Powered By <Text style={styles.brandName}>EVOLUZN</Text>
           </Text>
-        </TouchableOpacity>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -203,151 +208,184 @@ export default LoginScreen;
 
 const createStyles = (colors, isDark) =>
   StyleSheet.create({
-    flex: { flex: 1, backgroundColor: colors.background },
+    flex: {
+      flex: 1,
+      backgroundColor: isDark ? colors.background : '#F6F5F8',
+    },
     container: {
       flexGrow: 1,
-      justifyContent: 'center',
-      padding: 24,
-      paddingVertical: 48,
+      justifyContent: 'space-between',
+      paddingHorizontal: 24,
+      paddingTop: Platform.OS === 'ios' ? 56 : 36,
+      paddingBottom: Platform.OS === 'android' ? 40 : 28,
     },
-    logoCircle: {
-      width: 72,
-      height: 72,
-      borderRadius: 22,
-      backgroundColor: colors.card,
-      justifyContent: 'center',
-      alignItems: 'center',
-      alignSelf: 'center',
-      marginBottom: 26,
-      borderWidth: 1,
-      borderColor: colors.border,
-      shadowColor: isDark ? ACCENT_DARK : ACCENT,
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: isDark ? 0.3 : 0.1,
-      shadowRadius: 18,
-      elevation: 4,
+    topContent: {
+      flex: 1,
+    },
+    headerSection: {
+      marginBottom: 20,
     },
     logo: {
-      width: 38,
-      height: 38,
-    },
-    title: {
-      fontSize: 27,
-      fontWeight: '800',
-      color: colors.text,
-      textAlign: 'center',
-      letterSpacing: -0.5,
-    },
-    subtitle: {
-      fontSize: 14,
-      color: colors.subText,
-      textAlign: 'center',
-      marginTop: 8,
-      marginBottom: 30,
-    },
-    form: {
-      backgroundColor: colors.card,
-      borderRadius: 26,
-      padding: 22,
-      borderWidth: 1,
-      borderColor: colors.border,
-      shadowColor: isDark ? ACCENT_DARK : ACCENT,
-      shadowOffset: { width: 0, height: 14 },
-      shadowOpacity: isDark ? 0.4 : 0.1,
-      shadowRadius: 26,
-      elevation: 6,
-    },
-    fieldGroup: {
+      width: 170,
+      height: 50,
+      alignSelf: 'flex-start',
       marginBottom: 16,
     },
+    tagline: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: ACCENT,
+      letterSpacing: 1.1,
+      marginBottom: 10,
+    },
+    title: {
+      fontSize: 32,
+      fontWeight: '800',
+      color: isDark ? colors.text : '#1B1721',
+      letterSpacing: -0.6,
+      marginBottom: 6,
+    },
+    subtitle: {
+      fontSize: 15,
+      color: isDark ? colors.subText : '#6B6775',
+      lineHeight: 22,
+    },
+    form: {
+      marginTop: 8,
+    },
+    fieldGroup: {
+      marginBottom: 18,
+    },
     label: {
-      fontSize: 12,
+      fontSize: 13,
       fontWeight: '600',
-      color: colors.subText,
+      color: isDark ? colors.text : '#393543',
       marginBottom: 8,
-      letterSpacing: 0.3,
     },
     input: {
-      borderWidth: 1.5,
-      borderColor: 'transparent',
-      backgroundColor: isDark ? colors.background : '#F1EEF3',
-      borderRadius: 14,
+      height: 52,
+      borderWidth: 1,
+      borderColor: isDark ? colors.border : '#E5E0EA',
+      backgroundColor: isDark ? colors.card : '#FFFFFF',
+      borderRadius: 10,
       paddingHorizontal: 16,
-      paddingVertical: 15,
       fontSize: 15,
-      fontWeight: '500',
-      color: colors.text,
+      color: isDark ? colors.text : '#1B1721',
     },
     inputFocused: {
       borderColor: ACCENT,
-      backgroundColor: isDark ? colors.card : '#F1EEF3',
+      borderWidth: 1.5,
     },
     passwordWrapper: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      borderWidth: 1.5,
-      borderColor: 'transparent',
-      backgroundColor: isDark ? colors.background : '#F1EEF3',
-      borderRadius: 14,
-      paddingHorizontal: 16,
+      height: 52,
+      borderWidth: 1,
+      borderColor: isDark ? colors.border : '#E5E0EA',
+      backgroundColor: isDark ? colors.card : '#FFFFFF',
+      borderRadius: 10,
+      paddingHorizontal: 14,
+    },
+    leftIcon: {
+      marginRight: 10,
     },
     passwordInput: {
       flex: 1,
-      paddingVertical: 15,
       fontSize: 15,
-      fontWeight: '500',
-      color: colors.text,
+      color: isDark ? colors.text : '#1B1721',
+      height: '100%',
     },
-    forgotWrapper: { alignSelf: 'flex-end', marginTop: 4, marginBottom: 22 },
-    forgotText: { color: ACCENT, fontWeight: '600', fontSize: 13 },
-    button: {
-      backgroundColor: ACCENT,
-      paddingVertical: 17,
-      borderRadius: 16,
+    optionsRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
       alignItems: 'center',
-      shadowColor: ACCENT,
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.32,
-      shadowRadius: 18,
-      elevation: 5,
+      marginTop: 4,
+      marginBottom: 20,
     },
-    buttonText: { fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
-    dividerRow: {
+    checkboxContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginVertical: 24,
     },
-    divider: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
-    dividerText: {
-      marginHorizontal: 14,
-      color: colors.subText,
-      fontSize: 11,
-      fontWeight: '700',
-      letterSpacing: 0.5,
-    },
-    googleButton: {
-      flexDirection: 'row',
+    checkbox: {
+      width: 18,
+      height: 18,
+      borderRadius: 4,
+      borderWidth: 1.5,
+      borderColor: isDark ? colors.border : '#8E8B99',
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: colors.card,
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      paddingVertical: 16,
-      borderRadius: 16,
-      gap: 10,
-      shadowColor: '#0B0D12',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: isDark ? 0.2 : 0.05,
-      shadowRadius: 10,
-      elevation: 2,
+      marginRight: 8,
     },
-    googleIconFallback: {
-      width: 20,
-      height: 20,
+    checkboxChecked: {
+      backgroundColor: ACCENT,
+      borderColor: ACCENT,
     },
-    googleText: { color: colors.text, fontSize: 14, fontWeight: '600' },
-    footer: { marginTop: 28, alignItems: 'center' },
-    footerText: { color: colors.subText, fontSize: 17 },
-    footerLink: { color: ACCENT, fontWeight: '900' },
+    checkboxLabel: {
+      fontSize: 14,
+      color: isDark ? colors.text : '#4E4A59',
+      fontWeight: '500',
+    },
+    forgotText: {
+      color: ACCENT,
+      fontWeight: '700',
+      fontSize: 14,
+    },
+    infoBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isDark ? 'rgba(142, 51, 138, 0.10)' : '#FAF7FB',
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(142, 51, 138, 0.20)' : '#F2EAF3',
+    },
+    infoIcon: {
+      marginRight: 10,
+    },
+    infoText: {
+      flex: 1,
+      fontSize: 12.5,
+      lineHeight: 18,
+      color: isDark ? colors.subText : '#686373',
+    },
+    hiddenComponent: {
+      display: 'none',
+    },
+    bottomSection: {
+      marginTop: 24,
+      marginHorizontal: -24,
+      paddingHorizontal: 24,
+      paddingTop: 16,
+      paddingBottom: Platform.OS === 'android' ? 28 : 20,
+      backgroundColor: isDark ? colors.card : '#FFFFFF',
+      alignItems: 'center',
+    },
+    button: {
+      width: '100%',
+      height: 52,
+      backgroundColor: isDark ? ACCENT_LIGHT : ACCENT,
+      borderRadius: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    buttonContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    buttonText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    poweredByText: {
+      marginTop: 14,
+      fontSize: 13,
+      color: isDark ? colors.subText : '#8B8796',
+    },
+    brandName: {
+      fontWeight: '800',
+      color: ACCENT,
+    },
   });

@@ -10,17 +10,20 @@ import {
   ScrollView,
   Platform,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import { forgotPassword } from '../services/AuthService';
 import { useAppTheme } from '../services/theme';
 
-const PURPLE = '#9C3AB3';
+const ACCENT = '#8E338A';
+const ACCENT_LIGHT = '#A3429E';
 
 const ForgotPasswordScreen = ({ navigation }) => {
-  const { colors } = useAppTheme();
-  const styles = createStyles(colors);
+  const { colors, isDark } = useAppTheme();
+  const styles = createStyles(colors, isDark);
 
   const [email, setEmail] = useState('');
   const [focused, setFocused] = useState(false);
@@ -52,29 +55,41 @@ const ForgotPasswordScreen = ({ navigation }) => {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Feather name="arrow-left" size={20} color={colors.text} />
-        </TouchableOpacity>
 
-        <View style={styles.iconCircle}>
-          <Feather name="lock" size={26} color={PURPLE} />
+        {/* Top Header Section Box (Full Width White Card like Footer) */}
+        <View style={styles.topHeaderSection}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.headerBackBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Feather name="arrow-left" size={20} color={isDark ? colors.text : '#1B1721'} />
+          </TouchableOpacity>
+
+          <Text style={styles.headerTitle}>
+            IntelliTemp <Text style={styles.headerSubTitle}>4P</Text>
+          </Text>
+
+          <Image
+            source={require('../assests/images/logo.png')}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
         </View>
 
-        <Text style={styles.title}>Forgot Password?</Text>
-        <Text style={styles.subtitle}>
-          Enter your registered email address and we'll send you a password
-          reset link.
-        </Text>
+        {/* Main Form Content */}
+        <View style={styles.topContent}>
+          <Text style={styles.categoryTag}>ACCOUNT RECOVERY</Text>
+          <Text style={styles.title}>Recover your access.</Text>
+          <Text style={styles.subtitle}>
+            Use the email address associated with your workspace.
+          </Text>
 
-        <View style={styles.card}>
+          {/* Work Email Input */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Email</Text>
+            <Text style={styles.label}>Work email</Text>
             <TextInput
-              placeholder="Email"
-              placeholderTextColor={colors.subText}
+              placeholder="operator@demo.example"
+              placeholderTextColor={isDark ? colors.subText : '#9E9AA7'}
               value={email}
               onChangeText={setEmail}
               style={[styles.input, focused && styles.inputFocused]}
@@ -85,30 +100,49 @@ const ForgotPasswordScreen = ({ navigation }) => {
             />
           </View>
 
-          <Text style={styles.helperText}>
-            Forgot your password? We'll send you a reset link.
-          </Text>
+          {/* Privacy Notice Box */}
+          <View style={styles.infoBox}>
+            <MaterialCommunityIcons
+              name="shield-check-outline"
+              size={18}
+              color={ACCENT}
+              style={styles.infoIcon}
+            />
+            <Text style={styles.infoText}>
+              For privacy, the response should not disclose whether an email address has an account.
+            </Text>
+          </View>
 
+          {/* Back to sign in link */}
+          <TouchableOpacity
+            style={styles.backToSignRow}
+            onPress={() => navigation.goBack()}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Feather name="arrow-left" size={16} color={ACCENT} style={styles.backToSignIcon} />
+            <Text style={styles.backToSignText}>Back to sign in</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Bottom Section Box (Full Width White Card) */}
+        <View style={styles.bottomSection}>
           <TouchableOpacity
             style={styles.button}
             onPress={handleReset}
             activeOpacity={0.85}
             disabled={loading}>
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.buttonText}>Send Reset Link</Text>
+              <View style={styles.buttonContent}>
+                <Text style={styles.buttonText}>Request reset instructions</Text>
+                <Feather name="arrow-right" size={18} color="#FFFFFF" />
+              </View>
             )}
           </TouchableOpacity>
-        </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Remember your password? </Text>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.footerLink}>Login</Text>
-          </TouchableOpacity>
+          <Text style={styles.poweredByText}>
+            Powered By <Text style={styles.brandName}>EVOLUZN</Text>
+          </Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -117,131 +151,160 @@ const ForgotPasswordScreen = ({ navigation }) => {
 
 export default ForgotPasswordScreen;
 
-const createStyles = (colors) =>
+const createStyles = (colors, isDark) =>
   StyleSheet.create({
-    flex: { flex: 1, backgroundColor: '#FFFFFF' },
+    flex: {
+      flex: 1,
+      backgroundColor: isDark ? colors.background : '#F6F5F8',
+    },
     container: {
       flexGrow: 1,
-      justifyContent: 'center',
+      justifyContent: 'space-between',
       paddingHorizontal: 24,
-      paddingTop: 50,
-      paddingBottom: 32,
+      paddingBottom: Platform.OS === 'android' ? 28 : 20,
     },
-    backButton: {
-      position: 'absolute',
-      top: 50,
-      left: 24,
-      width: 36,
-      height: 36,
-      borderRadius: 12,
+    topHeaderSection: {
+      flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: '#F5F5F7',
-    },
-    iconCircle: {
-      width: 72,
-      height: 72,
-      borderRadius: 24,
-      backgroundColor: '#F5EAF8',
-      justifyContent: 'center',
-      alignItems: 'center',
-      alignSelf: 'center',
+      justifyContent: 'space-between',
+      marginHorizontal: -24,
+      paddingHorizontal: 24,
+      paddingTop: Platform.OS === 'ios' ? 54 : 40, // Increased top clearance for status bar/notch
+      paddingBottom: 16,
+      backgroundColor: isDark ? colors.card : '#FFFFFF',
       marginBottom: 20,
     },
+    headerBackBtn: {
+      padding: 4,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: isDark ? colors.text : '#1B1721',
+    },
+    headerSubTitle: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: isDark ? colors.subText : '#8B8796',
+    },
+    headerLogo: {
+      width: 90,
+      height: 30,
+    },
+    topContent: {
+      flex: 1,
+    },
+    categoryTag: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: ACCENT,
+      letterSpacing: 1.1,
+      marginBottom: 8,
+    },
     title: {
-      fontSize: 26,
-      fontWeight: '700',
-      color: '#111827',
-      textAlign: 'center',
-      letterSpacing: -0.4,
+      fontSize: 30,
+      fontWeight: '800',
+      color: isDark ? colors.text : '#1B1721',
+      letterSpacing: -0.6,
+      marginBottom: 8,
     },
     subtitle: {
-      fontSize: 14,
-      fontWeight: '400',
-      color: '#6B7280',
-      textAlign: 'center',
-      marginTop: 12,
-      marginBottom: 28,
-      lineHeight: 21,
-      paddingHorizontal: 16,
-    },
-    card: {
-      backgroundColor: '#FFFFFF',
-      borderRadius: 24,
-      padding: 24,
-      borderWidth: 1,
-      borderColor: '#E5E7EB',
-      shadowColor: '#111827',
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.05,
-      shadowRadius: 24,
-      elevation: 2,
+      fontSize: 15,
+      color: isDark ? colors.subText : '#6B6775',
+      lineHeight: 22,
+      marginBottom: 24,
     },
     fieldGroup: {
-      marginBottom: 0,
+      marginBottom: 16,
     },
     label: {
       fontSize: 13,
       fontWeight: '600',
-      color: '#6B7280',
+      color: isDark ? colors.text : '#393543',
       marginBottom: 8,
-      letterSpacing: 0.2,
     },
     input: {
-      borderWidth: 1.5,
-      borderColor: '#E5E7EB',
-      backgroundColor: '#F5F5F7',
-      borderRadius: 14,
+      height: 52,
+      borderWidth: 1,
+      borderColor: isDark ? colors.border : '#E5E0EA',
+      backgroundColor: isDark ? colors.card : '#FFFFFF',
+      borderRadius: 10,
       paddingHorizontal: 16,
-      paddingVertical: 14,
       fontSize: 15,
-      fontWeight: '500',
-      color: '#111827',
+      color: isDark ? colors.text : '#1B1721',
     },
     inputFocused: {
-      borderColor: PURPLE,
-      backgroundColor: '#FFFFFF',
+      borderColor: ACCENT,
+      borderWidth: 1.5,
     },
-    helperText: {
+    infoBox: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      backgroundColor: isDark ? 'rgba(142, 51, 138, 0.10)' : '#FAF7FB',
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(142, 51, 138, 0.20)' : '#F2EAF3',
+      marginBottom: 24,
+    },
+    infoIcon: {
+      marginRight: 10,
+      marginTop: 2,
+    },
+    infoText: {
+      flex: 1,
       fontSize: 12.5,
-      fontWeight: '400',
-      color: '#6B7280',
-      textAlign: 'center',
       lineHeight: 18,
-      marginTop: 16,
-      marginBottom: 28,
+      color: isDark ? colors.subText : '#686373',
+    },
+    backToSignRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 4,
+    },
+    backToSignIcon: {
+      marginRight: 6,
+    },
+    backToSignText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: ACCENT,
+    },
+    bottomSection: {
+      marginTop: 32,
+      marginHorizontal: -24,
+      paddingHorizontal: 24,
+      paddingTop: 16,
+      paddingBottom: Platform.OS === 'android' ? 28 : 20,
+      backgroundColor: isDark ? colors.card : '#FFFFFF',
+      alignItems: 'center',
     },
     button: {
-      backgroundColor: PURPLE,
-      height: 54,
-      borderRadius: 14,
-      alignItems: 'center',
+      width: '100%',
+      height: 52,
+      backgroundColor: isDark ? ACCENT_LIGHT : ACCENT,
+      borderRadius: 12,
       justifyContent: 'center',
-      shadowColor: PURPLE,
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.22,
-      shadowRadius: 14,
-      elevation: 3,
+      alignItems: 'center',
+    },
+    buttonContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
     },
     buttonText: {
       color: '#FFFFFF',
       fontSize: 16,
       fontWeight: '700',
     },
-    footer: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginTop: 22,
+    poweredByText: {
+      marginTop: 14,
+      fontSize: 13,
+      color: isDark ? colors.subText : '#8B8796',
     },
-    footerText: {
-      fontSize: 14,
-      fontWeight: '400',
-      color: '#6B7280',
-    },
-    footerLink: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: PURPLE,
+    brandName: {
+      fontWeight: '800',
+      color: ACCENT,
     },
   });
