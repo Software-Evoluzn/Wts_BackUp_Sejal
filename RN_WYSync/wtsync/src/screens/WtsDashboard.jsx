@@ -1,67 +1,7 @@
-/**
- * WtsDashboard.jsx
- * -----------------------------------------------------------------------
- * React Native port of the web "WTS Dashboard".
- * No Expo / NativeBase / UI Kitten / React Native Paper.
- * Only: React Native core, hooks, FlatList, ScrollView, StyleSheet,
- * react-native-svg, react-native-vector-icons.
- *
- * GRAPH NOTES (real-time + historical temperature graph)
- * -----------------------------------------------------------------------
- * - X axis is FIXED for the whole day: 00:00 -> 23:59 (1440 minutes).
- * - Default view = TODAY, with live socket data streaming in and
- *   plotted at its real time-of-day position on that fixed axis.
- * - Zoom is PINCH-ONLY (2-finger gesture) — no +/- buttons.
- *   Double-tap the chart to reset back to the full-day view.
- * - 1-finger drag pans left/right once zoomed in.
- * - Date is chosen via a calendar dropdown (tap the date field to open
- *   a month-grid picker). Selecting a day fetches that day's readings
- *   from the backend (`/api/telemetry-history`).
- * - When viewing TODAY, the fetched history (earlier in the day) is
- *   merged with whatever live points have already streamed in via
- *   socket, so nothing is duplicated or lost.
- * - The existing Panel dropdown ("All Panels" / "Panel 1" / ...) acts as
- *   the control-panel filter for which phase lines are drawn.
- *
- * PHASE NAMING (custom labels)
- * -----------------------------------------------------------------------
- * - Raw phase codes (R1, Y1, B1, N1 ... R6, Y6, B6, N6) never change —
- *   they stay the data keys everywhere (matching, sorting, colors).
- * - A user-editable display name per (device, phase) is fetched from
- *   the backend via wtsApi.js and shown instead of the raw code
- *   wherever a phase is rendered (temperature cards, legend).
- * - Long-press a TemperatureCard's phase code to rename it.
- * - The pencil ("edit") icon on a PanelCard opens a bulk-edit modal for
- *   renaming every phase in that panel at once (uses the same
- *   phaseLabelsRef cache / updatePhaseLabelsBulk from wtsApi.js).
- * -----------------------------------------------------------------------
- */
-
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  useRef,
-  memo,
-} from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import {
-  View,
-  Text,
-  FlatList,
-  ScrollView,
-  StyleSheet,
-  ActivityIndicator,
-  RefreshControl,
-  TouchableOpacity,
-  Modal,
-  Alert,
-  Dimensions,
-  Animated,
-  Platform,
-  PanResponder,
-  StatusBar,
-  TextInput,
+  View, Text, FlatList, ScrollView, StyleSheet, ActivityIndicator, RefreshControl, TouchableOpacity,
+  Modal, Alert, Dimensions, Animated, Platform, PanResponder, StatusBar, TextInput,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Svg, { Line as SvgLine, Path, Text as SvgText, Circle } from 'react-native-svg';
@@ -70,1285 +10,584 @@ import io from 'socket.io-client';
 import auth from '@react-native-firebase/auth';
 import RNFetchBlob from 'react-native-blob-util';
 import IP_ADDRESS from '../services/ipconfig';
-
-import { verifyDeviceWifi,resetDeviceWifi } from '../services/WifiService';
-import { resetDeviceRemote } from './DeviceConfig';
+import { verifyDeviceWifi, resetDeviceWifi } from '../services/WifiService';
 import { useAppTheme } from '../services/theme';
+import { fetchPhaseLabels, updatePhaseLabel, updatePhaseLabelsBulk } from '../services/WtsApi';
 
-// All phase-label (custom naming) API calls live in wtsApi.js —
-// this file never calls fetch() directly for that feature.
-import {
-  fetchPhaseLabels,
-  updatePhaseLabel,
-  updatePhaseLabelsBulk,
-} from '../services/WtsApi';
+/* ───────────────────────────── constants ───────────────────────────── */
 
-// -------------------------------------------------------------------------
-// BACKEND CONFIG
-// -------------------------------------------------------------------------
 const BACKEND_URL = IP_ADDRESS;
-
-// -------------------------------------------------------------------------
-// COLOR CONSTANTS  (matches web dashboard color rules)
-// -------------------------------------------------------------------------
-// NOTE: background / card / border / subText / headerText / tempValue have
-// been moved to theme.js (accessed via useAppTheme()) since they switch
-// between light and dark mode. Everything left here is a fixed brand /
-// status accent color that stays the same in both themes.
 const COLORS = {
-  online: '#10B981',
-  offline: '#EF4444',
-  R: '#DC2626', // Red
-  Y: '#D97706', // Yellow / amber
-  B: '#2563EB', // Blue
-  N: '#6B7280', // Gray
-  shadow: '#000000',
-  now: '#F43F5E',
-  live: '#10B981',
-  disabledDay: '#C7CCDA',
+  online: '#10B981', offline: '#EF4444', shadow: '#000000', now: '#F43F5E', live: '#10B981', disabledDay: '#C7CCDA',
+  R: '#DC2626', Y: '#D97706', B: '#2563EB', N: '#6B7280',
 };
-
-// Small breathing-room offset so the graph section's top border/divider
-// isn't scrolled flush against the header — purely cosmetic, not a
-// layout-affecting value.
-const GRAPH_SCROLL_BUFFER = 8;
-
-// Maps a phase letter (R / Y / B / N) to its display color
-// (used by TemperatureCard — unrelated to the graph, left unchanged).
-const getPhaseColor = (phaseCode) => {
-  const letter = (phaseCode || '').charAt(0).toUpperCase();
-  switch (letter) {
-    case 'R':
-      return COLORS.R;
-    case 'Y':
-      return COLORS.Y;
-    case 'B':
-      return COLORS.B;
-    case 'N':
-      return COLORS.N;
-    default:
-      return COLORS.N;
-  }
-};
-
-// Maps a full phase code (e.g. "R1", "R2", "Y3"...) to a distinct color
-// for the graph. Same letter family stays visually related (red family,
-// yellow family, etc.) while different panel numbers get a distinct
-// shade so "All Panels" mode never has two indistinguishable lines.
 const SERIES_COLOR_VARIANTS = {
   R: ['#DC2626', '#F87171', '#991B1B', '#FCA5A5', '#7F1D1D', '#FECACA'],
   Y: ['#D97706', '#FBBF24', '#92400E', '#FDE68A', '#78350F', '#FEF3C7'],
   B: ['#2563EB', '#60A5FA', '#1E3A8A', '#93C5FD', '#1E40AF', '#BFDBFE'],
   N: ['#6B7280', '#9CA3AF', '#374151', '#D1D5DB', '#111827', '#E5E7EB'],
 };
+const PHASE_COLUMNS = [1, 2, 3, 4, 5, 6].flatMap((n) => ['R', 'Y', 'B', 'N'].map((c) => `${c}${n}`));
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+const HEADER_MENU_OPTIONS = ['Reset WiFi', 'Change WiFi'];
+const EXPORT_OPTIONS = ['Today', 'Set Range'];
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+const HIT = { top: 8, bottom: 8, left: 8, right: 8 };
+const GRAPH_SCROLL_BUFFER = 8;
+const LIST_PAD = 16;
+const CARD_GAP = 16;
+const CALENDAR_CELL_SIZE = 36;
+const DAY_MINUTES = 1440;
+const FULL_VIEW = { start: 0, end: DAY_MINUTES };
+const MIN_VIEW_SPAN = 20; // minutes — max pinch-zoom
+const DOUBLE_TAP_MS = 300;
+const TAP_MOVE_TOLERANCE = 6;
+const TICK_STEPS = [[40, 5], [90, 15], [180, 30], [480, 60], [900, 120]];
 
-const getSeriesColor = (phaseCode) => {
-  const letter = (phaseCode || '').charAt(0).toUpperCase();
-  const digits = (phaseCode || '').replace(/[^0-9]/g, '');
-  const panelIndex = digits ? parseInt(digits, 10) : 1;
-  const palette = SERIES_COLOR_VARIANTS[letter] || SERIES_COLOR_VARIANTS.N;
-  return palette[(panelIndex - 1) % palette.length];
-};
-
-// -------------------------------------------------------------------------
-// DUMMY DATA — Fallback if network request fails
-// -------------------------------------------------------------------------
-const DUMMY_DEVICES = [
-  {
-    device_name: 'EZN-WTS-10C',
-    serial_no: 'WTSF0C02E',
-    status: 'Online',
-    panels: [
-      {
-        panel_no: 1,
-        custom_name: 'Main Hall',
-        temperatures: [
-          { phase: 'R1', current: 31.1, min: 31.1, max: 31.1 },
-          { phase: 'Y1', current: 31.75, min: 31.75, max: 31.75 },
-          { phase: 'B1', current: 30.7, min: 30.7, max: 30.7 },
-          { phase: 'N1', current: 31.96, min: 31.96, max: 31.96 },
-        ],
-      },
-    ],
-  },
-];
-
-// -------------------------------------------------------------------------
-// DATE / TIME HELPERS
-// -------------------------------------------------------------------------
-const DAY_MINUTES = 24 * 60; // 1440 -> covers 00:00 to 23:59
-
-const dateKeyOf = (d = new Date()) => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
-
-const isSameDay = (a, b) =>
-  a.getFullYear() === b.getFullYear() &&
-  a.getMonth() === b.getMonth() &&
-  a.getDate() === b.getDate();
-
-const MONTH_LABELS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
-const MONTH_LABELS_SHORT = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
-const WEEKDAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-
-const formatDateLabel = (d) =>
-  `${String(d.getDate()).padStart(2, '0')} ${MONTH_LABELS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
-
-const minutesSinceMidnight = (d = new Date()) =>
-  d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
-
-// Parses a backend ISO timestamp string and returns minutes-since-midnight
-// on the date it represents (local time).
-const parseTimestampToMinutes = (isoString) => {
-  const d = new Date(isoString);
-  return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
-};
-
-const formatMinutes = (mins) => {
-  const m = Math.round(((mins % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES);
-  const h = Math.floor(m / 60);
-  const mm = m % 60;
-  return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
-};
-
-// The 24 phase columns as stored in the temp_values table
-const PHASE_COLUMNS = [
-  'R1', 'Y1', 'B1', 'N1', 'R2', 'Y2', 'B2', 'N2',
-  'R3', 'Y3', 'B3', 'N3', 'R4', 'Y4', 'B4', 'N4',
-  'R5', 'Y5', 'B5', 'N5', 'R6', 'Y6', 'B6', 'N6',
-];
-
-/**
- * Converts raw DB rows (from /api/telemetry-history) into a series map,
- * then merges in any live points that already exist for this date
- * (i.e. today's socket-streamed points) without duplicating data:
- * only live points AFTER the last DB timestamp are kept.
- */
-const mergeDbRowsWithExisting = (existingEntry, rows, dateKey) => {
-  const dbSeries = {};
-  rows.forEach((row) => {
-    const t = parseTimestampToMinutes(row.timestamp);
-    PHASE_COLUMNS.forEach((col) => {
-      const v = row[col];
-      if (v === null || v === undefined) return;
-      if (!dbSeries[col]) dbSeries[col] = [];
-      dbSeries[col].push({ t, v });
-    });
-  });
-
-  const merged = { dateKey, series: {} };
-  const existingSeries = existingEntry?.series || {};
-  const allPhases = new Set([
-    ...Object.keys(dbSeries),
-    ...Object.keys(existingSeries),
-  ]);
-
-  allPhases.forEach((phase) => {
-    const dbPts = dbSeries[phase] || [];
-    const maxDbT = dbPts.length ? dbPts[dbPts.length - 1].t : -1;
-    const livePts = (existingSeries[phase] || []).filter((p) => p.t > maxDbT);
-    merged.series[phase] = [...dbPts, ...livePts];
-  });
-
-  return merged;
-};
-
-// -------------------------------------------------------------------------
-// StatusBadge — small colored dot + label ("Online" / "Offline")
-// -------------------------------------------------------------------------
-const StatusBadge = memo(({ status }) => {
-  const { colors } = useAppTheme();
-  const styles = createStyles(colors);
-  const isOnline = status === 'Online';
-  return (
-    <View style={styles.statusRow}>
-      <View
-        style={[
-          styles.statusDot,
-          { backgroundColor: isOnline ? COLORS.online : COLORS.offline },
-        ]}
-      />
-      <Text
-        style={[
-          styles.statusText,
-          { color: isOnline ? COLORS.online : COLORS.offline },
-        ]}
-      >
-        {status}
-      </Text>
-    </View>
-  );
-});
-
-// -------------------------------------------------------------------------
-// TemperatureCard — single phase reading (R1 / 31.10°C / Min / Max)
-// Long-press the phase label to rename it (calls updatePhaseLabel from
-// wtsApi.js via the onRenamePhase callback passed down from the top).
-// -------------------------------------------------------------------------
-const TemperatureCard = memo(({ temperature, displayLabel, onRenamePhase }) => {
-  const { colors } = useAppTheme();
-  const styles = createStyles(colors);
-  const { phase, current, min, max } = temperature;
-  const phaseColor = useMemo(() => getPhaseColor(phase), [phase]);
-
-  const handleLongPress = useCallback(() => {
-    onRenamePhase && onRenamePhase(phase, displayLabel || phase);
-  }, [onRenamePhase, phase, displayLabel]);
-
-  return (
-    <View style={styles.tempCard}>
-      <TouchableOpacity onLongPress={handleLongPress} activeOpacity={0.6}>
-        <Text style={[styles.tempPhase, { color: phaseColor }]}>
-          {displayLabel || phase}
-        </Text>
-      </TouchableOpacity>
-      <Text style={styles.tempValue}>
-        {current != null ? `${current.toFixed(2)}°C` : '--'}
-      </Text>
-      <View style={styles.tempMinMaxRow}>
-        <Text style={styles.tempMinMax}>
-          Min {min != null ? min.toFixed(2) : '--'}
-        </Text>
-        <Text style={styles.tempMinMax}>
-          Max {max != null ? max.toFixed(2) : '--'}
-        </Text>
-      </View>
-    </View>
-  );
-});
-
-// -------------------------------------------------------------------------
-// PanelCard — Custom Panel Name header + wrapped grid of TemperatureCards
-// The pencil icon opens the bulk "Edit Phase Names" modal for every
-// phase in this panel (onEditPress receives panel_no + temperatures).
-// -------------------------------------------------------------------------
-const PanelCard = memo(({ panel, onEditPress, phaseLabels, onRenamePhase }) => {
-  const { colors } = useAppTheme();
-  const styles = createStyles(colors);
-
-  const handleEdit = useCallback(() => {
-    onEditPress && onEditPress(panel.panel_no, panel.temperatures);
-  }, [onEditPress, panel.panel_no, panel.temperatures]);
-
-  // Only show phase blocks (R/Y/B/N) that actually have a current
-  // reading. Phases with no live value (null/undefined) are hidden
-  // instead of showing an empty "--" card.
-  const visibleTemperatures = useMemo(
-    () => panel.temperatures.filter((temp) => temp.current != null),
-    [panel.temperatures]
-  );
-
-  if (visibleTemperatures.length === 0) {
-    return null;
-  }
-
-  return (
-    <View style={styles.panelCard}>
-      <View style={styles.panelHeaderRow}>
-        <Text style={styles.panelTitle}>
-          {panel.custom_name || `Control Panel ${panel.panel_no}`}
-        </Text>
-        <TouchableOpacity
-          onPress={handleEdit}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Icon name="edit" size={16} color={colors.subText} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.tempGrid}>
-        {visibleTemperatures.map((temp) => (
-          <TemperatureCard
-            key={temp.phase}
-            temperature={temp}
-            displayLabel={phaseLabels?.[temp.phase]}
-            onRenamePhase={onRenamePhase}
-          />
-        ))}
-      </View>
-    </View>
-  );
-});
-
-// -------------------------------------------------------------------------
-// EmptyPanel — shown when a device is offline / has no panel data
-// -------------------------------------------------------------------------
-const EmptyPanel = memo(() => {
-  const { colors } = useAppTheme();
-  const styles = createStyles(colors);
-  return (
-    <View style={styles.emptyPanelWrap}>
-      <Icon name="power-off" size={34} color={colors.subText} />
-      <Text style={styles.emptyPanelText}>No panel data available</Text>
-    </View>
-  );
-});
-
-// -------------------------------------------------------------------------
-// RenamePhaseModal — small popup for editing a single phase's display
-// name (long-press on a TemperatureCard). Saves via updatePhaseLabel()
-// from wtsApi.js.
-// -------------------------------------------------------------------------
-const RenamePhaseModal = memo(({ visible, phaseCode, initialValue, onClose, onSaved }) => {
-  const { colors } = useAppTheme();
-  const styles = createStyles(colors);
-  const [value, setValue] = useState(initialValue || '');
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (visible) {
-      setValue(initialValue || '');
-    }
-  }, [visible, initialValue]);
-
-  const handleSave = useCallback(async () => {
-    const trimmed = value.trim();
-    if (!trimmed || !phaseCode) return;
-    try {
-      setSaving(true);
-      await onSaved(phaseCode, trimmed);
-      onClose();
-    } catch (error) {
-      Alert.alert('Rename Failed', error?.message || 'Could not save the new name.');
-    } finally {
-      setSaving(false);
-    }
-  }, [value, phaseCode, onSaved, onClose]);
-
-  return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
-        <TouchableOpacity activeOpacity={1} style={styles.renameCard}>
-          <Text style={styles.renameTitle}>Rename {phaseCode}</Text>
-          <TextInput
-            style={styles.renameInput}
-            value={value}
-            onChangeText={setValue}
-            placeholder={phaseCode}
-            placeholderTextColor={colors.subText}
-            autoFocus
-          />
-          <View style={styles.renameButtonRow}>
-            <TouchableOpacity style={styles.renameButton} onPress={onClose}>
-              <Text style={styles.renameButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.renameButton, styles.renameButtonPrimary]}
-              onPress={handleSave}
-              disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Text style={[styles.renameButtonText, styles.renameButtonTextPrimary]}>
-                  Save
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </TouchableOpacity>
-    </Modal>
-  );
-});
-
-// -------------------------------------------------------------------------
-// EditPanelLabelsModal — bulk-edit popup opened from a PanelCard's pencil
-// icon. Shows one text field per phase in that panel (pre-filled with
-// its current custom name, or raw code if never renamed) and saves all
-// of them in one call via updatePhaseLabelsBulk() from wtsApi.js.
-//
-// `phases` is an array of { code, label } built by the parent screen
-// from that panel's temperatures + the cached phaseLabels map.
-// -------------------------------------------------------------------------
-const EditPanelLabelsModal = memo(({ visible, phases, onClose, onSaved }) => {
-  const { colors } = useAppTheme();
-  const styles = createStyles(colors);
-  const [values, setValues] = useState({});
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (visible) {
-      const initial = {};
-      phases.forEach((p) => {
-        initial[p.code] = p.label;
-      });
-      setValues(initial);
-    }
-  }, [visible, phases]);
-
-  const handleChange = useCallback((code, text) => {
-    setValues((prev) => ({ ...prev, [code]: text }));
-  }, []);
-
-  const handleSave = useCallback(async () => {
-    try {
-      setSaving(true);
-      const labelsMap = {};
-      phases.forEach((p) => {
-        const trimmed = (values[p.code] || '').trim();
-        // Falling back to the raw code keeps the bulk payload valid —
-        // the backend already skips empty labels, but this also makes
-        // sure a cleared field visibly resets to the phase code.
-        labelsMap[p.code] = trimmed || p.code;
-      });
-      await onSaved(labelsMap);
-      onClose();
-    } catch (error) {
-      Alert.alert('Save Failed', error?.message || 'Could not save the new names.');
-    } finally {
-      setSaving(false);
-    }
-  }, [values, phases, onSaved, onClose]);
-
-  return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
-        <TouchableOpacity activeOpacity={1} style={styles.editPanelCard}>
-          <Text style={styles.renameTitle}>Edit Phase Names</Text>
-
-          <ScrollView style={styles.editPanelScroll}>
-            {phases.map((p) => (
-              <View key={p.code} style={styles.editPanelFieldWrap}>
-                <Text style={styles.editPanelFieldLabel}>{p.code}</Text>
-                <TextInput
-                  style={styles.renameInput}
-                  value={values[p.code] ?? ''}
-                  onChangeText={(text) => handleChange(p.code, text)}
-                  placeholder={p.code}
-                  placeholderTextColor={colors.subText}
-                />
-              </View>
-            ))}
-          </ScrollView>
-
-          <View style={styles.renameButtonRow}>
-            <TouchableOpacity style={styles.renameButton} onPress={onClose}>
-              <Text style={styles.renameButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.renameButton, styles.renameButtonPrimary]}
-              onPress={handleSave}
-              disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Text style={[styles.renameButtonText, styles.renameButtonTextPrimary]}>
-                  Save All
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </TouchableOpacity>
-    </Modal>
-  );
-});
-
-// -------------------------------------------------------------------------
-// PanelSelector — simple custom dropdown ("All Panels" / "Panel 1" ...)
-// This is the "Control Panel filter" for the graph.
-// -------------------------------------------------------------------------
-const PanelSelector = memo(({ options, selected, onSelect }) => {
-  const { colors } = useAppTheme();
-  const styles = createStyles(colors);
-  const [visible, setVisible] = useState(false);
-
-  const openMenu = useCallback(() => setVisible(true), []);
-  const closeMenu = useCallback(() => setVisible(false), []);
-
-  const handleSelect = useCallback(
-    (option) => {
-      onSelect(option);
-      closeMenu();
-    },
-    [onSelect, closeMenu]
-  );
-
-  return (
-    <View>
-      <TouchableOpacity style={styles.dropdownButton} onPress={openMenu}>
-        <Text style={styles.dropdownButtonText}>{selected}</Text>
-        <Icon name="arrow-drop-down" size={20} color={colors.text} />
-      </TouchableOpacity>
-
-      <Modal
-        transparent
-        visible={visible}
-        animationType="fade"
-        onRequestClose={closeMenu}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={closeMenu}
-        >
-          <View style={styles.dropdownMenu}>
-            {options.map((option) => (
-              <TouchableOpacity
-                key={option}
-                style={styles.dropdownItem}
-                onPress={() => handleSelect(option)}
-              >
-                <Text
-                  style={[
-                    styles.dropdownItemText,
-                    option === selected && styles.dropdownItemTextActive,
-                  ]}
-                >
-                  {option}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-    </View>
-  );
-});
-
-// -------------------------------------------------------------------------
-// CalendarModal — month-grid date picker (the "calendar dropdown")
-// -------------------------------------------------------------------------
-const CalendarModal = memo(({ visible, selectedDate, onSelect, onClose }) => {
-  const { colors } = useAppTheme();
-  const styles = createStyles(colors);
-  const [viewMonth, setViewMonth] = useState(
-    () => new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)
-  );
-
-  useEffect(() => {
-    if (visible) {
-      setViewMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
-    }
-  }, [visible, selectedDate]);
-
-  const today = new Date();
-  const isViewingCurrentMonth =
-    viewMonth.getFullYear() === today.getFullYear() &&
-    viewMonth.getMonth() === today.getMonth();
-
-  const goPrevMonth = useCallback(() => {
-    setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1));
-  }, []);
-
-  const goNextMonth = useCallback(() => {
-    if (isViewingCurrentMonth) return;
-    setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1));
-  }, [isViewingCurrentMonth]);
-
-  const cells = useMemo(() => {
-    const year = viewMonth.getFullYear();
-    const month = viewMonth.getMonth();
-    const firstWeekday = new Date(year, month, 1).getDay();
-    const totalDays = new Date(year, month + 1, 0).getDate();
-
-    const list = [];
-    for (let i = 0; i < firstWeekday; i += 1) {
-      list.push(null);
-    }
-    for (let day = 1; day <= totalDays; day += 1) {
-      list.push(new Date(year, month, day));
-    }
-    return list;
-  }, [viewMonth]);
-
-  const handleJumpToday = useCallback(() => {
-    onSelect(new Date());
-  }, [onSelect]);
-
-  return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
-        <TouchableOpacity activeOpacity={1} style={styles.calendarCard}>
-          <View style={styles.calendarHeaderRow}>
-            <TouchableOpacity
-              style={styles.calendarNavBtn}
-              onPress={goPrevMonth}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-            >
-              <Icon name="chevron-left" size={20} color={colors.text} />
-            </TouchableOpacity>
-
-            <Text style={styles.calendarMonthText}>
-              {MONTH_LABELS[viewMonth.getMonth()]} {viewMonth.getFullYear()}
-            </Text>
-
-            <TouchableOpacity
-              style={[
-                styles.calendarNavBtn,
-                isViewingCurrentMonth && styles.calendarNavBtnDisabled,
-              ]}
-              onPress={goNextMonth}
-              disabled={isViewingCurrentMonth}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-            >
-              <Icon
-                name="chevron-right"
-                size={20}
-                color={isViewingCurrentMonth ? COLORS.disabledDay : colors.text}
-              />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.calendarWeekdayRow}>
-            {WEEKDAY_LABELS.map((wd) => (
-              <View key={wd} style={styles.calendarWeekdayCell}>
-                <Text style={styles.calendarWeekdayText}>{wd}</Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.calendarGrid}>
-            {cells.map((cellDate, idx) => {
-              if (!cellDate) {
-                return <View key={`empty-${idx}`} style={styles.calendarDayCell} />;
-              }
-
-              const isFuture = cellDate > today && !isSameDay(cellDate, today);
-              const isSelected = isSameDay(cellDate, selectedDate);
-              const isToday = isSameDay(cellDate, today);
-
-              return (
-                <TouchableOpacity
-                  key={cellDate.toISOString()}
-                  style={styles.calendarDayCell}
-                  disabled={isFuture}
-                  onPress={() => onSelect(cellDate)}
-                >
-                  <View
-                    style={[
-                      styles.calendarDayInner,
-                      isSelected && styles.calendarDaySelected,
-                      isToday && !isSelected && styles.calendarDayToday,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.calendarDayText,
-                        isFuture && styles.calendarDayTextDisabled,
-                        isSelected && styles.calendarDayTextSelected,
-                      ]}
-                    >
-                      {cellDate.getDate()}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <TouchableOpacity style={styles.calendarTodayLink} onPress={handleJumpToday}>
-            <Text style={styles.calendarTodayLinkText}>Jump to Today</Text>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </TouchableOpacity>
-    </Modal>
-  );
-});
-
-// -------------------------------------------------------------------------
-// ExportMenu — small popup with "Today" / "Set Range" export options
-// -------------------------------------------------------------------------
-const ExportMenu = memo(({ visible, onClose, onToday, onSetRange, anchorPosition }) => {
-  const { colors } = useAppTheme();
-  const styles = createStyles(colors);
-
-  return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.headerMenuOverlay} activeOpacity={1} onPress={onClose}>
-        <View
-          style={[
-            styles.headerMenuList,
-            { top: anchorPosition.top, right: anchorPosition.right },
-          ]}
-        >
-          <TouchableOpacity
-            style={styles.dropdownItem}
-            onPress={() => {
-              onClose();
-              onToday();
-            }}
-          >
-            <Text style={styles.dropdownItemText}>Today</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.dropdownItem}
-            onPress={() => {
-              onClose();
-              onSetRange();
-            }}
-          >
-            <Text style={styles.dropdownItemText}>Set Range</Text>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
-    </Modal>
-  );
-});
-
-// -------------------------------------------------------------------------
-// RangeCalendarModal — two-tap range picker (tap start date, then end
-// date) used by the "Set Range" export option. Reuses the same
-// month-grid layout as CalendarModal.
-// -------------------------------------------------------------------------
-const RangeCalendarModal = memo(({ visible, onConfirm, onClose }) => {
-  const { colors } = useAppTheme();
-  const styles = createStyles(colors);
-  const today = new Date();
-
-  const [viewMonth, setViewMonth] = useState(
-    () => new Date(today.getFullYear(), today.getMonth(), 1)
-  );
-  const [rangeStart, setRangeStart] = useState(null);
-  const [rangeEnd, setRangeEnd] = useState(null);
-
-  useEffect(() => {
-    if (visible) {
-      setViewMonth(new Date(today.getFullYear(), today.getMonth(), 1));
-      setRangeStart(null);
-      setRangeEnd(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
-
-  const isViewingCurrentMonth =
-    viewMonth.getFullYear() === today.getFullYear() &&
-    viewMonth.getMonth() === today.getMonth();
-
-  const goPrevMonth = useCallback(() => {
-    setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1));
-  }, []);
-  const goNextMonth = useCallback(() => {
-    if (isViewingCurrentMonth) return;
-    setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1));
-  }, [isViewingCurrentMonth]);
-
-  const handleDayPress = useCallback(
-    (day) => {
-      if (!rangeStart || (rangeStart && rangeEnd)) {
-        // start a fresh selection
-        setRangeStart(day);
-        setRangeEnd(null);
-        return;
-      }
-      // second tap -> set end (swap if an earlier date was picked)
-      if (day < rangeStart) {
-        setRangeEnd(rangeStart);
-        setRangeStart(day);
-      } else {
-        setRangeEnd(day);
-      }
-    },
-    [rangeStart, rangeEnd]
-  );
-
-  const cells = useMemo(() => {
-    const year = viewMonth.getFullYear();
-    const month = viewMonth.getMonth();
-    const firstWeekday = new Date(year, month, 1).getDay();
-    const totalDays = new Date(year, month + 1, 0).getDate();
-    const list = [];
-    for (let i = 0; i < firstWeekday; i += 1) list.push(null);
-    for (let day = 1; day <= totalDays; day += 1) list.push(new Date(year, month, day));
-    return list;
-  }, [viewMonth]);
-
-  const isInRange = (d) => rangeStart && rangeEnd && d > rangeStart && d < rangeEnd;
-  const isEndpoint = (d) =>
-    (rangeStart && isSameDay(d, rangeStart)) || (rangeEnd && isSameDay(d, rangeEnd));
-
-  const handleConfirm = useCallback(() => {
-    if (!rangeStart) return;
-    onConfirm(rangeStart, rangeEnd || rangeStart);
-  }, [rangeStart, rangeEnd, onConfirm]);
-
-  return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
-        <TouchableOpacity activeOpacity={1} style={styles.calendarCard}>
-          <View style={styles.calendarHeaderRow}>
-            <TouchableOpacity style={styles.calendarNavBtn} onPress={goPrevMonth}>
-              <Icon name="chevron-left" size={20} color={colors.text} />
-            </TouchableOpacity>
-            <Text style={styles.calendarMonthText}>
-              {MONTH_LABELS[viewMonth.getMonth()]} {viewMonth.getFullYear()}
-            </Text>
-            <TouchableOpacity
-              style={[
-                styles.calendarNavBtn,
-                isViewingCurrentMonth && styles.calendarNavBtnDisabled,
-              ]}
-              onPress={goNextMonth}
-              disabled={isViewingCurrentMonth}
-            >
-              <Icon
-                name="chevron-right"
-                size={20}
-                color={isViewingCurrentMonth ? COLORS.disabledDay : colors.text}
-              />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.calendarWeekdayRow}>
-            {WEEKDAY_LABELS.map((wd) => (
-              <View key={wd} style={styles.calendarWeekdayCell}>
-                <Text style={styles.calendarWeekdayText}>{wd}</Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.calendarGrid}>
-            {cells.map((cellDate, idx) => {
-              if (!cellDate) {
-                return <View key={`empty-${idx}`} style={styles.calendarDayCell} />;
-              }
-              const isFuture = cellDate > today && !isSameDay(cellDate, today);
-              return (
-                <TouchableOpacity
-                  key={cellDate.toISOString()}
-                  style={styles.calendarDayCell}
-                  disabled={isFuture}
-                  onPress={() => handleDayPress(cellDate)}
-                >
-                  <View
-                    style={[
-                      styles.calendarDayInner,
-                      isInRange(cellDate) && { backgroundColor: colors.border },
-                      isEndpoint(cellDate) && styles.calendarDaySelected,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.calendarDayText,
-                        isFuture && styles.calendarDayTextDisabled,
-                        isEndpoint(cellDate) && styles.calendarDayTextSelected,
-                      ]}
-                    >
-                      {cellDate.getDate()}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <Text style={styles.chartHintText}>
-            {rangeStart ? formatDateLabel(rangeStart) : 'Select start date'}
-            {'  ->  '}
-            {rangeEnd ? formatDateLabel(rangeEnd) : rangeStart ? 'Select end date' : ''}
-          </Text>
-
-          <TouchableOpacity
-            style={[styles.calendarTodayLink, !rangeStart && { opacity: 0.4 }]}
-            disabled={!rangeStart}
-            onPress={handleConfirm}
-          >
-            <Text style={styles.calendarTodayLinkText}>Export Selected Range</Text>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </TouchableOpacity>
-    </Modal>
-  );
-});
-
-// -------------------------------------------------------------------------
-// DateField — tappable field showing the selected date; opens the
-// CalendarModal ("calendar dropdown") on press.
-// -------------------------------------------------------------------------
-const DateField = memo(({ selectedDate, isToday, onChangeDate }) => {
-  const { colors } = useAppTheme();
-  const styles = createStyles(colors);
-  const [calendarVisible, setCalendarVisible] = useState(false);
-
-  const openCalendar = useCallback(() => setCalendarVisible(true), []);
-  const closeCalendar = useCallback(() => setCalendarVisible(false), []);
-
-  const handleSelect = useCallback(
-    (date) => {
-      onChangeDate(date);
-      setCalendarVisible(false);
-    },
-    [onChangeDate]
-  );
-
-  return (
-    <View style={styles.dateFieldRow}>
-      <TouchableOpacity style={styles.dateFieldBtn} onPress={openCalendar}>
-        <Icon name="calendar-today" size={14} color={colors.text} />
-        <Text style={styles.dateFieldText}>{formatDateLabel(selectedDate)}</Text>
-        <Icon name="arrow-drop-down" size={18} color={colors.text} />
-      </TouchableOpacity>
-
-      {isToday && (
-        <View style={styles.liveBadge}>
-          <View style={styles.liveDot} />
-          <Text style={styles.liveBadgeText}>LIVE</Text>
-        </View>
-      )}
-
-      <CalendarModal
-        visible={calendarVisible}
-        selectedDate={selectedDate}
-        onSelect={handleSelect}
-        onClose={closeCalendar}
-      />
-    </View>
-  );
-});
-
-// -------------------------------------------------------------------------
-// REAL-TIME / HISTORICAL GRAPH — custom SVG chart, fixed 00:00-23:59 axis
-// Pinch (2-finger) to zoom, 1-finger drag to pan, double-tap to reset.
-// -------------------------------------------------------------------------
 const screenWidth = Dimensions.get('window').width;
 const CHART_WIDTH = screenWidth - 64;
 const CHART_HEIGHT = 240;
 const CHART_PAD = { top: 14, right: 14, bottom: 26, left: 42 };
 const PLOT_WIDTH = CHART_WIDTH - CHART_PAD.left - CHART_PAD.right;
 const PLOT_HEIGHT = CHART_HEIGHT - CHART_PAD.top - CHART_PAD.bottom;
+const PLOT_BOTTOM = CHART_HEIGHT - CHART_PAD.bottom;
 
-const MIN_VIEW_SPAN = 20; // minutes — how far the user can pinch-zoom in
-const DOUBLE_TAP_MS = 300;
-const TAP_MOVE_TOLERANCE = 6; // px
+/* ───────────────────────────── helpers ───────────────────────────── */
 
-const getTickStepMinutes = (spanMinutes) => {
-  if (spanMinutes <= 40) return 5;
-  if (spanMinutes <= 90) return 15;
-  if (spanMinutes <= 180) return 30;
-  if (spanMinutes <= 480) return 60;
-  if (spanMinutes <= 900) return 120;
-  return 180;
+const pad = (n) => String(n).padStart(2, '0');
+const dateKeyOf = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const fileDate = (d) => `${pad(d.getDate())}_${pad(d.getMonth() + 1)}_${String(d.getFullYear()).slice(-2)}`;
+const formatDateLabel = (d) => `${pad(d.getDate())} ${MONTHS[d.getMonth()].slice(0, 3)} ${d.getFullYear()}`;
+const monthStart = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
+const isSameDay = (a, b) =>
+  !!a && !!b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+const minutesOf = (d = new Date()) => d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
+const formatMinutes = (mins) => {
+  const m = Math.round(((mins % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES);
+  return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+};
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const panelName = (p) => p.custom_name || `Panel ${p.panel_no}`;
+
+const getPhaseColor = (code) => COLORS[(code || '').charAt(0).toUpperCase()] || COLORS.N;
+const getSeriesColor = (code) => {
+  const letter = (code || '').charAt(0).toUpperCase();
+  const palette = SERIES_COLOR_VARIANTS[letter] || SERIES_COLOR_VARIANTS.N;
+  const idx = parseInt((code || '').replace(/\D/g, ''), 10) || 1;
+  return palette[(idx - 1) % palette.length];
 };
 
-const clampView = (start, end) => {
-  let s = start;
-  let e = end;
-  if (s < 0) {
-    e -= s;
-    s = 0;
-  }
-  if (e > DAY_MINUTES) {
-    s -= e - DAY_MINUTES;
-    e = DAY_MINUTES;
-  }
-  s = Math.max(0, s);
-  e = Math.min(DAY_MINUTES, e);
-  return { start: s, end: e };
+const clampView = (s, e) => {
+  if (s < 0) { e -= s; s = 0; }
+  if (e > DAY_MINUTES) { s -= e - DAY_MINUTES; e = DAY_MINUTES; }
+  return { start: Math.max(0, s), end: Math.min(DAY_MINUTES, e) };
+};
+const getTickStep = (span) => (TICK_STEPS.find(([max]) => span <= max) || [0, 180])[1];
+const makeScales = (v0, span, yMin, yMax) => ({
+  x: (t) => CHART_PAD.left + ((t - v0) / span) * PLOT_WIDTH,
+  y: (v) => CHART_PAD.top + (1 - (v - yMin) / (yMax - yMin || 1)) * PLOT_HEIGHT,
+});
+
+// Merge DB rows with live points already collected for the same day.
+const mergeRows = (existing, rows, dateKey) => {
+  const db = {};
+  rows.forEach((row) => {
+    const t = minutesOf(new Date(row.timestamp));
+    PHASE_COLUMNS.forEach((c) => {
+      if (row[c] != null) (db[c] = db[c] || []).push({ t, v: row[c] });
+    });
+  });
+  const old = existing?.series || {};
+  const series = {};
+  new Set([...Object.keys(db), ...Object.keys(old)]).forEach((phase) => {
+    const dbPts = db[phase] || [];
+    const maxT = dbPts.length ? dbPts[dbPts.length - 1].t : -1;
+    series[phase] = [...dbPts, ...(old[phase] || []).filter((p) => p.t > maxT)];
+  });
+  return { dateKey, series };
 };
 
-/**
- * RealtimeChart — draws one line per phase on a fixed 00:00-23:59 axis.
- * seriesMap: { [phaseCode]: [{ t: minutesSinceMidnight, v: number }, ...] }
- */
-const RealtimeChart = memo(({ seriesMap, nowMinutes, loading, phaseLabels }) => {
-  const { colors } = useAppTheme();
-  const styles = createStyles(colors);
-  const [view, setView] = useState({ start: 0, end: DAY_MINUTES });
+/* ───────────────────────────── hooks ───────────────────────────── */
+
+// Styles are built once per theme change instead of on every render of every component.
+const useStyles = () => {
+  const { colors, isDark } = useAppTheme();
+  return useMemo(() => ({ colors, isDark, styles: createStyles(colors) }), [colors, isDark]);
+};
+
+// Popup open/close state, optionally anchored under a button.
+const useMenu = (anchored = true) => {
+  const ref = useRef(null);
+  const [state, setState] = useState({ visible: false, anchor: null });
+  const open = useCallback(() => {
+    if (!anchored) return setState({ visible: true, anchor: null });
+    ref.current?.measureInWindow((x, y, w, h) =>
+      setState({ visible: true, anchor: { top: y + h + 6, right: Math.max(screenWidth - (x + w), 12) } })
+    );
+  }, [anchored]);
+  const close = useCallback(() => setState((s) => ({ ...s, visible: false })), []);
+  return { ref, visible: state.visible, anchor: state.anchor, open, close };
+};
+
+/* ───────────────────────────── small UI pieces ───────────────────────────── */
+
+const StatusBadge = memo(({ status }) => {
+  const { styles } = useStyles();
+  const color = status === 'Online' ? COLORS.online : COLORS.offline;
+  return (
+    <View style={styles.row}>
+      <View style={[styles.statusDot, { backgroundColor: color }]} />
+      <Text style={[styles.statusText, { color }]}>{status}</Text>
+    </View>
+  );
+});
+
+const Empty = ({ icon, text, wrapStyle }) => {
+  const { colors, styles } = useStyles();
+  return (
+    <View style={wrapStyle}>
+      <Icon name={icon} size={34} color={colors.subText} />
+      <Text style={styles.emptyPanelText}>{text}</Text>
+    </View>
+  );
+};
+
+const CenterModal = ({ visible, onClose, cardStyle, children }) => {
+  const { styles } = useStyles();
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
+        <TouchableOpacity activeOpacity={1} style={cardStyle}>{children}</TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
+  );
+};
+
+// Generic list popup: centered (dropdown) or anchored under a button (menus).
+const PopupMenu = ({ visible, onClose, options, onSelect, selected, anchor }) => {
+  const { styles } = useStyles();
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+      <TouchableOpacity
+        style={anchor ? styles.headerMenuOverlay : styles.modalOverlay}
+        activeOpacity={1}
+        onPress={onClose}
+      >
+        <View style={anchor ? [styles.headerMenuList, anchor] : styles.dropdownMenu}>
+          {options.map((o) => (
+            <TouchableOpacity key={o} style={styles.dropdownItem} onPress={() => { onClose(); onSelect(o); }}>
+              <Text style={[styles.dropdownItemText, o === selected && styles.dropdownItemTextActive]}>{o}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+};
+
+const PanelSelector = memo(({ options, selected, onSelect }) => {
+  const { colors, styles } = useStyles();
+  const menu = useMenu(false);
+  return (
+    <View>
+      <TouchableOpacity style={styles.dropdownButton} onPress={menu.open}>
+        <Text style={styles.dropdownButtonText}>{selected}</Text>
+        <Icon name="arrow-drop-down" size={20} color={colors.text} />
+      </TouchableOpacity>
+      <PopupMenu visible={menu.visible} onClose={menu.close} options={options} selected={selected} onSelect={onSelect} />
+    </View>
+  );
+});
+
+const HeaderMenu = memo(({ onSelect }) => {
+  const { colors, styles } = useStyles();
+  const menu = useMenu();
+  return (
+    <View>
+      <TouchableOpacity ref={menu.ref} style={styles.headerIconButton} onPress={menu.open} hitSlop={HIT}>
+        <Icon name="more-vert" size={22} color={colors.text} />
+      </TouchableOpacity>
+      <PopupMenu visible={menu.visible} anchor={menu.anchor} onClose={menu.close} options={HEADER_MENU_OPTIONS} onSelect={onSelect} />
+    </View>
+  );
+});
+
+/* ───────────────────────────── phase / panel cards ───────────────────────────── */
+
+const TemperatureCard = memo(({ temperature: { phase, current, min, max }, label, onEditLabels }) => {
+  const { styles } = useStyles();
+  const fmt = (v) => (v != null ? v.toFixed(2) : '--');
+  return (
+    <View style={styles.tempCard}>
+      <TouchableOpacity onLongPress={() => onEditLabels([phase])} activeOpacity={0.6}>
+        <Text style={[styles.tempPhase, { color: getPhaseColor(phase) }]}>{label || phase}</Text>
+      </TouchableOpacity>
+      <Text style={styles.tempValue}>{current != null ? `${fmt(current)}°C` : '--'}</Text>
+      <View style={styles.tempMinMaxRow}>
+        <Text style={styles.tempMinMax}>Min {fmt(min)}</Text>
+        <Text style={styles.tempMinMax}>Max {fmt(max)}</Text>
+      </View>
+    </View>
+  );
+});
+
+const PanelCard = memo(({ panel, phaseLabels, onEditLabels }) => {
+  const { colors, styles } = useStyles();
+  const visible = useMemo(() => panel.temperatures.filter((t) => t.current != null), [panel.temperatures]);
+  if (!visible.length) return null;
+
+  return (
+    <View style={styles.panelCard}>
+      <View style={styles.panelHeaderRow}>
+        <Text style={styles.panelTitle}>{panel.custom_name || `Control Panel ${panel.panel_no}`}</Text>
+        <TouchableOpacity onPress={() => onEditLabels(panel.temperatures.map((t) => t.phase))} hitSlop={HIT}>
+          <Icon name="edit" size={16} color={colors.subText} />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.tempGrid}>
+        {visible.map((temp) => (
+          <TemperatureCard key={temp.phase} temperature={temp} label={phaseLabels?.[temp.phase]} onEditLabels={onEditLabels} />
+        ))}
+      </View>
+    </View>
+  );
+});
+
+// One modal for both "rename one phase" (codes.length === 1) and "edit all phases of a panel".
+const EditLabelsModal = memo(({ visible, codes, labels, onClose, onSaved }) => {
+  const { colors, styles } = useStyles();
+  const [values, setValues] = useState({});
+  const [saving, setSaving] = useState(false);
+  const single = codes.length === 1;
+
+  useEffect(() => {
+    if (visible) setValues(Object.fromEntries(codes.map((c) => [c, labels?.[c] || c])));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
+  const save = async () => {
+    try {
+      setSaving(true);
+      await onSaved(Object.fromEntries(codes.map((c) => [c, (values[c] || '').trim() || c])));
+      onClose();
+    } catch (error) {
+      Alert.alert('Save Failed', error?.message || 'Could not save the new names.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <CenterModal visible={visible} onClose={onClose} cardStyle={styles.editCard}>
+      <Text style={styles.renameTitle}>{single ? `Rename ${codes[0]}` : 'Edit Phase Names'}</Text>
+      <ScrollView style={styles.editPanelScroll}>
+        {codes.map((code) => (
+          <View key={code} style={styles.editPanelFieldWrap}>
+            {!single && <Text style={styles.editPanelFieldLabel}>{code}</Text>}
+            <TextInput
+              style={styles.renameInput}
+              value={values[code] ?? ''}
+              onChangeText={(text) => setValues((p) => ({ ...p, [code]: text }))}
+              placeholder={code}
+              placeholderTextColor={colors.subText}
+              autoFocus={single}
+            />
+          </View>
+        ))}
+      </ScrollView>
+      <View style={styles.renameButtonRow}>
+        <TouchableOpacity style={styles.renameButton} onPress={onClose}>
+          <Text style={styles.renameButtonText}>Cancel</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.renameButton, styles.renameButtonPrimary]} onPress={save} disabled={saving}>
+          {saving ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={[styles.renameButtonText, styles.renameButtonTextPrimary]}>{single ? 'Save' : 'Save All'}</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </CenterModal>
+  );
+});
+
+/* ───────────────────────────── calendar ───────────────────────────── */
+
+// range=false: pick one day -> onSelect(date).  range=true: pick start/end -> onSelect(start, end).
+const CalendarModal = memo(({ visible, range, selectedDate, onSelect, onClose }) => {
+  const { colors, styles } = useStyles();
+  const [viewMonth, setViewMonth] = useState(() => monthStart(selectedDate || new Date()));
+  const [start, setStart] = useState(null);
+  const [end, setEnd] = useState(null);
+  const today = new Date();
+  const atCurrentMonth = viewMonth.getFullYear() === today.getFullYear() && viewMonth.getMonth() === today.getMonth();
+
+  useEffect(() => {
+    if (!visible) return;
+    setViewMonth(monthStart(selectedDate || new Date()));
+    setStart(null);
+    setEnd(null);
+  }, [visible, selectedDate]);
+
+  const shiftMonth = (n) => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + n, 1));
+
+  const cells = useMemo(() => {
+    const y = viewMonth.getFullYear();
+    const m = viewMonth.getMonth();
+    return [
+      ...Array(new Date(y, m, 1).getDay()).fill(null),
+      ...Array.from({ length: new Date(y, m + 1, 0).getDate() }, (_, i) => new Date(y, m, i + 1)),
+    ];
+  }, [viewMonth]);
+
+  const press = (d) => {
+    if (!range) return onSelect(d);
+    if (!start || end) { setStart(d); setEnd(null); }
+    else if (d < start) { setEnd(start); setStart(d); }
+    else setEnd(d);
+  };
+
+  return (
+    <CenterModal visible={visible} onClose={onClose} cardStyle={styles.calendarCard}>
+      <View style={styles.calendarHeaderRow}>
+        <TouchableOpacity style={styles.calendarNavBtn} onPress={() => shiftMonth(-1)} hitSlop={HIT}>
+          <Icon name="chevron-left" size={20} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.calendarMonthText}>{MONTHS[viewMonth.getMonth()]} {viewMonth.getFullYear()}</Text>
+        <TouchableOpacity
+          style={[styles.calendarNavBtn, atCurrentMonth && styles.calendarNavBtnDisabled]}
+          onPress={() => shiftMonth(1)}
+          disabled={atCurrentMonth}
+          hitSlop={HIT}
+        >
+          <Icon name="chevron-right" size={20} color={atCurrentMonth ? COLORS.disabledDay : colors.text} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.calendarWeekdayRow}>
+        {WEEKDAYS.map((wd) => (
+          <View key={wd} style={styles.calendarWeekdayCell}>
+            <Text style={styles.calendarWeekdayText}>{wd}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.calendarGrid}>
+        {cells.map((d, i) => {
+          if (!d) return <View key={`e${i}`} style={styles.calendarDayCell} />;
+          const future = d > today;
+          const sel = range ? isSameDay(d, start) || isSameDay(d, end) : isSameDay(d, selectedDate);
+          const inRange = range && start && end && d > start && d < end;
+          return (
+            <TouchableOpacity key={d.getTime()} style={styles.calendarDayCell} disabled={future} onPress={() => press(d)}>
+              <View
+                style={[
+                  styles.calendarDayInner,
+                  inRange && { backgroundColor: colors.border },
+                  sel ? styles.calendarDaySelected : isSameDay(d, today) && styles.calendarDayToday,
+                ]}
+              >
+                <Text style={[styles.calendarDayText, future && styles.calendarDayTextDisabled, sel && styles.calendarDayTextSelected]}>
+                  {d.getDate()}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {range && (
+        <Text style={styles.chartHintText}>
+          {start ? formatDateLabel(start) : 'Select start date'}
+          {'  ->  '}
+          {end ? formatDateLabel(end) : start ? 'Select end date' : ''}
+        </Text>
+      )}
+      <TouchableOpacity
+        style={[styles.calendarTodayLink, range && !start && { opacity: 0.4 }]}
+        disabled={range && !start}
+        onPress={() => (range ? onSelect(start, end || start) : onSelect(new Date()))}
+      >
+        <Text style={styles.calendarTodayLinkText}>{range ? 'Export Selected Range' : 'Jump to Today'}</Text>
+      </TouchableOpacity>
+    </CenterModal>
+  );
+});
+
+const DateField = memo(({ selectedDate, isToday, onChangeDate }) => {
+  const { colors, styles } = useStyles();
+  const [open, setOpen] = useState(false);
+  const close = useCallback(() => setOpen(false), []);
+  const handleSelect = useCallback((d) => { onChangeDate(d); setOpen(false); }, [onChangeDate]);
+
+  return (
+    <View style={styles.dateFieldRow}>
+      <TouchableOpacity style={styles.dateFieldBtn} onPress={() => setOpen(true)}>
+        <Icon name="calendar-today" size={14} color={colors.text} />
+        <Text style={styles.dateFieldText}>{formatDateLabel(selectedDate)}</Text>
+        <Icon name="arrow-drop-down" size={18} color={colors.text} />
+      </TouchableOpacity>
+      {isToday && (
+        <View style={styles.liveBadge}>
+          <View style={styles.liveDot} />
+          <Text style={styles.liveBadgeText}>LIVE</Text>
+        </View>
+      )}
+      <CalendarModal visible={open} selectedDate={selectedDate} onSelect={handleSelect} onClose={close} />
+    </View>
+  );
+});
+
+/* ───────────────────────────── chart ───────────────────────────── */
+
+const RealtimeChart = memo(({ seriesMap, nowMinutes, loading, phaseLabels, resetKey }) => {
+  const { colors, styles } = useStyles();
+  const [view, setView] = useState(FULL_VIEW);
   const viewRef = useRef(view);
   const gestureRef = useRef(null);
   const lastTapRef = useRef(0);
+  viewRef.current = view;
 
-  useEffect(() => {
-    viewRef.current = view;
-  }, [view]);
+  // Reset zoom only when the day/panel changes — not on every live data tick.
+  useEffect(() => { setView(FULL_VIEW); }, [resetKey]);
 
-  // Reset zoom/pan whenever the underlying series identity changes
-  // (i.e. the user switched dates) so old zoom state doesn't carry over.
-  useEffect(() => {
-    setView({ start: 0, end: DAY_MINUTES });
-  }, [seriesMap]);
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onPanResponderMove: (evt, g) => {
+          const xs = evt.nativeEvent.touches.map((t) => t.pageX);
+          let s = gestureRef.current;
+          // (Re)baseline whenever the finger count changes (e.g. 2nd finger lands / lifts).
+          if (!s || s.xs.length !== xs.length) s = gestureRef.current = { view: { ...viewRef.current }, xs, dx0: g.dx };
+          const base = s.view;
+          const span0 = base.end - base.start;
 
-  const resetView = useCallback(() => {
-    setView({ start: 0, end: DAY_MINUTES });
-  }, []);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (evt, gestureState) =>
-        Math.abs(gestureState.dx) > 2 ||
-        Math.abs(gestureState.dy) > 2 ||
-        evt.nativeEvent.touches.length === 2,
-      onPanResponderGrant: (evt) => {
-        const touches = evt.nativeEvent.touches;
-        gestureRef.current = {
-          startView: { ...viewRef.current },
-          touchXs: touches.map((t) => t.pageX),
-        };
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        const start = gestureRef.current;
-        if (!start) return;
-        const touches = evt.nativeEvent.touches;
-
-        if (touches.length === 2 && start.touchXs.length === 2) {
-          // Pinch to zoom, anchored on the view's current center
-          const currentDist = Math.abs(touches[1].pageX - touches[0].pageX);
-          const initialDist = Math.abs(start.touchXs[1] - start.touchXs[0]);
-          if (initialDist < 1) return;
-
-          const initialSpan = start.startView.end - start.startView.start;
-          const scaleRatio = currentDist / initialDist;
-          const newSpan = Math.min(
-            DAY_MINUTES,
-            Math.max(MIN_VIEW_SPAN, initialSpan / scaleRatio)
-          );
-          const center = (start.startView.start + start.startView.end) / 2;
-          setView(clampView(center - newSpan / 2, center + newSpan / 2));
-        } else if (touches.length === 1) {
-          // 1-finger pan
-          const span = start.startView.end - start.startView.start;
-          const deltaMinutes = -(gestureState.dx / PLOT_WIDTH) * span;
-          setView(
-            clampView(
-              start.startView.start + deltaMinutes,
-              start.startView.end + deltaMinutes
-            )
-          );
-        }
-      },
-      onPanResponderRelease: (evt, gestureState) => {
-        const wasTap =
-          Math.abs(gestureState.dx) < TAP_MOVE_TOLERANCE &&
-          Math.abs(gestureState.dy) < TAP_MOVE_TOLERANCE;
-
-        if (wasTap) {
-          const now = Date.now();
-          if (now - lastTapRef.current < DOUBLE_TAP_MS) {
-            resetView();
-            lastTapRef.current = 0;
-          } else {
-            lastTapRef.current = now;
+          if (xs.length === 2) {
+            const d0 = Math.abs(s.xs[1] - s.xs[0]);
+            if (d0 < 1) return;
+            const newSpan = clamp(span0 / (Math.abs(xs[1] - xs[0]) / d0), MIN_VIEW_SPAN, DAY_MINUTES);
+            const c = (base.start + base.end) / 2;
+            setView(clampView(c - newSpan / 2, c + newSpan / 2));
+          } else if (xs.length === 1) {
+            const dm = -((g.dx - s.dx0) / PLOT_WIDTH) * span0;
+            setView(clampView(base.start + dm, base.end + dm));
           }
-        }
-        gestureRef.current = null;
-      },
-      onPanResponderTerminate: () => {
-        gestureRef.current = null;
-      },
-    })
-  ).current;
-
-  const span = view.end - view.start;
-
-  const xScale = useCallback(
-    (t) => CHART_PAD.left + ((t - view.start) / span) * PLOT_WIDTH,
-    [view.start, span]
+        },
+        onPanResponderRelease: (_, g) => {
+          gestureRef.current = null;
+          if (Math.abs(g.dx) >= TAP_MOVE_TOLERANCE || Math.abs(g.dy) >= TAP_MOVE_TOLERANCE) return;
+          const now = Date.now();
+          if (now - lastTapRef.current < DOUBLE_TAP_MS) { setView(FULL_VIEW); lastTapRef.current = 0; }
+          else lastTapRef.current = now;
+        },
+        onPanResponderTerminate: () => { gestureRef.current = null; },
+      }),
+    []
   );
 
-  const phases = Object.keys(seriesMap).sort();
+  const span = view.end - view.start;
+  const phases = useMemo(() => Object.keys(seriesMap).sort(), [seriesMap]);
 
   const { yMin, yMax } = useMemo(() => {
+    const lo = view.start - span * 0.05;
+    const hi = view.end + span * 0.05;
     let min = Infinity;
     let max = -Infinity;
-    phases.forEach((phase) => {
-      const pts = seriesMap[phase];
-      for (let i = 0; i < pts.length; i += 1) {
-        const { t, v } = pts[i];
-        if (t < view.start - span * 0.05 || t > view.end + span * 0.05) continue;
-        if (v < min) min = v;
-        if (v > max) max = v;
-      }
-    });
-    if (!isFinite(min) || !isFinite(max)) {
-      return { yMin: 20, yMax: 40 };
-    }
-    if (max - min < 2) {
-      const mid = (max + min) / 2;
-      min = mid - 1;
-      max = mid + 1;
-    }
+    phases.forEach((p) => seriesMap[p].forEach(({ t, v }) => {
+      if (t < lo || t > hi) return;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }));
+    if (!isFinite(min) || !isFinite(max)) return { yMin: 20, yMax: 40 };
+    if (max - min < 2) { const mid = (max + min) / 2; min = mid - 1; max = mid + 1; }
     const padAmt = (max - min) * 0.15;
     return { yMin: min - padAmt, yMax: max + padAmt };
   }, [seriesMap, phases, view.start, view.end, span]);
 
-  const yScale = useCallback(
-    (v) =>
-      CHART_PAD.top +
-      (1 - (v - yMin) / (yMax - yMin || 1)) * PLOT_HEIGHT,
-    [yMin, yMax]
-  );
+  const sc = useMemo(() => makeScales(view.start, span, yMin, yMax), [view.start, span, yMin, yMax]);
+
+  // SVG path strings are rebuilt only when data / zoom / scale actually change.
+  const lines = useMemo(() => {
+    const lo = view.start - span * 0.05;
+    const hi = view.end + span * 0.05;
+    return phases
+      .map((phase) => {
+        const pts = seriesMap[phase];
+        if (!pts?.length) return null;
+        let d = '';
+        pts.forEach(({ t, v }) => {
+          if (t >= lo && t <= hi) d += `${d ? 'L' : 'M'}${sc.x(t).toFixed(1)} ${sc.y(v).toFixed(1)}`;
+        });
+        return d ? { phase, d, last: pts[pts.length - 1] } : null;
+      })
+      .filter(Boolean);
+  }, [phases, seriesMap, view.start, view.end, span, sc]);
 
   const xTicks = useMemo(() => {
-    const step = getTickStepMinutes(span);
-    const first = Math.ceil(view.start / step) * step;
-    const ticks = [];
-    for (let t = first; t <= view.end; t += step) {
-      ticks.push(t);
-    }
-    return ticks;
+    const step = getTickStep(span);
+    const out = [];
+    for (let t = Math.ceil(view.start / step) * step; t <= view.end; t += step) out.push(t);
+    return out;
   }, [view.start, view.end, span]);
 
-  const yTicks = useMemo(() => {
-    const count = 4;
-    const ticks = [];
-    for (let i = 0; i <= count; i += 1) {
-      ticks.push(yMin + ((yMax - yMin) * i) / count);
-    }
-    return ticks;
-  }, [yMin, yMax]);
+  const yTicks = useMemo(() => Array.from({ length: 5 }, (_, i) => yMin + ((yMax - yMin) * i) / 4), [yMin, yMax]);
 
-  const hasAnyData = phases.some((p) => seriesMap[p] && seriesMap[p].length > 0);
-  const nowVisible =
-    nowMinutes != null && nowMinutes >= view.start && nowMinutes <= view.end;
+  const hasAnyData = phases.some((p) => seriesMap[p]?.length);
+  const nowVisible = nowMinutes != null && nowMinutes >= view.start && nowMinutes <= view.end;
   const isZoomed = span < DAY_MINUTES - 1;
 
   return (
     <View>
       <View {...panResponder.panHandlers} style={styles.chartTouchArea}>
         <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
-          {/* Horizontal gridlines + Y axis labels */}
           {yTicks.map((val, i) => (
-            <React.Fragment key={`y-${i}`}>
-              <SvgLine
-                x1={CHART_PAD.left}
-                y1={yScale(val)}
-                x2={CHART_WIDTH - CHART_PAD.right}
-                y2={yScale(val)}
-                stroke={colors.border}
-                strokeWidth={1}
-              />
-              <SvgText
-                x={CHART_PAD.left - 6}
-                y={yScale(val) + 3}
-                fontSize={9}
-                fill={colors.subText}
-                textAnchor="end"
-              >
-                {val.toFixed(0)}
-              </SvgText>
+            <React.Fragment key={`y${i}`}>
+              <SvgLine x1={CHART_PAD.left} y1={sc.y(val)} x2={CHART_WIDTH - CHART_PAD.right} y2={sc.y(val)} stroke={colors.border} strokeWidth={1} />
+              <SvgText x={CHART_PAD.left - 6} y={sc.y(val) + 3} fontSize={9} fill={colors.subText} textAnchor="end">{val.toFixed(0)}</SvgText>
             </React.Fragment>
           ))}
 
-          {/* Vertical gridlines + X axis time labels */}
-          {xTicks.map((t, i) => (
-            <React.Fragment key={`x-${i}`}>
-              <SvgLine
-                x1={xScale(t)}
-                y1={CHART_PAD.top}
-                x2={xScale(t)}
-                y2={CHART_HEIGHT - CHART_PAD.bottom}
-                stroke={colors.border}
-                strokeWidth={1}
-              />
-              <SvgText
-                x={xScale(t)}
-                y={CHART_HEIGHT - CHART_PAD.bottom + 14}
-                fontSize={9}
-                fill={colors.subText}
-                textAnchor="middle"
-              >
-                {formatMinutes(t)}
-              </SvgText>
+          {xTicks.map((t) => (
+            <React.Fragment key={`x${t}`}>
+              <SvgLine x1={sc.x(t)} y1={CHART_PAD.top} x2={sc.x(t)} y2={PLOT_BOTTOM} stroke={colors.border} strokeWidth={1} />
+              <SvgText x={sc.x(t)} y={PLOT_BOTTOM + 14} fontSize={9} fill={colors.subText} textAnchor="middle">{formatMinutes(t)}</SvgText>
             </React.Fragment>
           ))}
 
-          {/* Phase lines */}
-          {phases.map((phase) => {
-            const pts = seriesMap[phase];
-            if (!pts || pts.length === 0) return null;
+          {lines.map(({ phase, d, last }) => (
+            <React.Fragment key={phase}>
+              <Path d={d} stroke={getSeriesColor(phase)} strokeWidth={2} fill="none" />
+              {last.t >= view.start && last.t <= view.end && (
+                <Circle cx={sc.x(last.t)} cy={sc.y(last.v)} r={3} fill={getSeriesColor(phase)} />
+              )}
+            </React.Fragment>
+          ))}
 
-            let d = '';
-            let started = false;
-            for (let i = 0; i < pts.length; i += 1) {
-              const { t, v } = pts[i];
-              if (t < view.start - span * 0.05 || t > view.end + span * 0.05) {
-                continue;
-              }
-              const x = xScale(t);
-              const y = yScale(v);
-              d += started ? ` L ${x} ${y}` : `M ${x} ${y}`;
-              started = true;
-            }
-            if (!started) return null;
-
-            const lastPt = pts[pts.length - 1];
-            const lastVisible =
-              lastPt.t >= view.start && lastPt.t <= view.end;
-
-            return (
-              <React.Fragment key={phase}>
-                <Path
-                  d={d}
-                  stroke={getSeriesColor(phase)}
-                  strokeWidth={2}
-                  fill="none"
-                />
-                {lastVisible && (
-                  <Circle
-                    cx={xScale(lastPt.t)}
-                    cy={yScale(lastPt.v)}
-                    r={3}
-                    fill={getSeriesColor(phase)}
-                  />
-                )}
-              </React.Fragment>
-            );
-          })}
-
-          {/* "Now" marker — only relevant when viewing today */}
           {nowVisible && (
-            <SvgLine
-              x1={xScale(nowMinutes)}
-              y1={CHART_PAD.top}
-              x2={xScale(nowMinutes)}
-              y2={CHART_HEIGHT - CHART_PAD.bottom}
-              stroke={COLORS.now}
-              strokeWidth={1}
-              strokeDasharray="4,4"
-            />
+            <SvgLine x1={sc.x(nowMinutes)} y1={CHART_PAD.top} x2={sc.x(nowMinutes)} y2={PLOT_BOTTOM} stroke={COLORS.now} strokeWidth={1} strokeDasharray="4,4" />
           )}
 
-          {/* Current visible time-range, small label top-right (info only) */}
-          <SvgText
-            x={CHART_WIDTH - CHART_PAD.right}
-            y={CHART_PAD.top - 2}
-            fontSize={9}
-            fill={colors.subText}
-            textAnchor="end"
-          >
+          <SvgText x={CHART_WIDTH - CHART_PAD.right} y={CHART_PAD.top - 2} fontSize={9} fill={colors.subText} textAnchor="end">
             {`${formatMinutes(view.start)} - ${formatMinutes(view.end)}`}
           </SvgText>
         </Svg>
 
         {!hasAnyData && (
           <View style={styles.chartEmptyOverlay}>
-            {loading ? (
-              <ActivityIndicator size="small" color={COLORS.B} />
-            ) : (
-              <Text style={styles.emptyPanelText}>No data for this day</Text>
-            )}
+            {loading ? <ActivityIndicator size="small" color={COLORS.B} /> : <Text style={styles.emptyPanelText}>No data for this day</Text>}
           </View>
         )}
       </View>
 
-      <View style={styles.chartHintRow}>
-        <Text style={styles.chartHintText}>
-          Pinch to zoom · drag to pan{isZoomed ? ' · double-tap to reset' : ''}
-        </Text>
-      </View>
+      <Text style={styles.chartHintText}>Pinch to zoom · drag to pan{isZoomed ? ' · double-tap to reset' : ''}</Text>
 
-      {/* Legend — shows the custom name when one exists, raw code otherwise */}
       <View style={styles.legendRow}>
         {phases.map((phase) => (
           <View key={phase} style={styles.legendItem}>
-            <View
-              style={[
-                styles.legendDot,
-                { backgroundColor: getSeriesColor(phase) },
-              ]}
-            />
+            <View style={[styles.legendDot, { backgroundColor: getSeriesColor(phase) }]} />
             <Text style={styles.legendText}>{phaseLabels?.[phase] || phase}</Text>
           </View>
         ))}
@@ -1357,239 +596,124 @@ const RealtimeChart = memo(({ seriesMap, nowMinutes, loading, phaseLabels }) => 
   );
 });
 
-// -------------------------------------------------------------------------
-// TemperatureGraph — wraps RealtimeChart with panel filter + calendar
-// -------------------------------------------------------------------------
 const TemperatureGraph = memo(
-  ({
-    device,
-    historyRef,
-    historyVersion,
-    onRequestHistory,
-    panelOptions,
-    onLayout,
-    phaseLabels,
-  }) => {
-    const { colors } = useAppTheme();
-    const styles = createStyles(colors);
+  ({ device, historyRef, historyVersion, onRequestHistory, panelOptions, onLayout, phaseLabels }) => {
+    const { styles } = useStyles();
     const [selectedPanel, setSelectedPanel] = useState('All Panels');
     const [selectedDate, setSelectedDate] = useState(() => new Date());
     const [historyLoading, setHistoryLoading] = useState(false);
-    const [nowMinutes, setNowMinutes] = useState(() => minutesSinceMidnight());
+    const [nowMinutes, setNowMinutes] = useState(() => minutesOf());
 
     const dateKey = useMemo(() => dateKeyOf(selectedDate), [selectedDate]);
     const isToday = dateKey === dateKeyOf(new Date());
 
-    // Tick the "now" marker forward every 30s without needing new data
     useEffect(() => {
-      const id = setInterval(() => setNowMinutes(minutesSinceMidnight()), 30000);
+      const id = setInterval(() => setNowMinutes(minutesOf()), 30000);
       return () => clearInterval(id);
     }, []);
 
-    // Fetch history whenever the selected date changes (or on first mount)
     useEffect(() => {
       let cancelled = false;
       setHistoryLoading(true);
       Promise.resolve(onRequestHistory(device.serial_no, dateKey)).finally(() => {
         if (!cancelled) setHistoryLoading(false);
       });
-      return () => {
-        cancelled = true;
-      };
+      return () => { cancelled = true; };
     }, [device.serial_no, dateKey, onRequestHistory]);
 
-    const historyEntry = historyRef.current[device.serial_no]?.[dateKey];
-
+    // historyVersion is bumped whenever the (mutable) history ref changes.
     const seriesMap = useMemo(() => {
-      if (!historyEntry || !historyEntry.series) {
-        return {};
-      }
-
-      const panelsToInclude =
-        selectedPanel === 'All Panels'
-          ? device.panels
-          : device.panels.filter(
-            (panel) =>
-              (panel.custom_name || `Panel ${panel.panel_no}`) ===
-              selectedPanel
-          );
-
-      const includedPhases = new Set();
-      panelsToInclude.forEach((panel) => {
-        panel.temperatures.forEach((t) => includedPhases.add(t.phase));
-      });
-
-      const result = {};
-      includedPhases.forEach((phase) => {
-        if (historyEntry.series[phase]) {
-          result[phase] = historyEntry.series[phase];
-        }
-      });
-      return result;
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [device.panels, selectedPanel, historyEntry, historyVersion, dateKey]);
+      const series = historyRef.current[device.serial_no]?.[dateKey]?.series;
+      if (!series) return {};
+      const panels = selectedPanel === 'All Panels' ? device.panels : device.panels.filter((p) => panelName(p) === selectedPanel);
+      const out = {};
+      panels.forEach((p) => p.temperatures.forEach(({ phase }) => { if (series[phase]) out[phase] = series[phase]; }));
+      return out;
+    }, [device.panels, device.serial_no, selectedPanel, historyRef, historyVersion, dateKey]);
 
     return (
       <View style={styles.graphWrap} onLayout={onLayout}>
         <View style={styles.graphHeaderRow}>
           <Text style={styles.graphTitle}>Temperature Graph</Text>
-          <PanelSelector
-            options={panelOptions}
-            selected={selectedPanel}
-            onSelect={setSelectedPanel}
-          />
+          <PanelSelector options={panelOptions} selected={selectedPanel} onSelect={setSelectedPanel} />
         </View>
-
-        <DateField
-          selectedDate={selectedDate}
-          isToday={isToday}
-          onChangeDate={setSelectedDate}
-        />
-
+        <DateField selectedDate={selectedDate} isToday={isToday} onChangeDate={setSelectedDate} />
         <RealtimeChart
           seriesMap={seriesMap}
           nowMinutes={isToday ? nowMinutes : null}
           loading={historyLoading}
           phaseLabels={phaseLabels}
+          resetKey={`${dateKey}|${selectedPanel}`}
         />
       </View>
     );
   }
 );
 
-// -------------------------------------------------------------------------
-// DeviceCard — top-level card per device: header, panels, graph/empty state
-// -------------------------------------------------------------------------
+/* ───────────────────────────── device card ───────────────────────────── */
+
 const DeviceCard = memo(
-  ({
-    device,
-    onEditPanel,
-    onChartPress,
-    onCardLayout,
-    onGraphLayout,
-    historyRef,
-    historyVersion,
-    onRequestHistory,
-    phaseLabels,
-    onRenamePhase,
-  }) => {
-    const { colors } = useAppTheme();
-    const styles = createStyles(colors);
-    const isOnline = device.status === 'Online';
-    const fadeAnim = useState(new Animated.Value(0))[0];
-
-    const handleChartPress = useCallback(() => {
-      onChartPress && onChartPress(device.serial_no);
-    }, [onChartPress, device.serial_no]);
-
-    // -----------------------------------------------------------------
-    // Excel export ("Today" / "Set Range")
-    // -----------------------------------------------------------------
-    const [exportMenuVisible, setExportMenuVisible] = useState(false);
-    const [rangeModalVisible, setRangeModalVisible] = useState(false);
+  ({ device, onEditLabels, onChartPress, onMeasure, historyRef, historyVersion, onRequestHistory, phaseLabels }) => {
+    const { colors, styles } = useStyles();
+    const { serial_no: serial, panels } = device;
+    const [fade] = useState(() => new Animated.Value(0));
     const [exporting, setExporting] = useState(false);
-    const exportAnchorRef = useRef(null);
-    const [exportMenuPos, setExportMenuPos] = useState({ top: 0, right: 0 });
+    const [rangeVisible, setRangeVisible] = useState(false);
+    const menu = useMenu();
 
-    const openExportMenu = useCallback(() => {
-      if (!exportAnchorRef.current) return;
-      exportAnchorRef.current.measureInWindow((x, y, width, height) => {
-        setExportMenuPos({
-          top: y + height + 6,
-          right: Math.max(screenWidth - (x + width), 12),
-        });
-        setExportMenuVisible(true);
-      });
-    }, []);
+    useEffect(() => {
+      Animated.timing(fade, { toValue: 1, duration: 350, useNativeDriver: true }).start();
+    }, [fade]);
+
+    const panelOptions = useMemo(() => ['All Panels', ...panels.map(panelName)], [panels]);
+    const editLabels = useCallback((codes) => onEditLabels(serial, codes), [onEditLabels, serial]);
 
     const downloadExport = useCallback(
       async (startDate, endDate) => {
+        setExporting(true);
         try {
-          setExporting(true);
-          const startKey = dateKeyOf(startDate);
-          const endKey = dateKeyOf(endDate);
-
           const url =
-            `${BACKEND_URL}/api/telemetry-export?serial_no=${encodeURIComponent(
-              device.serial_no
-            )}` + `&start_date=${startKey}&end_date=${endKey}`;
+            `${BACKEND_URL}/api/telemetry-export?serial_no=${encodeURIComponent(serial)}` +
+            `&start_date=${dateKeyOf(startDate)}&end_date=${dateKeyOf(endDate)}`;
+          const filename = `wts_${fileDate(startDate)}_to_${fileDate(endDate)}.xlsx`;
 
-          const pad2 = (n) => String(n).padStart(2, '0');
-          const startLabel = `${pad2(startDate.getDate())}_${pad2(
-            startDate.getMonth() + 1
-          )}_${String(startDate.getFullYear()).slice(-2)}`;
-          const endLabel = `${pad2(endDate.getDate())}_${pad2(
-            endDate.getMonth() + 1
-          )}_${String(endDate.getFullYear()).slice(-2)}`;
-          const filename = `wts_${startLabel}_to_${endLabel}.xlsx`;
-
-          // Android's DownloadManager (used below) doesn't reliably report
-          // real HTTP status codes back to JS, so we first do a plain
-          // fetch() status check. This hits the backend twice for a
-          // failed/empty range, but guarantees accurate error messages
-          // (e.g. "no data found" vs a generic failure) on every platform.
-          let checkResp;
+          // Pre-flight so we can show the server's error message (DownloadManager can't).
+          let check;
           try {
-            checkResp = await fetch(url);
-          } catch (networkError) {
-            console.warn('Export network error:', networkError);
-            Alert.alert('Export Failed', 'Could not reach the server. Check your connection and try again.');
-            return;
+            check = await fetch(url);
+          } catch (e) {
+            return Alert.alert('Export Failed', 'Could not reach the server. Check your connection and try again.');
           }
-
-          if (!checkResp.ok) {
-            let serverMessage = null;
-            try {
-              const errJson = await checkResp.json();
-              serverMessage = errJson?.error;
-            } catch (parseError) {
-              // response wasn't JSON, ignore and fall back to status-based message
-            }
-            console.warn('Export failed, status:', checkResp.status, serverMessage);
-            Alert.alert(
+          if (!check.ok) {
+            const serverMessage = (await check.json().catch(() => null))?.error;
+            return Alert.alert(
               'Export Failed',
               serverMessage ||
-              (checkResp.status === 404
-                ? 'No data found for the selected date(s).'
-                : `Server returned an error (status ${checkResp.status}). Check the backend logs.`)
+                (check.status === 404
+                  ? 'No data found for the selected date(s).'
+                  : `Server returned an error (status ${check.status}). Check the backend logs.`)
             );
-            return;
           }
 
-          // Status check passed — now actually save the file.
-          if (Platform.OS === 'android') {
-            const { config, fs } = RNFetchBlob;
-            const downloadDir = fs.dirs.LegacyDownloadDir;
+          const { config, fs } = RNFetchBlob;
+          const android = Platform.OS === 'android';
+          const path = `${android ? fs.dirs.LegacyDownloadDir : fs.dirs.DocumentDir}/${filename}`;
+          await config(
+            android
+              ? {
+                  fileCache: true,
+                  addAndroidDownloads: {
+                    useDownloadManager: true, notification: true, mediaScannable: true,
+                    title: filename, description: 'WTS telemetry export', mime: XLSX_MIME, path,
+                  },
+                }
+              : { fileCache: true, path }
+          ).fetch('GET', url);
 
-            await config({
-              fileCache: true,
-              addAndroidDownloads: {
-                useDownloadManager: true,
-                notification: true,
-                mediaScannable: true,
-                title: filename,
-                description: 'WTS telemetry export',
-                mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                path: `${downloadDir}/${filename}`,
-              },
-            }).fetch('GET', url);
-
-            Alert.alert('Export Saved', `${filename} has been saved to your Downloads folder.`);
-          } else {
-            // iOS has no public "Downloads" folder concept the same way;
-            // save into the app's Documents directory, which is visible
-            // in the Files app as long as file sharing is enabled for
-            // this app (UIFileSharingEnabled in Info.plist).
-            const { config, fs } = RNFetchBlob;
-            const localPath = `${fs.dirs.DocumentDir}/${filename}`;
-
-            await config({
-              fileCache: true,
-              path: localPath,
-            }).fetch('GET', url);
-
-            Alert.alert('Export Saved', `${filename} has been saved to:\n${localPath}`);
-          }
+          Alert.alert(
+            'Export Saved',
+            android ? `${filename} has been saved to your Downloads folder.` : `${filename} has been saved to:\n${path}`
+          );
         } catch (error) {
           console.warn('Export error:', error);
           Alert.alert('Export Failed', 'Could not download the file. Check your connection and try again.');
@@ -1597,151 +721,62 @@ const DeviceCard = memo(
           setExporting(false);
         }
       },
-      [device.serial_no]
+      [serial]
     );
 
-    const handleExportToday = useCallback(() => {
-      const now = new Date();
-      downloadExport(now, now);
-    }, [downloadExport]);
-
-    const handleExportRange = useCallback(() => {
-      setRangeModalVisible(true);
-    }, []);
-
-    const handleRangeConfirm = useCallback(
-      (start, end) => {
-        setRangeModalVisible(false);
-        downloadExport(start, end);
-      },
-      [downloadExport]
-    );
-
-    const handleCardLayout = useCallback(
-      (event) => {
-        onCardLayout &&
-          onCardLayout(device.serial_no, event.nativeEvent.layout.height);
-      },
-      [onCardLayout, device.serial_no]
-    );
-
-    const handleGraphLayout = useCallback(
-      (event) => {
-        onGraphLayout &&
-          onGraphLayout(device.serial_no, event.nativeEvent.layout.y);
-      },
-      [onGraphLayout, device.serial_no]
-    );
-
-    useEffect(() => {
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 350,
-        useNativeDriver: true,
-      }).start();
-    }, [fadeAnim]);
-
-    const panelOptions = useMemo(
-      () => [
-        'All Panels',
-        ...device.panels.map(
-          (panel) => panel.custom_name || `Panel ${panel.panel_no}`
-        ),
-      ],
-      [device.panels]
-    );
-
-    const handleRenamePhaseForDevice = useCallback(
-      (phaseCode, currentLabel) => {
-        onRenamePhase && onRenamePhase(device.serial_no, phaseCode, currentLabel);
-      },
-      [onRenamePhase, device.serial_no]
-    );
-
-    // Forwards the panel_no + that panel's temperatures up to the screen,
-    // along with this device's serial_no, so the screen can open the
-    // bulk "Edit Phase Names" modal already pre-filled with current names.
-    const handleEditPanelForDevice = useCallback(
-      (panelNo, temperatures) => {
-        onEditPanel && onEditPanel(device.serial_no, panelNo, temperatures);
-      },
-      [onEditPanel, device.serial_no]
-    );
+    const handleExportSelect = (option) => {
+      if (option === 'Today') {
+        const now = new Date();
+        downloadExport(now, now);
+      } else setRangeVisible(true);
+    };
 
     return (
       <Animated.View
-        style={[styles.deviceCard, { opacity: fadeAnim }]}
-        onLayout={handleCardLayout}
+        style={[styles.deviceCard, { opacity: fade }]}
+        onLayout={(e) => onMeasure(serial, { h: e.nativeEvent.layout.height })}
       >
         <View style={styles.deviceHeaderRow}>
           <View style={styles.deviceHeaderLeft}>
-            <Text style={styles.deviceName}>
-              {device.device_name} ({device.serial_no})
-            </Text>
+            <Text style={styles.deviceName}>{device.device_name} ({serial})</Text>
             <StatusBadge status={device.status} />
           </View>
-
           <View style={styles.deviceHeaderIcons}>
-            <TouchableOpacity
-              ref={exportAnchorRef}
-              style={styles.iconCircle}
-              onPress={openExportMenu}
-              disabled={exporting}
-            >
-              {exporting ? (
-                <ActivityIndicator size="small" color={COLORS.B} />
-              ) : (
-                <Icon name="file-download" size={16} color={colors.subText} />
-              )}
+            <TouchableOpacity ref={menu.ref} style={styles.iconCircle} onPress={menu.open} disabled={exporting}>
+              {exporting ? <ActivityIndicator size="small" color={COLORS.B} /> : <Icon name="file-download" size={16} color={colors.subText} />}
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.iconCircle}
-              onPress={handleChartPress}
-            >
+            <TouchableOpacity style={styles.iconCircle} onPress={() => onChartPress(serial)}>
               <Icon name="show-chart" size={16} color={colors.subText} />
             </TouchableOpacity>
           </View>
         </View>
 
-        <ExportMenu
-          visible={exportMenuVisible}
-          onClose={() => setExportMenuVisible(false)}
-          onToday={handleExportToday}
-          onSetRange={handleExportRange}
-          anchorPosition={exportMenuPos}
+        <PopupMenu visible={menu.visible} anchor={menu.anchor} onClose={menu.close} options={EXPORT_OPTIONS} onSelect={handleExportSelect} />
+        <CalendarModal
+          range
+          visible={rangeVisible}
+          onClose={() => setRangeVisible(false)}
+          onSelect={(s, e) => { setRangeVisible(false); downloadExport(s, e); }}
         />
 
-        <RangeCalendarModal
-          visible={rangeModalVisible}
-          onConfirm={handleRangeConfirm}
-          onClose={() => setRangeModalVisible(false)}
-        />
-
-        {isOnline && device.panels.length > 0 ? (
+        {device.status === 'Online' && panels.length > 0 ? (
           <View style={styles.panelsWrap}>
-            {device.panels.map((panel) => (
-              <PanelCard
-                key={panel.panel_no}
-                panel={panel}
-                onEditPress={handleEditPanelForDevice}
-                phaseLabels={phaseLabels}
-                onRenamePhase={handleRenamePhaseForDevice}
-              />
+            {panels.map((p) => (
+              <PanelCard key={p.panel_no} panel={p} phaseLabels={phaseLabels} onEditLabels={editLabels} />
             ))}
           </View>
         ) : (
-          <EmptyPanel />
+          <Empty icon="power-off" text="No panel data available" wrapStyle={styles.emptyPanelWrap} />
         )}
 
-        {device.panels && device.panels.length > 0 && (
+        {panels.length > 0 && (
           <TemperatureGraph
             device={device}
             historyRef={historyRef}
             historyVersion={historyVersion}
             onRequestHistory={onRequestHistory}
             panelOptions={panelOptions}
-            onLayout={handleGraphLayout}
+            onLayout={(e) => onMeasure(serial, { graphY: e.nativeEvent.layout.y })}
             phaseLabels={phaseLabels}
           />
         )}
@@ -1750,361 +785,118 @@ const DeviceCard = memo(
   }
 );
 
-// -------------------------------------------------------------------------
-// HeaderMenu — three-dot popup menu
-// -------------------------------------------------------------------------
-const HEADER_MENU_OPTIONS = [
-  'Reset WiFi',
-  'Change WiFi',
+/* ───────────────────────────── screen ───────────────────────────── */
 
-];
-
-const HeaderMenu = memo(({ onSelect }) => {
-  const { colors } = useAppTheme();
-  const styles = createStyles(colors);
-  const anchorRef = useRef(null);
-  const [visible, setVisible] = useState(false);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
-
-  const openMenu = useCallback(() => {
-    if (!anchorRef.current) {
-      return;
-    }
-    anchorRef.current.measureInWindow((x, y, width, height) => {
-      setMenuPosition({
-        top: y + height + 6,
-        right: Math.max(screenWidth - (x + width), 12),
-      });
-      setVisible(true);
-    });
-  }, []);
-
-  const closeMenu = useCallback(() => setVisible(false), []);
-
-  const handleSelect = useCallback(
-    (option) => {
-      closeMenu();
-      onSelect && onSelect(option);
-    },
-    [onSelect, closeMenu]
-  );
-
-  return (
-    <View>
-      <TouchableOpacity
-        ref={anchorRef}
-        style={styles.headerIconButton}
-        onPress={openMenu}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <Icon name="more-vert" size={22} color={colors.text} />
-      </TouchableOpacity>
-
-      <Modal
-        transparent
-        visible={visible}
-        animationType="fade"
-        onRequestClose={closeMenu}
-      >
-        <TouchableOpacity
-          style={styles.headerMenuOverlay}
-          activeOpacity={1}
-          onPress={closeMenu}
-        >
-          <View
-            style={[
-              styles.headerMenuList,
-              { top: menuPosition.top, right: menuPosition.right },
-            ]}
-          >
-            {HEADER_MENU_OPTIONS.map((option) => (
-              <TouchableOpacity
-                key={option}
-                style={styles.dropdownItem}
-                onPress={() => handleSelect(option)}
-              >
-                <Text style={styles.dropdownItemText}>{option}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-    </View>
-  );
-});
-
-// -------------------------------------------------------------------------
-// MAIN SCREEN — WtsDashboard
-// -------------------------------------------------------------------------
 const WtsDashboard = () => {
-  const { colors, isDark } = useAppTheme();
-  const styles = createStyles(colors);
+  const { colors, isDark, styles } = useStyles();
   const navigation = useNavigation();
   const route = useRoute();
   const selectedProduct = route.params?.product;
-  const firebaseUid = route?.params?.firebaseUid || auth().currentUser?.uid;
+  const firebaseUid = route.params?.firebaseUid || auth().currentUser?.uid;
 
   const flatListRef = useRef(null);
-  const deviceHeightsRef = useRef({});
-  const deviceGraphOffsetsRef = useRef({});
-  const [devices, setDevices] = useState(DUMMY_DEVICES);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const filteredDevices = useMemo(() => {
-    if (!selectedProduct?.serial_no) {
-      return devices;
-    }
-    return devices.filter(
-      (device) => device.serial_no === selectedProduct.serial_no
-    );
-  }, [devices, selectedProduct]);
-
-  // ---------------------------------------------------------------------
-  // Graph history storage
-  // Structure: deviceHistoryRef.current = {
-  //   [serial_no]: {
-  //     [dateKey]: { dateKey, series: { [phase]: [{t, v}, ...] } }
-  //   }
-  // }
-  // `t` is minutes-since-midnight (real time-of-day), so points map
-  // directly onto the fixed 00:00-23:59 axis.
-  // ---------------------------------------------------------------------
-  const deviceHistoryRef = useRef({});
+  const layoutRef = useRef({}); // serial -> { h, graphY }
+  const deviceHistoryRef = useRef({}); // serial -> dateKey -> { dateKey, series }
   const historyLoadedRef = useRef({}); // `${serial}|${dateKey}` -> true once fetched
+  const labelsLoadedRef = useRef({}); // serial -> true once fetched
+
+  const [devices, setDevices] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
+  const [phaseLabels, setPhaseLabels] = useState({}); // serial -> { code: label }
+  const [edit, setEdit] = useState({ visible: false, serialNo: null, codes: [] });
 
-  // ---------------------------------------------------------------------
-  // Phase-label (custom naming) storage.
-  // Structure: phaseLabelsRef.current = { [serial_no]: { R1: "...", ... } }
-  // All reads/writes to the backend go through wtsApi.js — this screen
-  // just keeps the fetched maps in a ref + a version counter so
-  // components re-render when a label changes.
-  // ---------------------------------------------------------------------
-  const phaseLabelsRef = useRef({});
-  const phaseLabelsLoadedRef = useRef({}); // serial_no -> true once fetched
-  const [phaseLabelsVersion, setPhaseLabelsVersion] = useState(0);
+  const filteredDevices = useMemo(
+    () => (selectedProduct?.serial_no ? devices.filter((d) => d.serial_no === selectedProduct.serial_no) : devices),
+    [devices, selectedProduct]
+  );
 
-  const [renameModal, setRenameModal] = useState({
-    visible: false,
-    serialNo: null,
-    phaseCode: null,
-    initialValue: '',
-  });
-
-  // Bulk "Edit Phase Names" modal state, opened from a PanelCard's
-  // pencil icon. `phases` is built fresh each time it opens from that
-  // panel's temperatures + whatever custom names are already cached.
-  const [editPanelModal, setEditPanelModal] = useState({
-    visible: false,
-    serialNo: null,
-    panelNo: null,
-    phases: [], // [{ code, label }]
-  });
-
-  // Load each device's custom phase names once per session (skip devices
-  // already fetched, same caching pattern as the telemetry history).
+  /* phase labels */
   useEffect(() => {
-    filteredDevices.forEach((device) => {
-      const serial = device.serial_no;
-      if (!serial || phaseLabelsLoadedRef.current[serial]) return;
-
-      phaseLabelsLoadedRef.current[serial] = true;
+    filteredDevices.forEach(({ serial_no: serial }) => {
+      if (!serial || labelsLoadedRef.current[serial]) return;
+      labelsLoadedRef.current[serial] = true;
       fetchPhaseLabels(serial)
-        .then((labels) => {
-          phaseLabelsRef.current[serial] = labels;
-          setPhaseLabelsVersion((v) => v + 1);
-        })
+        .then((labels) => setPhaseLabels((p) => ({ ...p, [serial]: labels })))
         .catch((error) => {
           console.warn('Phase label fetch error:', error);
-          // Allow a retry on the next devices update if this failed.
-          phaseLabelsLoadedRef.current[serial] = false;
+          labelsLoadedRef.current[serial] = false; // retry on next devices update
         });
     });
   }, [filteredDevices]);
 
-  const openRenameModal = useCallback((serialNo, phaseCode, currentLabel) => {
-    setRenameModal({
-      visible: true,
-      serialNo,
-      phaseCode,
-      initialValue: currentLabel,
-    });
-  }, []);
+  const openEditLabels = useCallback((serialNo, codes) => setEdit({ visible: true, serialNo, codes }), []);
+  const closeEditLabels = useCallback(() => setEdit((p) => ({ ...p, visible: false })), []);
 
-  const closeRenameModal = useCallback(() => {
-    setRenameModal((prev) => ({ ...prev, visible: false }));
-  }, []);
+  const saveLabels = useCallback(
+    async (map) => {
+      const serial = edit.serialNo;
+      if (!serial) return;
+      const entries = Object.entries(map);
+      if (entries.length === 1) await updatePhaseLabel(serial, ...entries[0]);
+      else await updatePhaseLabelsBulk(serial, map);
+      setPhaseLabels((p) => ({ ...p, [serial]: { ...p[serial], ...map } }));
+    },
+    [edit.serialNo]
+  );
 
-  const saveRenamedPhase = useCallback(async (phaseCode, newLabel) => {
-    const serial = renameModal.serialNo;
-    if (!serial) return;
-
-    // updatePhaseLabel() lives in wtsApi.js — this screen only calls it
-    // and updates its local cache with the result.
-    await updatePhaseLabel(serial, phaseCode, newLabel);
-
-    // IMPORTANT: build a brand-new object instead of mutating the
-    // existing one in place. DeviceCard/PanelCard/TemperatureCard are
-    // all wrapped in memo(), so they only re-render when the phaseLabels
-    // reference actually changes — mutating the same object silently
-    // skips the re-render and the UI looks like it "didn't update".
-    phaseLabelsRef.current = {
-      ...phaseLabelsRef.current,
-      [serial]: {
-        ...(phaseLabelsRef.current[serial] || {}),
-        [phaseCode]: newLabel,
-      },
-    };
-    setPhaseLabelsVersion((v) => v + 1);
-  }, [renameModal.serialNo]);
-
-  // Opens the bulk edit modal for one panel, pre-filling each phase with
-  // its current custom name (falling back to the raw code).
-  const openEditPanelModal = useCallback((serialNo, panelNo, temperatures) => {
-    const labelsForSerial = phaseLabelsRef.current[serialNo] || {};
-    const phases = temperatures.map((t) => ({
-      code: t.phase,
-      label: labelsForSerial[t.phase] || t.phase,
-    }));
-    setEditPanelModal({ visible: true, serialNo, panelNo, phases });
-  }, []);
-
-  const closeEditPanelModal = useCallback(() => {
-    setEditPanelModal((prev) => ({ ...prev, visible: false }));
-  }, []);
-
-  // Saves every phase name in the panel at once via updatePhaseLabelsBulk()
-  // from wtsApi.js, then updates the local cache so cards/legend re-render.
-  const saveEditPanelLabels = useCallback(async (labelsMap) => {
-    const serial = editPanelModal.serialNo;
-    if (!serial) return;
-
-    await updatePhaseLabelsBulk(serial, labelsMap);
-
-    // Same fix as saveRenamedPhase: never mutate the existing map in
-    // place (Object.assign here was the bug) — always produce a new
-    // object so memo() on DeviceCard/PanelCard/TemperatureCard sees a
-    // changed prop and actually re-renders with the new names.
-    phaseLabelsRef.current = {
-      ...phaseLabelsRef.current,
-      [serial]: {
-        ...(phaseLabelsRef.current[serial] || {}),
-        ...labelsMap,
-      },
-    };
-    setPhaseLabelsVersion((v) => v + 1);
-  }, [editPanelModal.serialNo]);
-
-  // Live socket data -> append to TODAY's entry for each online device
+  /* append live readings to today's history */
   useEffect(() => {
-    const nowDate = new Date();
-    const dateKey = dateKeyOf(nowDate);
-    const t = minutesSinceMidnight(nowDate);
+    const dateKey = dateKeyOf();
+    const t = minutesOf();
 
     filteredDevices.forEach((device) => {
-      if (device.status !== 'Online') {
-        return;
-      }
+      if (device.status !== 'Online') return;
+      const days = (deviceHistoryRef.current[device.serial_no] = deviceHistoryRef.current[device.serial_no] || {});
+      const entry = (days[dateKey] = days[dateKey] || { dateKey, series: {} });
 
-      const serial = device.serial_no;
-      if (!deviceHistoryRef.current[serial]) {
-        deviceHistoryRef.current[serial] = {};
-      }
-      if (!deviceHistoryRef.current[serial][dateKey]) {
-        deviceHistoryRef.current[serial][dateKey] = { dateKey, series: {} };
-      }
-      const entry = deviceHistoryRef.current[serial][dateKey];
-
-      device.panels.forEach((panel) => {
-        panel.temperatures.forEach((temp) => {
-          const phaseCode = temp.phase;
-          if (temp.current == null) return;
-
-          if (!entry.series[phaseCode]) {
-            entry.series[phaseCode] = [];
-          }
-          const series = entry.series[phaseCode];
-          const lastPoint = series[series.length - 1];
-
-          // Avoid piling up identical back-to-back points if this
-          // effect re-runs without genuinely new telemetry
-          if (!lastPoint || lastPoint.v !== temp.current || t - lastPoint.t > 0.05) {
-            series.push({ t, v: temp.current });
-          }
-        });
-      });
+      device.panels.forEach((panel) =>
+        panel.temperatures.forEach(({ phase, current }) => {
+          if (current == null) return;
+          const series = (entry.series[phase] = entry.series[phase] || []);
+          const last = series[series.length - 1];
+          if (!last || last.v !== current || t - last.t > 0.05) series.push({ t, v: current });
+        })
+      );
     });
-
     setHistoryVersion((v) => v + 1);
   }, [filteredDevices]);
 
-  // Fetch historical rows for a given device + date from the backend,
-  // merge with anything already in memory (e.g. today's live points),
-  // and cache so we don't re-fetch the same day twice in one session.
-  const fetchHistoryForDate = useCallback(async (serial, dateKey) => {
+  const requestHistory = useCallback(async (serial, dateKey) => {
+    const cacheKey = `${serial}|${dateKey}`;
+    if (historyLoadedRef.current[cacheKey]) return;
     try {
-      const res = await fetch(
-        `${BACKEND_URL}/api/telemetry-history?serial_no=${encodeURIComponent(
-          serial
-        )}&date=${dateKey}`
-      );
+      const res = await fetch(`${BACKEND_URL}/api/telemetry-history?serial_no=${encodeURIComponent(serial)}&date=${dateKey}`);
       const rows = await res.json();
+      if (!res.ok || !Array.isArray(rows)) return console.warn('Telemetry history fetch failed:', rows);
 
-      if (!res.ok || !Array.isArray(rows)) {
-        console.warn('Telemetry history fetch failed:', rows);
-        return;
-      }
-
-      if (!deviceHistoryRef.current[serial]) {
-        deviceHistoryRef.current[serial] = {};
-      }
-      const existing = deviceHistoryRef.current[serial][dateKey];
-      const merged = mergeDbRowsWithExisting(existing, rows, dateKey);
-      deviceHistoryRef.current[serial][dateKey] = merged;
-
-      historyLoadedRef.current[`${serial}|${dateKey}`] = true;
+      const days = (deviceHistoryRef.current[serial] = deviceHistoryRef.current[serial] || {});
+      days[dateKey] = mergeRows(days[dateKey], rows, dateKey);
+      historyLoadedRef.current[cacheKey] = true;
       setHistoryVersion((v) => v + 1);
     } catch (error) {
       console.warn('Telemetry history fetch error:', error);
     }
   }, []);
 
-  // Called by each graph when its selected date changes. Only fetches
-  // once per (device, date) per session — today keeps growing live
-  // via the socket effect above, so it never needs re-fetching.
-  const requestHistory = useCallback(
-    (serial, dateKey) => {
-      const cacheKey = `${serial}|${dateKey}`;
-      if (historyLoadedRef.current[cacheKey]) {
-        return Promise.resolve();
-      }
-      return fetchHistoryForDate(serial, dateKey);
-    },
-    [fetchHistoryForDate]
-  );
-
-  // Real API Fetch Logic
+  /* dashboard data + live socket */
   const fetchDashboardData = useCallback(async () => {
+    if (!firebaseUid) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     try {
       setLoading(true);
-      if (!firebaseUid) {
-        setLoading(false);
-        return;
-      }
-
-      const response = await fetch(`${BACKEND_URL}/api/dashboard`, {
+      const res = await fetch(`${BACKEND_URL}/api/dashboard`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ firebase_uid: firebaseUid }),
       });
-
-      const data = await response.json();
-      if (response.ok && Array.isArray(data) && data.length > 0) {
-        setDevices(data);
-      } else {
-        console.warn('API returned empty or error:', data);
-      }
+      const data = await res.json();
+      if (res.ok && Array.isArray(data) && data.length > 0) setDevices(data);
+      else console.warn('API returned empty or error:', data);
     } catch (error) {
       console.warn('Network error:', error);
     } finally {
@@ -2113,260 +905,133 @@ const WtsDashboard = () => {
     }
   }, [firebaseUid]);
 
-  // Real-time WebSocket & Initial Fetch Setup with Deep Debugging
-  useEffect(() => {
-    fetchDashboardData();
+  useEffect(() => { fetchDashboardData(); }, [fetchDashboardData]);
 
-    // Explicitly configure socket with polling fallback
+  useEffect(() => {
     const socket = io(BACKEND_URL, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
     });
-
-    socket.on('connect', () => {
-      console.log('🟢 Socket Connected Successfully, ID:', socket.id);
+    socket.on('connect_error', (e) => console.warn('Socket error:', e?.message));
+    socket.on('live_telemetry', (live) => {
+      const serial = live.serial_no?.trim().toUpperCase();
+      setDevices((prev) =>
+        prev.map((device) => {
+          if (device.serial_no?.trim().toUpperCase() !== serial) return device;
+          const panels = device.panels.map((p) => {
+            const lp = live.panels?.find((x) => Number(x.panel_no) === Number(p.panel_no));
+            return lp ? { ...p, temperatures: lp.temperatures, custom_name: lp.custom_name || p.custom_name } : p;
+          });
+          return { ...device, status: live.status, panels };
+        })
+      );
     });
-
-    socket.on('connect_error', (error) => {
-      console.log('🔴 Socket Connection Error:', error);
-    });
-
-    // 🔍 COMPREHENSIVE SOCKET LISTENER WITH DEBUGGING
-    socket.on('live_telemetry', (liveData) => {
-      console.log('🔥 [FRONTEND] Live Telemetry Received:', JSON.stringify(liveData));
-
-      setDevices((prevDevices) => {
-        console.log('📱 [FRONTEND] Current Devices in State:', prevDevices.map(d => d.serial_no));
-
-        const updatedDevices = prevDevices.map((device) => {
-          // Normalize both strings to prevent subtle casing or space mismatches
-          const matchSerial = device.serial_no?.trim().toUpperCase();
-          const incomingSerial = liveData.serial_no?.trim().toUpperCase();
-
-          if (matchSerial === incomingSerial) {
-            console.log(`✅ [MATCH FOUND] Updating device: ${device.serial_no}`);
-
-            const updatedPanels = device.panels.map((existingPanel) => {
-              const livePanel = liveData.panels.find(
-                (p) => Number(p.panel_no) === Number(existingPanel.panel_no)
-              );
-
-              if (livePanel) {
-                return {
-                  ...existingPanel,
-                  temperatures: livePanel.temperatures,
-                  custom_name: livePanel.custom_name || existingPanel.custom_name,
-                };
-              }
-              return existingPanel;
-            });
-
-            return {
-              ...device,
-              status: liveData.status,
-              panels: updatedPanels,
-            };
-          }
-          return device;
-        });
-
-        return updatedDevices;
-      });
-    });
-
-    return () => {
-      console.log('🔌 Disconnecting socket...');
-      socket.disconnect();
-    };
-  }, [fetchDashboardData]);
-
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await fetchDashboardData();
-    setRefreshing(false);
-  }, [fetchDashboardData]);
-
-  const handleMenuSelect = useCallback(async (option) => {
-
-    if (!selectedProduct) return;
-
-    const deviceId = selectedProduct?.serial_no;
-    console.log(deviceId);
-
-    const verified = await verifyDeviceWifi(deviceId);
-
-    if (!verified)
-      return;
-
-    if (option === "Reset WiFi") {
-      console.log(verified.ssid);
-      console.log(verified.password);
-
-
-      const result = await resetDeviceWifi(deviceId);
-
-      if (!result.success) {
-        Alert.alert("Error", result.message);
-        return;
-      }
-
-      navigation.navigate("Home");
-
-
-
-    }
-
-    if (option === "Change WiFi") {
-
-      navigation.navigate("ResetwifiNetwork", {
-        product: selectedProduct?.serial_no,
-        verifiedData: verified
-
-      });
-
-    }
-
-  }, [selectedProduct, navigation]);
-  const handleBackPress = useCallback(() => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    } else {
-      navigation.navigate('Main');
-    }
-  }, [navigation]);
-
-  const handleCardLayout = useCallback((serialNo, height) => {
-    deviceHeightsRef.current[serialNo] = height;
+    return () => socket.disconnect();
   }, []);
 
-  const handleGraphLayout = useCallback((serialNo, y) => {
-    deviceGraphOffsetsRef.current[serialNo] = y;
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  /* header actions */
+  const handleMenuSelect = useCallback(
+    async (option) => {
+      const serial = selectedProduct?.serial_no;
+      if (!serial) return;
+      const verified = await verifyDeviceWifi(serial);
+      if (!verified) return;
+
+      if (option === 'Reset WiFi') {
+        const result = await resetDeviceWifi(serial);
+        if (!result.success) return Alert.alert('Error', result.message);
+        navigation.navigate('Home');
+      } else if (option === 'Change WiFi') {
+        navigation.navigate('ResetwifiNetwork', { product: serial, verifiedData: verified });
+      }
+    },
+    [selectedProduct, navigation]
+  );
+
+  const handleBackPress = useCallback(() => {
+    if (navigation.canGoBack()) navigation.goBack();
+    else navigation.navigate('Main');
+  }, [navigation]);
+
+  /* scroll to a device's graph */
+  const onMeasure = useCallback((serial, patch) => {
+    layoutRef.current[serial] = { ...layoutRef.current[serial], ...patch };
   }, []);
 
   const handleChartPress = useCallback(
-    (serialNo) => {
-      const index = filteredDevices.findIndex((d) => d.serial_no === serialNo);
-      if (index === -1 || !flatListRef.current) {
-        return;
-      }
+    (serial) => {
+      const index = filteredDevices.findIndex((d) => d.serial_no === serial);
+      if (index === -1 || !flatListRef.current) return;
 
-      const listPaddingTop = styles.listContent.padding;
-      const cardSpacing = styles.deviceCard.marginBottom;
-
-      let cumulativeHeight = listPaddingTop;
+      let offset = LIST_PAD;
       for (let i = 0; i < index; i += 1) {
-        const previousSerial = filteredDevices[i].serial_no;
-        const measuredHeight = deviceHeightsRef.current[previousSerial];
-
-        if (measuredHeight == null) {
-          flatListRef.current.scrollToIndex({
-            index,
-            animated: true,
-            viewPosition: 0,
-          });
-          return;
-        }
-
-        cumulativeHeight += measuredHeight + cardSpacing;
+        const h = layoutRef.current[filteredDevices[i].serial_no]?.h;
+        if (h == null) return flatListRef.current.scrollToIndex({ index, animated: true, viewPosition: 0 });
+        offset += h + CARD_GAP;
       }
-
-      const graphOffsetWithinCard = deviceGraphOffsetsRef.current[serialNo] || 0;
-      const targetOffset = Math.max(
-        cumulativeHeight + graphOffsetWithinCard - GRAPH_SCROLL_BUFFER,
-        0
-      );
-
-      flatListRef.current.scrollToOffset({
-        offset: targetOffset,
-        animated: true,
-      });
+      const graphY = layoutRef.current[serial]?.graphY || 0;
+      flatListRef.current.scrollToOffset({ offset: Math.max(offset + graphY - GRAPH_SCROLL_BUFFER, 0), animated: true });
     },
-    [filteredDevices, styles]
+    [filteredDevices]
   );
 
   const handleScrollToIndexFailed = useCallback((info) => {
-    setTimeout(() => {
-      flatListRef.current?.scrollToOffset({
-        offset: info.averageItemLength * info.index,
-        animated: true,
-      });
-    }, 50);
+    setTimeout(() => flatListRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: true }), 50);
   }, []);
 
   const renderDevice = useCallback(
     ({ item }) => (
       <DeviceCard
         device={item}
-        onEditPanel={openEditPanelModal}
+        onEditLabels={openEditLabels}
         onChartPress={handleChartPress}
-        onCardLayout={handleCardLayout}
-        onGraphLayout={handleGraphLayout}
+        onMeasure={onMeasure}
         historyRef={deviceHistoryRef}
         historyVersion={historyVersion}
         onRequestHistory={requestHistory}
-        phaseLabels={phaseLabelsRef.current[item.serial_no]}
-        onRenamePhase={openRenameModal}
+        phaseLabels={phaseLabels[item.serial_no]}
       />
     ),
-    [
-      openEditPanelModal,
-      handleChartPress,
-      handleCardLayout,
-      handleGraphLayout,
-      historyVersion,
-      requestHistory,
-      phaseLabelsVersion,
-      openRenameModal,
-    ]
+    [openEditLabels, handleChartPress, onMeasure, historyVersion, requestHistory, phaseLabels]
   );
 
   const keyExtractor = useCallback((item) => item.serial_no, []);
+  const statusBar = <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />;
 
   if (loading && devices.length === 0) {
     return (
       <View style={styles.loaderWrap}>
-        <StatusBar
-          barStyle={isDark ? 'light-content' : 'dark-content'}
-          backgroundColor={colors.background}
-        />
+        {statusBar}
         <ActivityIndicator size="large" color={COLORS.B} />
       </View>
     );
   }
 
-  const deviceNotFound =
-    !loading && !!selectedProduct?.serial_no && filteredDevices.length === 0;
+  const deviceNotFound = !loading && !!selectedProduct?.serial_no && filteredDevices.length === 0;
 
   return (
     <View style={styles.screen}>
-      <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={colors.background}
-      />
+      {statusBar}
 
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerIconButton}
-          onPress={handleBackPress}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
+        <TouchableOpacity style={styles.headerIconButton} onPress={handleBackPress} hitSlop={HIT}>
           <Icon name="arrow-back" size={22} color={colors.text} />
         </TouchableOpacity>
-
         <View style={styles.headerTitleWrap}>
           <Text style={styles.headerTitle}>IntelliTemp Dashboard</Text>
         </View>
-
         <HeaderMenu onSelect={handleMenuSelect} />
       </View>
 
       {deviceNotFound ? (
-        <View style={styles.loaderWrap}>
-          <Icon name="error-outline" size={34} color={colors.subText} />
-          <Text style={styles.emptyPanelText}>Device Not Found</Text>
-        </View>
+        <Empty icon="error-outline" text="Device Not Found" wrapStyle={styles.loaderWrap} />
       ) : (
         <FlatList
           ref={flatListRef}
@@ -2376,533 +1041,129 @@ const WtsDashboard = () => {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           onScrollToIndexFailed={handleScrollToIndexFailed}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={[COLORS.B]}
-              tintColor={COLORS.B}
-            />
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[COLORS.B]} tintColor={COLORS.B} />}
         />
       )}
 
-      <RenamePhaseModal
-        visible={renameModal.visible}
-        phaseCode={renameModal.phaseCode}
-        initialValue={renameModal.initialValue}
-        onClose={closeRenameModal}
-        onSaved={saveRenamedPhase}
-      />
-
-      <EditPanelLabelsModal
-        visible={editPanelModal.visible}
-        phases={editPanelModal.phases}
-        onClose={closeEditPanelModal}
-        onSaved={saveEditPanelLabels}
+      <EditLabelsModal
+        visible={edit.visible}
+        codes={edit.codes}
+        labels={phaseLabels[edit.serialNo]}
+        onClose={closeEditLabels}
+        onSaved={saveLabels}
       />
     </View>
   );
 };
 
-// -------------------------------------------------------------------------
-// STYLES
-// -------------------------------------------------------------------------
+/* ───────────────────────────── styles ───────────────────────────── */
+
 const cardShadow = Platform.select({
-  ios: {
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-  },
-  android: {
-    elevation: 3,
-  },
+  ios: { shadowColor: COLORS.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6 },
+  android: { elevation: 3 },
 });
 
-const CALENDAR_CELL_SIZE = 36;
+const createStyles = (c) => {
+  const row = { flexDirection: 'row', alignItems: 'center' };
+  const box = { borderWidth: 1, borderColor: c.border };
+  const btn = { ...row, ...box, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10, backgroundColor: c.card };
+  const pop = { backgroundColor: c.card, borderRadius: 14, ...cardShadow };
+  const center = { justifyContent: 'center', alignItems: 'center' };
+  const bold = (size, color = c.text) => ({ fontSize: size, fontWeight: '700', color });
 
-const createStyles = (colors) =>
-  StyleSheet.create({
-    screen: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    loaderWrap: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: colors.background,
-    },
-    header: {
-      backgroundColor: colors.card,
-      paddingVertical: 16,
-      paddingHorizontal: 12,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    headerIconButton: {
-      width: 32,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    headerTitleWrap: {
-      flex: 1,
-      alignItems: 'center',
-    },
-    headerTitle: {
-      fontSize: 18,
-      fontWeight: '700',
-      color: colors.text,
-    },
-    listContent: {
-      padding: 16,
-      paddingBottom: 32,
-    },
-    deviceCard: {
-      backgroundColor: colors.card,
-      borderRadius: 14,
-      padding: 16,
-      marginBottom: 16,
-      borderWidth: 1,
-      borderColor: colors.border,
-      ...cardShadow,
-    },
-    deviceHeaderRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 12,
-    },
-    deviceHeaderLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flexShrink: 1,
-    },
-    deviceName: {
-      fontSize: 15,
-      fontWeight: '700',
-      color: colors.text,
-      marginRight: 10,
-    },
-    deviceHeaderIcons: {
-      flexDirection: 'row',
-    },
-    iconCircle: {
-      width: 30,
-      height: 30,
-      borderRadius: 15,
-      borderWidth: 1,
-      borderColor: colors.border,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginLeft: 8,
-    },
-    statusRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    statusDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      marginRight: 5,
-    },
-    statusText: {
-      fontSize: 12,
-      fontWeight: '600',
-    },
-    panelsWrap: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      marginHorizontal: -6,
-    },
-    panelCard: {
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 12,
-      padding: 12,
-      margin: 6,
-      minWidth: 260,
-      flexGrow: 1,
-      flexBasis: '45%',
-    },
-    panelHeaderRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 10,
-    },
-    panelTitle: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: colors.text,
-    },
-    tempGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      marginHorizontal: -4,
-    },
-    tempCard: {
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 10,
-      paddingVertical: 10,
-      paddingHorizontal: 10,
-      margin: 4,
-      minWidth: 110,
-      flexGrow: 1,
-    },
-    tempPhase: {
-      fontSize: 12,
-      fontWeight: '700',
-      marginBottom: 4,
-    },
-    tempValue: {
-      fontSize: 16,
-      fontWeight: '700',
-      color: colors.text,
-      marginBottom: 6,
-    },
-    tempMinMaxRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-    },
-    tempMinMax: {
-      fontSize: 10,
-      color: colors.subText,
-    },
-    emptyPanelWrap: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 40,
-    },
-    emptyPanelText: {
-      marginTop: 10,
-      fontSize: 13,
-      color: colors.subText,
-    },
-    graphWrap: {
-      marginTop: 16,
-      paddingTop: 16,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-    },
-    graphHeaderRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 10,
-    },
-    graphTitle: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: colors.text,
-    },
+  return StyleSheet.create({
+    row,
+    screen: { flex: 1, backgroundColor: c.background },
+    loaderWrap: { flex: 1, ...center, backgroundColor: c.background },
+    header: { ...row, backgroundColor: c.card,
+      paddingTop:Platform.OS === 'android' ? 28 : 16,
+       paddingBottom: 16, paddingHorizontal: 12, justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: c.border },
+    headerIconButton: { width: 32, ...center },
+    headerTitleWrap: { flex: 1, alignItems: 'center' },
+    headerTitle: bold(18),
+    listContent: { padding: LIST_PAD, paddingBottom: 32 },
 
-    // Date field (opens calendar modal)
-    dateFieldRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 10,
-    },
-    dateFieldBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 8,
-      paddingVertical: 6,
-      paddingHorizontal: 10,
-      backgroundColor: colors.card,
-    },
-    dateFieldText: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: colors.text,
-      marginHorizontal: 6,
-    },
-    liveBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginLeft: 8,
-      paddingVertical: 4,
-      paddingHorizontal: 8,
-      borderRadius: 8,
-      backgroundColor: '#ECFDF5',
-    },
-    liveDot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: COLORS.live,
-      marginRight: 4,
-    },
-    liveBadgeText: {
-      fontSize: 10,
-      fontWeight: '700',
-      color: COLORS.live,
-    },
+    deviceCard: { backgroundColor: c.card, borderRadius: 14, padding: 16, marginBottom: CARD_GAP, ...box, ...cardShadow },
+    deviceHeaderRow: { ...row, justifyContent: 'space-between', marginBottom: 12 },
+    deviceHeaderLeft: { ...row, flexShrink: 1 },
+    deviceName: { ...bold(15), marginRight: 10 },
+    deviceHeaderIcons: { flexDirection: 'row' },
+    iconCircle: { width: 30, height: 30, borderRadius: 15, ...box, ...center, marginLeft: 8 },
+    statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 5 },
+    statusText: { fontSize: 12, fontWeight: '600' },
 
-    // Calendar modal
-    calendarCard: {
-      backgroundColor: colors.card,
-      borderRadius: 14,
-      padding: 16,
-      width: CALENDAR_CELL_SIZE * 7 + 32,
-      ...cardShadow,
-    },
-    calendarHeaderRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 12,
-    },
-    calendarNavBtn: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: colors.border,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    calendarNavBtnDisabled: {
-      opacity: 0.4,
-    },
-    calendarMonthText: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: colors.text,
-    },
-    calendarWeekdayRow: {
-      flexDirection: 'row',
-    },
-    calendarWeekdayCell: {
-      width: CALENDAR_CELL_SIZE,
-      alignItems: 'center',
-      paddingBottom: 6,
-    },
-    calendarWeekdayText: {
-      fontSize: 11,
-      fontWeight: '700',
-      color: colors.subText,
-    },
-    calendarGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-    },
-    calendarDayCell: {
-      width: CALENDAR_CELL_SIZE,
-      height: CALENDAR_CELL_SIZE,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    calendarDayInner: {
-      width: CALENDAR_CELL_SIZE - 6,
-      height: CALENDAR_CELL_SIZE - 6,
-      borderRadius: (CALENDAR_CELL_SIZE - 6) / 2,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    calendarDaySelected: {
-      backgroundColor: COLORS.B,
-    },
-    calendarDayToday: {
-      borderWidth: 1,
-      borderColor: COLORS.B,
-    },
-    calendarDayText: {
-      fontSize: 13,
-      color: colors.text,
-    },
-    calendarDayTextDisabled: {
-      color: COLORS.disabledDay,
-    },
-    calendarDayTextSelected: {
-      color: '#FFFFFF',
-      fontWeight: '700',
-    },
-    calendarTodayLink: {
-      marginTop: 10,
-      alignItems: 'center',
-      paddingVertical: 6,
-    },
-    calendarTodayLinkText: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: COLORS.B,
-    },
+    panelsWrap: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
+    panelCard: { backgroundColor: c.card, ...box, borderRadius: 12, padding: 12, margin: 6, minWidth: 260, flexGrow: 1, flexBasis: '45%' },
+    panelHeaderRow: { ...row, justifyContent: 'space-between', marginBottom: 10 },
+    panelTitle: bold(13),
+    tempGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 },
+    tempCard: { backgroundColor: c.card, ...box, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 10, margin: 4, minWidth: 110, flexGrow: 1 },
+    tempPhase: { fontSize: 12, fontWeight: '700', marginBottom: 4 },
+    tempValue: { ...bold(16), marginBottom: 6 },
+    tempMinMaxRow: { flexDirection: 'row', justifyContent: 'space-between' },
+    tempMinMax: { fontSize: 10, color: c.subText },
+    emptyPanelWrap: { ...center, paddingVertical: 40 },
+    emptyPanelText: { marginTop: 10, fontSize: 13, color: c.subText },
 
-    chartTouchArea: {
-      width: CHART_WIDTH,
-      height: CHART_HEIGHT,
-    },
-    chartEmptyOverlay: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    chartHintRow: {
-      marginTop: 4,
-    },
-    chartHintText: {
-      fontSize: 10,
-      color: colors.subText,
-      fontStyle: 'italic',
-    },
-    legendRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      marginTop: 8,
-    },
-    legendItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginRight: 12,
-      marginBottom: 4,
-    },
-    legendDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      marginRight: 4,
-    },
-    legendText: {
-      fontSize: 11,
-      color: colors.text,
-      fontWeight: '600',
-    },
-    dropdownButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 8,
-      paddingVertical: 6,
-      paddingHorizontal: 10,
-      backgroundColor: colors.card,
-    },
-    dropdownButtonText: {
-      fontSize: 12,
-      color: colors.text,
-      marginRight: 4,
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.15)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    dropdownMenu: {
-      backgroundColor: colors.card,
-      borderRadius: 10,
-      paddingVertical: 6,
-      minWidth: 160,
-      ...cardShadow,
-    },
-    dropdownItem: {
-      paddingVertical: 10,
-      paddingHorizontal: 16,
-    },
-    dropdownItemText: {
-      fontSize: 13,
-      color: colors.text,
-    },
-    dropdownItemTextActive: {
-      color: COLORS.B,
-      fontWeight: '700',
-    },
-    headerMenuOverlay: {
-      flex: 1,
-      backgroundColor: 'transparent',
-    },
-    headerMenuList: {
-      position: 'absolute',
-      backgroundColor: colors.card,
-      borderRadius: 10,
-      paddingVertical: 6,
-      minWidth: 170,
-      borderWidth: 1,
-      borderColor: colors.border,
-      ...cardShadow,
-    },
-    renameCard: {
-      backgroundColor: colors.card,
-      borderRadius: 14,
-      padding: 18,
-      width: 280,
-      ...cardShadow,
-    },
-    renameTitle: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: colors.text,
-      marginBottom: 12,
-    },
-    renameInput: {
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 8,
-      paddingVertical: 8,
-      paddingHorizontal: 10,
-      fontSize: 13,
-      color: colors.text,
-      marginBottom: 16,
-    },
-    renameButtonRow: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-    },
-    renameButton: {
-      paddingVertical: 8,
-      paddingHorizontal: 14,
-      borderRadius: 8,
-      marginLeft: 8,
-    },
-    renameButtonPrimary: {
-      backgroundColor: COLORS.B,
-    },
-    renameButtonText: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: colors.text,
-    },
-    renameButtonTextPrimary: {
-      color: '#FFFFFF',
-    },
+    graphWrap: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: c.border },
+    graphHeaderRow: { ...row, justifyContent: 'space-between', marginBottom: 10 },
+    graphTitle: bold(13),
+    dateFieldRow: { ...row, marginBottom: 10 },
+    dateFieldBtn: btn,
+    dateFieldText: { ...bold(12), marginHorizontal: 6 },
+    liveBadge: { ...row, marginLeft: 8, paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8, backgroundColor: '#ECFDF5' },
+    liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.live, marginRight: 4 },
+    liveBadgeText: bold(10, COLORS.live),
 
-    // Bulk "Edit Phase Names" modal (opened from a PanelCard's pencil icon)
-    editPanelCard: {
-      backgroundColor: colors.card,
-      borderRadius: 14,
-      padding: 18,
-      width: 300,
-      maxHeight: '80%',
-      ...cardShadow,
-    },
-    editPanelScroll: {
-      maxHeight: 320,
-      marginBottom: 4,
-    },
-    editPanelFieldWrap: {
-      marginBottom: 12,
-    },
-    editPanelFieldLabel: {
-      fontSize: 11,
-      fontWeight: '700',
-      color: colors.subText,
-      marginBottom: 4,
-    },
+    calendarCard: { ...pop, padding: 16, width: CALENDAR_CELL_SIZE * 7 + 32 },
+    calendarHeaderRow: { ...row, justifyContent: 'space-between', marginBottom: 12 },
+    calendarNavBtn: { width: 28, height: 28, borderRadius: 14, ...box, ...center },
+    calendarNavBtnDisabled: { opacity: 0.4 },
+    calendarMonthText: bold(14),
+    calendarWeekdayRow: { flexDirection: 'row' },
+    calendarWeekdayCell: { width: CALENDAR_CELL_SIZE, alignItems: 'center', paddingBottom: 6 },
+    calendarWeekdayText: bold(11, c.subText),
+    calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+    calendarDayCell: { width: CALENDAR_CELL_SIZE, height: CALENDAR_CELL_SIZE, ...center },
+    calendarDayInner: { width: CALENDAR_CELL_SIZE - 6, height: CALENDAR_CELL_SIZE - 6, borderRadius: (CALENDAR_CELL_SIZE - 6) / 2, ...center },
+    calendarDaySelected: { backgroundColor: COLORS.B },
+    calendarDayToday: { borderWidth: 1, borderColor: COLORS.B },
+    calendarDayText: { fontSize: 13, color: c.text },
+    calendarDayTextDisabled: { color: COLORS.disabledDay },
+    calendarDayTextSelected: { color: '#FFFFFF', fontWeight: '700' },
+    calendarTodayLink: { marginTop: 10, alignItems: 'center', paddingVertical: 6 },
+    calendarTodayLinkText: bold(12, COLORS.B),
+
+    chartTouchArea: { width: CHART_WIDTH, height: CHART_HEIGHT },
+    chartEmptyOverlay: { ...StyleSheet.absoluteFillObject, ...center },
+    chartHintText: { marginTop: 4, fontSize: 10, color: c.subText, fontStyle: 'italic' },
+    legendRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
+    legendItem: { ...row, marginRight: 12, marginBottom: 4 },
+    legendDot: { width: 8, height: 8, borderRadius: 4, marginRight: 4 },
+    legendText: { fontSize: 11, color: c.text, fontWeight: '600' },
+
+    dropdownButton: btn,
+    dropdownButtonText: { fontSize: 12, color: c.text, marginRight: 4 },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.15)', ...center },
+    dropdownMenu: { backgroundColor: c.card, borderRadius: 10, paddingVertical: 6, minWidth: 160, ...cardShadow },
+    dropdownItem: { paddingVertical: 10, paddingHorizontal: 16 },
+    dropdownItemText: { fontSize: 13, color: c.text },
+    dropdownItemTextActive: { color: COLORS.B, fontWeight: '700' },
+    headerMenuOverlay: { flex: 1, backgroundColor: 'transparent' },
+    headerMenuList: { position: 'absolute', backgroundColor: c.card, borderRadius: 10, paddingVertical: 6, minWidth: 170, ...box, ...cardShadow },
+
+    editCard: { ...pop, padding: 18, width: 300, maxHeight: '80%' },
+    renameTitle: { ...bold(14), marginBottom: 12 },
+    renameInput: { ...box, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10, fontSize: 13, color: c.text, marginBottom: 16 },
+    renameButtonRow: { flexDirection: 'row', justifyContent: 'flex-end' },
+    renameButton: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 8, marginLeft: 8 },
+    renameButtonPrimary: { backgroundColor: COLORS.B },
+    renameButtonText: bold(13),
+    renameButtonTextPrimary: { color: '#FFFFFF' },
+    editPanelScroll: { maxHeight: 320, marginBottom: 4 },
+    editPanelFieldWrap: { marginBottom: 12 },
+    editPanelFieldLabel: { ...bold(11, c.subText), marginBottom: 4 },
   });
+};
 
 export default WtsDashboard;

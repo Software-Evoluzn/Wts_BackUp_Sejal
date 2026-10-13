@@ -207,244 +207,45 @@ export default Checkfirstreadings;
 
 const createStyles = (insets) =>
   StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: '#F7F7FA',
-    },
-
-    /* Header */
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 20,
-      paddingTop: Math.max(insets.top, 12),
-      paddingBottom: 14,
-      backgroundColor: '#FFF',
-      borderBottomWidth: 1,
-      borderBottomColor: '#F0F0F5',
-    },
-    headerLeft: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    backButton: {
-      paddingVertical: 4,
-      paddingRight: 14,
-    },
-    headerTitle: {
-      fontSize: 18,
-      fontWeight: '700',
-      color: '#1C1C1E',
-    },
-    headerSubtitleText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: '#8E8E93',
-    },
-    brandLogo: {
-      width: 90,
-      height: 24,
-    },
-
-    /* Content */
-    scrollContent: {
-      paddingHorizontal: 20,
-      paddingTop: 20,
-      paddingBottom: 24,
-    },
-    stepProgressContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: 24,
-    },
-    stepBar: {
-      flex: 1,
-      height: 4,
-      backgroundColor: '#E5E5EA',
-      borderRadius: 2,
-      marginRight: 8,
-    },
-    stepBarActive: {
-      backgroundColor: '#8B2A8B',
-    },
-    stepSubtitle: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: '#8B2A8B',
-      letterSpacing: 0.8,
-      marginBottom: 6,
-    },
-    stepTitle: {
-      fontSize: 26,
-      fontWeight: '800',
-      color: '#111827',
-      letterSpacing: -0.5,
-    },
-    stepDescription: {
-      fontSize: 15,
-      color: '#6B7280',
-      marginTop: 4,
-      marginBottom: 24,
-    },
-
-    /* Readings card */
-    readingsCard: {
-      backgroundColor: '#FFF',
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: '#E5E7EB',
-      paddingHorizontal: 14,
-    },
-    readingRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 14,
-      borderBottomWidth: 1,
-      borderBottomColor: '#EDEDF0',
-    },
-    readingRowLast: {
-      borderBottomWidth: 0,
-    },
-    probeChip: {
-      width: 32,
-      height: 32,
-      borderRadius: 8,
-      backgroundColor: '#F5E6F5',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: 12,
-    },
-    probeChipText: {
-      fontSize: 11,
-      fontWeight: '800',
-      color: '#8B2A8B',
-    },
-    readingInfo: {
-      flex: 1,
-      marginRight: 10,
-    },
-    readingLabel: {
-      fontSize: 14.5,
-      fontWeight: '600',
-      color: '#111827',
-    },
-    readingSub: {
-      fontSize: 12,
-      color: '#9CA3AF',
-      marginTop: 4,
-    },
-    readingValueWrap: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-    },
-    readingValue: {
-      fontSize: 22,
-      fontWeight: '600',
-      color: '#111827',
-    },
-    readingUnit: {
-      fontSize: 11,
-      color: '#6B7280',
-      marginTop: 4,
-      marginLeft: 1,
-    },
-
-    /* Summary row */
-    summaryRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginTop: 14,
-    },
-    validBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: '#DCFCE7',
-      borderRadius: 6,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      gap: 4,
-    },
-    validBadgeWarn: {
-      backgroundColor: '#FEF3C7',
-    },
-    validBadgeText: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: '#15803D',
-    },
-    validBadgeTextWarn: {
-      color: '#B45309',
-    },
-    receivedWrap: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 5,
-    },
-    receivedText: {
-      fontSize: 12,
-      color: '#9CA3AF',
-    },
-
-
-    /* Info card */
-    hintCard: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      backgroundColor: '#F3EFF6',
-      borderRadius: 12,
-      padding: 14,
-      marginTop: 18,
-    },
-    hintIcon: {
-      marginRight: 10,
-      marginTop: 1,
-    },
-    hintText: {
-      flex: 1,
-      fontSize: 12.5,
-      lineHeight: 18,
-      color: '#6B7280',
-    },
-
-    /* Footer */
-    bottomFooterSheet: {
-      backgroundColor: '#FFF',
-      paddingHorizontal: 20,
-      paddingTop: 16,
-      paddingBottom: Math.max(insets.bottom, 16),
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
-      borderTopWidth: 1,
-      borderTopColor: '#F0F0F5',
-    },
-    primaryActionButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: '#8B2A8B',
-      borderRadius: 14,
-      paddingVertical: 16,
-      gap: 8,
-    },
-    primaryActionButtonText: {
-      color: '#FFF',
-      fontSize: 16,
-      fontWeight: '700',
-    },
-    brandFooterRow: {
-      alignItems: 'center',
-      marginTop: 14,
-    },
-    brandFooterText: {
-      fontSize: 12,
-      color: '#6E6577',
-    },
-    brandFooterBold: {
-      fontWeight: '800',
-      color: '#7B2B75',
-      letterSpacing: 1.2,
-    },
+    container: {flex: 1, backgroundColor: '#F7F7FA', },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20,  paddingTop: Math.max(insets.top, 12), paddingBottom: 14, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#F0F0F5', },
+    headerLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', },
+    backButton: { paddingVertical: 4, paddingRight: 14, },
+    headerTitle: { fontSize: 18, fontWeight: '700', color: '#1C1C1E', },
+    headerSubtitleText: {fontSize: 14,fontWeight: '600',color: '#8E8E93', },
+    brandLogo: {  width: 90,  height: 24, },
+    scrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24, },
+    stepProgressContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24,},
+    stepBar: { flex: 1, height: 4, backgroundColor: '#E5E5EA', borderRadius: 2, marginRight: 8, },
+    stepBarActive: { backgroundColor: '#8B2A8B', },
+    stepSubtitle: { fontSize: 12, fontWeight: '700', color: '#8B2A8B', letterSpacing: 0.8, marginBottom: 6, },
+    stepTitle: { fontSize: 26, fontWeight: '800', color: '#111827', letterSpacing: -0.5,},
+    stepDescription: {fontSize: 15, color: '#6B7280', marginTop: 4, marginBottom: 24,},
+    readingsCard: { backgroundColor: '#FFF', borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 14, },
+    readingRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#EDEDF0',},
+    readingRowLast: { borderBottomWidth: 0,},
+    probeChip: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#F5E6F5', alignItems: 'center', justifyContent: 'center', marginRight: 12,},
+    probeChipText: {fontSize: 11, fontWeight: '800', color: '#8B2A8B',},
+    readingInfo: { flex: 1, marginRight: 10,},
+    readingLabel: { fontSize: 14.5, fontWeight: '600', color: '#111827',},
+    readingSub: { fontSize: 12, color: '#9CA3AF', marginTop: 4,},
+    readingValueWrap: { flexDirection: 'row', alignItems: 'flex-start', },
+    readingValue: { fontSize: 22, fontWeight: '600', color: '#111827',},
+    readingUnit: { fontSize: 11, color: '#6B7280',  marginTop: 4,  marginLeft: 1,},
+    summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14,},
+    validBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#DCFCE7', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, gap: 4,},
+    validBadgeWarn: { backgroundColor: '#FEF3C7',},
+    validBadgeText: { fontSize: 12, fontWeight: '600', color: '#15803D',},
+    validBadgeTextWarn: { color: '#B45309',},
+    receivedWrap: { flexDirection: 'row', alignItems: 'center', gap: 5,},
+    receivedText: { fontSize: 12, color: '#9CA3AF', },
+    hintCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#F3EFF6', borderRadius: 12, padding: 14, marginTop: 18,},
+    hintIcon: {  marginRight: 10,  marginTop: 1, },
+    hintText: {flex: 1, fontSize: 12.5, lineHeight: 18, color: '#6B7280',},
+    bottomFooterSheet: { backgroundColor: '#FFF', paddingHorizontal: 20, paddingTop: 16, paddingBottom: Math.max(insets.bottom, 16), borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderTopColor: '#F0F0F5', },
+    primaryActionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#8B2A8B', borderRadius: 14, paddingVertical: 16, gap: 8,},
+    primaryActionButtonText: { color: '#FFF', fontSize: 16, fontWeight: '700',},
+    brandFooterRow: { alignItems: 'center', marginTop: 14, },
+    brandFooterText: { fontSize: 12, color: '#6E6577',},
+    brandFooterBold: { fontWeight: '800', color: '#7B2B75', letterSpacing: 1.2, },
   });

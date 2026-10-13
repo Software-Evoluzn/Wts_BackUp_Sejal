@@ -22,6 +22,7 @@ import { registerProduct } from '../services/ProductApi';
 import { getUserDetails } from '../services/AuthService';
 import { useAppTheme } from '../services/theme';
 import PowerSupplyAlert from '../components/PowerSupplyAlert';
+import { updateDraft, resetDraft } from '../services/installationDraft';
 
 const DEVICE_LIST = [
   'IntelliTemp 4P',
@@ -208,6 +209,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
   const consumedProductRef = useRef(null);
 
   const resetForm = useCallback(() => {
+    resetDraft();
     setMode('scan');
     setProduct(null);
     setScannedData(null);
@@ -351,6 +353,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
       return;
     }
 
+    updateDraft({ product: pendingDevice });
     setSafetyConfirmed(false);
     setShowSafety(true);
   };

@@ -14,8 +14,8 @@ class RegisterProduct(db.Model):
     
     # Subtype & Threshold Details
     probe_type = db.Column(db.String(50), nullable=True) # e.g. '4P', '12P', '24P'
-    threshold_type = db.Column(db.String(20), default='global') # 'global' or 'individual'
-    threshold_value = db.Column(db.Float, nullable=True) # Used if threshold_type == 'global'
+    threshold_type = db.Column(db.String(20), default='global') # 'global' (group limit only) or 'individual' (group limit + per-probe overrides)
+    threshold_value = db.Column(db.Float, nullable=True) # Group high limit (always stored now)
     
     model_no = db.Column(db.String(100), nullable=False)
     serial_no = db.Column(db.String(100), unique=True, nullable=False)
@@ -48,6 +48,23 @@ class RegisterProduct(db.Model):
     
     # NEW COLUMN
     location = db.Column(db.String(255) , nullable = True)
+
+    # ---- NEW: installation wizard fields ----
+    application = db.Column(db.String(100), nullable=True)         # Electrical Panel, Cold room, ...
+    site_timezone = db.Column(db.String(64), nullable=True)         # e.g. Asia/Kolkata · IST
+
+    # Low-temperature alert (optional)
+    low_enabled = db.Column(db.Boolean, default=False)
+    low_limit = db.Column(db.Float, nullable=True)
+
+    # Persistence, reset & repeat behaviour
+    persistence_readings = db.Column(db.Integer, default=1)         # consecutive valid readings before alerting
+    reset_margin = db.Column(db.Float, default=3.0)                 # deg C inside the limit before the alert clears
+    repeat_every_minutes = db.Column(db.Integer, default=30)
+
+    # Installation status shown on the Home screen
+    config_status = db.Column(db.String(20), default='pending')     # 'pending' -> 'applied'
+    installed_at = db.Column(db.DateTime, nullable=True)
     
     # Relationship: Clean link to child table
     probe_thresholds = db.relationship('ProbeThreshold', backref='product', cascade="all, delete-orphan", lazy=True)
@@ -61,7 +78,7 @@ class ProbeThreshold(db.Model):
     product_id = db.Column(db.Integer, db.ForeignKey('register_product.id', ondelete="CASCADE"), nullable=False)
     serial_no = db.Column(db.String(100), nullable=False)
     
-    # 24 Probe Columns (Row-by-Row insertion ke bajaye Single Row Columns)
+    # 24 Probe Columns. A NULL value means "no override: use the group limit".
     probe_1 = db.Column(db.Float, nullable=True)
     probe_2 = db.Column(db.Float, nullable=True)
     probe_3 = db.Column(db.Float, nullable=True)
@@ -89,12 +106,3 @@ class ProbeThreshold(db.Model):
  
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    
-    
-    
-    
-    
-    
-
-    

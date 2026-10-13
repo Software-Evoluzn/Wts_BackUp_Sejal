@@ -3,125 +3,223 @@ from database.db import db
 from datetime import datetime, timedelta
 
 from models.RegisterProduct import RegisterProduct, ProbeThreshold
-from models.control_panel import ControlPanel 
+from models.PhaseLabel import PhaseLabel
+from models.control_panel import ControlPanel
 
 product = Blueprint("product", __name__)
 
+# T1..T4 of an IntelliTemp 4P are stored in the first four phase_labels columns.
+# ASSUMPTION: change this list if your telemetry uses different columns for the 4 probes.
+PROBE_TO_PHASE_COLUMN = ['R1', 'Y1', 'B1', 'N1']
+
+
+def _to_float(value):
+    """Returns a float, or None when the value is missing / not a number."""
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _to_int(value, default=None):
+    if value is None or value == "":
+        return default
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _get_probe_labels(serial_no, count=4):
+    """Custom names for T1..Tn, falling back to 'T1', 'T2', ... when never renamed."""
+    row = PhaseLabel.query.filter_by(serial_no=serial_no).first()
+    labels = []
+    for i in range(count):
+        column = PROBE_TO_PHASE_COLUMN[i] if i < len(PROBE_TO_PHASE_COLUMN) else None
+        value = getattr(row, column) if (row and column) else None
+        labels.append(value if value else f"T{i + 1}")
+    return labels
+
+
 @product.route("/register-product", methods=["POST"])
 def register_product():
+    """
+    Saves the whole installation wizard in ONE request:
+    device identity, location/application, alert rule, recipients and probe names.
+
+    If the serial number already exists AND belongs to the same user, the record is
+    updated (so going back and pressing "Apply" again does not fail). If it belongs to
+    another account, the request is rejected.
+    """
     print("\n=================Register product api called==================")
 
     data = request.get_json()
     print("Received data", data)
 
     if not data:
-        return jsonify({
-            "success": False,
-            "message": "No data received"
-        }), 400
+        return jsonify({"success": False, "message": "No data received"}), 400
 
     serial = data.get("serial_no")
-    print("Serial no", serial)
+    firebase_uid = data.get("firebase_uid")
 
     if not serial:
-        return jsonify({
-            "success": False,
-            "message": "Serial number is required"
-        }), 400
+        return jsonify({"success": False, "message": "Serial number is required"}), 400
 
-    # Product already registered check
+    if not firebase_uid:
+        return jsonify({"success": False, "message": "User session not found. Please log in again."}), 400
+
+    # Purchase date is optional now (the wizard says "can be added later")
+    raw_purchase_date = data.get("purchase_date")
+    purchase_date = None
+    if raw_purchase_date:
+        try:
+            purchase_date = datetime.strptime(raw_purchase_date, "%Y-%m-%d")
+        except ValueError:
+            return jsonify({
+                "success": False,
+                "message": "Invalid date format. Expected YYYY-MM-DD"
+            }), 400
+
     existing = RegisterProduct.query.filter_by(serial_no=serial).first()
 
-    if existing:
-        print("Product already registered.")
+    if existing and existing.firebase_uid != firebase_uid:
+        print("Product already registered to another account.")
         return jsonify({
             "success": False,
-            "message": "Product already registered."
+            "message": "This device is already registered to another account."
         }), 400
+
+    is_update = existing is not None
+    prod = existing if is_update else RegisterProduct()
+
+    individual_data = data.get("individual_thresholds") or {}
+    has_overrides = any(_to_float(v) is not None for v in individual_data.values())
+    threshold_type = "individual" if has_overrides else "global"
 
     try:
-        purchase_date = datetime.strptime(data.get("purchase_date", ""), "%Y-%m-%d")
-    except ValueError:
-        return jsonify({
-            "success": False,
-            "message": "Invalid date format. Expected YYYY-MM-DD"
-        }), 400
-    
-    print("Purchase Date:", purchase_date)
-    access_point = serial[:3] + "Ap" + serial[3:]
-    threshold_type = data.get("threshold_type", "global")
+        # ---- identity ----
+        prod.firebase_uid = firebase_uid
+        prod.user_name = data.get("user_name")
+        prod.email = data.get("email")
+        prod.contact = data.get("contact")
+        prod.device_name = data.get("device_name")
+        prod.probe_type = data.get("probe_type")
+        prod.model_no = data.get("model_no")
+        prod.serial_no = serial
+        prod.mac_id = data.get("mac_id") or "N/A"
+        prod.access_point = serial[:3] + "Ap" + serial[3:]
 
-    new_product = RegisterProduct(
-        firebase_uid=data.get("firebase_uid"),
-        user_name=data.get("user_name"),
-        email=data.get("email"),
-        contact=data.get("contact"),
-        device_name=data.get("device_name"),
-        probe_type=data.get("probe_type"),
-        threshold_type=threshold_type,
-        threshold_value=float(data.get("threshold_value")) if threshold_type == 'global' and data.get("threshold_value") is not None else None,
-        model_no=data.get("model_no"),
-        serial_no=serial,
-        mac_id=data.get("mac_id"),
-        purchase_date=purchase_date,
-        warranty_year=1,
-        warranty_expiry=purchase_date + timedelta(days=365),
-        online_status=False,
-        email_enabled=data.get("email_enabled", False),
-        alert_email=data.get("alert_email"),
-        sms_enabled=data.get("sms_enabled", False),
-        sms_phone=data.get('sms_phone'),
-        access_point=access_point,
-        location=data.get("location")
-    )
+        # ---- installation ----
+        prod.location = data.get("location")
+        prod.application = data.get("application")
+        prod.site_timezone = data.get("site_timezone")
 
-    db.session.add(new_product)
-    db.session.flush() # New Product ID create karne ke liye
+        # ---- dates / warranty ----
+        if purchase_date:
+            prod.purchase_date = purchase_date
+            prod.warranty_expiry = purchase_date + timedelta(days=365)
+        elif not is_update:
+            prod.purchase_date = datetime.utcnow()
+            prod.warranty_expiry = prod.purchase_date + timedelta(days=365)
+        if not is_update:
+            prod.warranty_year = 1
+            prod.online_status = False
 
-    # Single Row Column-Wise insertion for Probe Thresholds
-    if threshold_type == "individual" and data.get("individual_thresholds"):
-        individual_data = data.get("individual_thresholds", {})
-        
-        # ProbeThreshold object me single record Columns mapping
-        probe_entry = ProbeThreshold(
-            product_id=new_product.id,
-            serial_no=serial,
-            probe_1=float(individual_data.get("probe_1")) if individual_data.get("probe_1") is not None else None,
-            probe_2=float(individual_data.get("probe_2")) if individual_data.get("probe_2") is not None else None,
-            probe_3=float(individual_data.get("probe_3")) if individual_data.get("probe_3") is not None else None,
-            probe_4=float(individual_data.get("probe_4")) if individual_data.get("probe_4") is not None else None,
-            probe_5=float(individual_data.get("probe_5")) if individual_data.get("probe_5") is not None else None,
-            probe_6=float(individual_data.get("probe_6")) if individual_data.get("probe_6") is not None else None,
-            probe_7=float(individual_data.get("probe_7")) if individual_data.get("probe_7") is not None else None,
-            probe_8=float(individual_data.get("probe_8")) if individual_data.get("probe_8") is not None else None,
-            probe_9=float(individual_data.get("probe_9")) if individual_data.get("probe_9") is not None else None,
-            probe_10=float(individual_data.get("probe_10")) if individual_data.get("probe_10") is not None else None,
-            probe_11=float(individual_data.get("probe_11")) if individual_data.get("probe_11") is not None else None,
-            probe_12=float(individual_data.get("probe_12")) if individual_data.get("probe_12") is not None else None,
-            probe_13=float(individual_data.get("probe_13")) if individual_data.get("probe_13") is not None else None,
-            probe_14=float(individual_data.get("probe_14")) if individual_data.get("probe_14") is not None else None,
-            probe_15=float(individual_data.get("probe_15")) if individual_data.get("probe_15") is not None else None,
-            probe_16=float(individual_data.get("probe_16")) if individual_data.get("probe_16") is not None else None,
-            probe_17=float(individual_data.get("probe_17")) if individual_data.get("probe_17") is not None else None,
-            probe_18=float(individual_data.get("probe_18")) if individual_data.get("probe_18") is not None else None,
-            probe_19=float(individual_data.get("probe_19")) if individual_data.get("probe_19") is not None else None,
-            probe_20=float(individual_data.get("probe_20")) if individual_data.get("probe_20") is not None else None,
-            probe_21=float(individual_data.get("probe_21")) if individual_data.get("probe_21") is not None else None,
-            probe_22=float(individual_data.get("probe_22")) if individual_data.get("probe_22") is not None else None,
-            probe_23=float(individual_data.get("probe_23")) if individual_data.get("probe_23") is not None else None,
-            probe_24=float(individual_data.get("probe_24")) if individual_data.get("probe_24") is not None else None,
-        )
-        db.session.add(probe_entry)
-            
-    db.session.commit()
-    
-    print("Product and probe saved successfully in database.")
+        # ---- alert rule ----
+        prod.threshold_type = threshold_type
+        prod.threshold_value = _to_float(data.get("threshold_value"))   # group high limit
+        prod.low_enabled = bool(data.get("low_enabled", False))
+        prod.low_limit = _to_float(data.get("low_limit")) if prod.low_enabled else None
+        prod.persistence_readings = _to_int(data.get("persistence_readings"), 1)
+        prod.reset_margin = _to_float(data.get("reset_margin")) if _to_float(data.get("reset_margin")) is not None else 3.0
+        prod.repeat_every_minutes = _to_int(data.get("repeat_every_minutes"), 30)
+
+        # ---- recipients ----
+        prod.email_enabled = bool(data.get("email_enabled", False))
+        prod.alert_email = data.get("alert_email")
+        prod.sms_enabled = bool(data.get("sms_enabled", False))
+        prod.sms_phone = data.get("sms_phone")
+
+        # ---- status: waits for the device acknowledgement ----
+        prod.config_status = "pending"
+        prod.installed_at = None
+
+        if not is_update:
+            db.session.add(prod)
+        db.session.flush()  # makes sure prod.id exists
+
+        # ---- per-probe overrides (NULL = use the group limit) ----
+        if is_update:
+            ProbeThreshold.query.filter_by(product_id=prod.id).delete()
+
+        if has_overrides:
+            overrides = {f"probe_{i}": _to_float(individual_data.get(f"probe_{i}")) for i in range(1, 25)}
+            db.session.add(ProbeThreshold(product_id=prod.id, serial_no=serial, **overrides))
+
+        # ---- probe names (T1..T4 -> phase_labels columns) ----
+        probe_labels = data.get("probe_labels") or []
+        if isinstance(probe_labels, list) and probe_labels:
+            label_row = PhaseLabel.query.filter_by(serial_no=serial).first()
+            if not label_row:
+                label_row = PhaseLabel(serial_no=serial)
+                db.session.add(label_row)
+
+            for index, label in enumerate(probe_labels):
+                if index >= len(PROBE_TO_PHASE_COLUMN):
+                    break
+                label = (str(label) if label is not None else "").strip()
+                if label:
+                    setattr(label_row, PROBE_TO_PHASE_COLUMN[index], label)
+
+        db.session.commit()
+
+    except Exception as e:
+        db.session.rollback()
+        print("Register product error:", e)
+        return jsonify({"success": False, "message": f"Could not save installation: {e}"}), 500
+
+    print("Installation saved successfully in database.")
     print("================================================\n")
 
     return jsonify({
         "success": True,
-        "message": "Product and probe Registered Successfully"
+        "message": "Installation updated successfully" if is_update else "Product registered successfully",
+        "serial_no": serial,
+        "config_status": prod.config_status,
     }), 201
+
+
+@product.route("/confirm-installation", methods=["POST"])
+def confirm_installation():
+    """
+    Marks the installation as 'applied' (shown as "Installed" on the Home screen).
+
+    For now the app calls this right after /register-product succeeds.
+    LATER: call it from the place where the DEVICE acknowledges the configuration
+    (for example when the first telemetry packet / ACK message arrives).
+    """
+    data = request.get_json() or {}
+    serial = data.get("serial_no")
+    firebase_uid = data.get("firebase_uid")
+
+    if not serial or not firebase_uid:
+        return jsonify({"success": False, "message": "serial_no and firebase_uid are required"}), 400
+
+    prod = RegisterProduct.query.filter_by(serial_no=serial, firebase_uid=firebase_uid).first()
+    if not prod:
+        return jsonify({"success": False, "message": "Product not found"}), 404
+
+    prod.config_status = "applied"
+    prod.installed_at = datetime.utcnow()
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "message": "Installation confirmed",
+        "config_status": prod.config_status,
+    }), 200
 
 
 @product.route("/get-products", methods=["POST"])   
@@ -149,11 +247,10 @@ def get_products():
     product_list = []
     
     for prod in products:
-        # Check if individual thresholds exist for this product
+        # Per-probe overrides (NULL = uses the group limit)
         threshold_info = {}
-        if prod.threshold_type == "individual" and prod.probe_thresholds:
-            # Relationship through backref array gets first row
-            th = prod.probe_thresholds[0] if isinstance(prod.probe_thresholds, list) and prod.probe_thresholds else prod.probe_thresholds
+        if prod.probe_thresholds:
+            th = prod.probe_thresholds[0] if isinstance(prod.probe_thresholds, list) else prod.probe_thresholds
             if th:
                 threshold_info = {
                     "probe_1": th.probe_1, "probe_2": th.probe_2, "probe_3": th.probe_3, "probe_4": th.probe_4,
@@ -163,6 +260,10 @@ def get_products():
                     "probe_17": th.probe_17, "probe_18": th.probe_18, "probe_19": th.probe_19, "probe_20": th.probe_20,
                     "probe_21": th.probe_21, "probe_22": th.probe_22, "probe_23": th.probe_23, "probe_24": th.probe_24
                 }
+
+        probe_count = 4
+        if prod.probe_type and prod.probe_type[:-1].isdigit():
+            probe_count = min(int(prod.probe_type[:-1]), len(PROBE_TO_PHASE_COLUMN))
 
         product_list.append({
             "id": prod.id,
@@ -182,7 +283,19 @@ def get_products():
             "sms_enabled": prod.sms_enabled,
             "alert_phone": prod.sms_phone,
             "access_point": prod.access_point,
-            "location": prod.location
+            "location": prod.location,
+
+            # ---- new: installation wizard data ----
+            "application": prod.application,
+            "site_timezone": prod.site_timezone,
+            "low_enabled": prod.low_enabled,
+            "low_limit": prod.low_limit,
+            "persistence_readings": prod.persistence_readings,
+            "reset_margin": prod.reset_margin,
+            "repeat_every_minutes": prod.repeat_every_minutes,
+            "config_status": prod.config_status,
+            "installed_at": prod.installed_at.strftime("%Y-%m-%d %H:%M") if prod.installed_at else None,
+            "probe_labels": _get_probe_labels(prod.serial_no, probe_count),
         })
 
     return jsonify({

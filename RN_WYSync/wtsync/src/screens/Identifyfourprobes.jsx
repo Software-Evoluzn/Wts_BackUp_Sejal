@@ -14,6 +14,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Feather from 'react-native-vector-icons/Feather';
 
+import { updateDraft } from '../services/installationDraft';
+
 const TOTAL_STEPS = 6;
 const CURRENT_STEP = 3;
 
@@ -62,6 +64,9 @@ const Identifyfourprobes = ({ navigation, route }) => {
       Alert.alert('Validation Error', `Please enter a label for T${emptyIndex + 1}.`);
       return;
     }
+
+    // Save for the backend call on the Review screen
+    updateDraft({ probeLabels: labels.map((label) => label.trim()) });
 
     navigation.navigate('Checkfirstreadings', {
       ...(route?.params || {}),

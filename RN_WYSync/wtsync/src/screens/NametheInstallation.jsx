@@ -14,6 +14,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Feather from 'react-native-vector-icons/Feather';
 
+import { updateDraft } from '../services/installationDraft';
+
 const APPLICATION_OPTIONS = [
   'Electrical Panel',
   'Motor or Machine',
@@ -76,6 +78,9 @@ const NametheInstallation = ({ navigation, route }) => {
       Alert.alert('Validation Error', 'Please enter an installation location.');
       return;
     }
+
+    // Save for the backend call on the Review screen
+    updateDraft({ location: location.trim(), application, siteTimezone });
 
     navigation.navigate('Identifyfourprobes', {
       ...(route?.params || {}),

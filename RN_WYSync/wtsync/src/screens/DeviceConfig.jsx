@@ -592,24 +592,9 @@ export default function DeviceConfig({ navigation, route }) {
 }
 
 const createStyles = (colors) => StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 8,
-  },
-
-  header: {
-    paddingTop: 12,
-    marginBottom: 32,
-  },
-  eyebrow: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.subText,
-    letterSpacing: 1,
-    marginBottom: 10,
-    textTransform: 'uppercase',
-  },
+  container: { flex: 1, paddingHorizontal: 24,  paddingTop: 8,},
+  header: { paddingTop: 12,  marginBottom: 32,},
+  eyebrow: {fontSize: 12,  fontWeight: '700', color: colors.subText, letterSpacing: 1,  marginBottom: 10, textTransform: 'uppercase', },
   heading: {
     fontSize: 30,
     fontWeight: '700',

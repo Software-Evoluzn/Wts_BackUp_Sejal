@@ -1,4 +1,4 @@
-import React, { useState, useLayoutEffect, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Feather from 'react-native-vector-icons/Feather';
+
+import { getDraft, updateDraft } from '../services/installationDraft';
 
 const TOTAL_STEPS = 6;
 const CURRENT_STEP = 4;
@@ -37,17 +39,26 @@ const Setclearalertlimits = ({ navigation, route }) => {
   const styles = useMemo(() => createStyles(insets), [insets]);
 
   // High-temperature alert limits
-  const [highLimit, setHighLimit] = useState(DEFAULT_HIGH_LIMIT);
+  const saved = getDraft().alertForm || {};
+  const [highLimit, setHighLimit] = useState(saved.highLimit ?? DEFAULT_HIGH_LIMIT);
 
   // Low-temperature alert (optional)
-  const [lowEnabled, setLowEnabled] = useState(false);
-  const [lowLimit, setLowLimit] = useState(DEFAULT_LOW_LIMIT);
+  const [lowEnabled, setLowEnabled] = useState(saved.lowEnabled ?? false);
+  const [lowLimit, setLowLimit] = useState(saved.lowLimit ?? DEFAULT_LOW_LIMIT);
 
   // Persistence, reset & repeat behaviour
   const [showBehaviour, setShowBehaviour] = useState(false);
-  const [persistence, setPersistence] = useState('1');
-  const [resetMargin, setResetMargin] = useState('3.0');
-  const [repeatEvery, setRepeatEvery] = useState('30');
+  const [persistence, setPersistence] = useState(saved.persistence ?? '1');
+  const [resetMargin, setResetMargin] = useState(saved.resetMargin ?? '3.0');
+  const [repeatEvery, setRepeatEvery] = useState(saved.repeatEvery ?? '30');
+
+  // Keep the draft up to date, so nothing is lost when the user opens
+  // "Individual override" and comes back, and so the Review screen can read it.
+  useEffect(() => {
+    updateDraft({
+      alertForm: { highLimit, lowEnabled, lowLimit, persistence, resetMargin, repeatEvery },
+    });
+  }, [highLimit, lowEnabled, lowLimit, persistence, resetMargin, repeatEvery]);
 
   // Hide tab bar for this screen
   useLayoutEffect(() => {
@@ -332,296 +343,53 @@ export default Setclearalertlimits;
 
 const createStyles = (insets) =>
   StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: '#F7F7FA',
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 20,
-      paddingTop: Math.max(insets.top, 12),
-      paddingBottom: 14,
-      backgroundColor: '#FFF',
-      borderBottomWidth: 1,
-      borderBottomColor: '#F0F0F5',
-    },
-    headerLeft: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    backButton: {
-      paddingVertical: 4,
-      paddingRight: 14,
-    },
-    headerTitle: {
-      fontSize: 18,
-      fontWeight: '700',
-      color: '#1C1C1E',
-    },
-    headerSubtitleText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: '#8E8E93',
-    },
-    brandLogo: {
-      width: 90,
-      height: 24,
-    },
-    scrollContent: {
-      paddingHorizontal: 20,
-      paddingTop: 20,
-      paddingBottom: 24,
-    },
-    stepProgressContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: 20,
-    },
-    stepBar: {
-      flex: 1,
-      height: 4,
-      backgroundColor: '#E5E5EA',
-      borderRadius: 2,
-      marginRight: 8,
-    },
-    stepBarActive: {
-      backgroundColor: '#8B2A8B',
-    },
-    stepSubtitle: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: '#8B2A8B',
-      letterSpacing: 0.8,
-      marginBottom: 6,
-    },
-    stepTitle: {
-      fontSize: 26,
-      fontWeight: '800',
-      color: '#111827',
-      letterSpacing: -0.5,
-    },
-    stepDescription: {
-      fontSize: 14.5,
-      color: '#6B7280',
-      marginTop: 6,
-      marginBottom: 20,
-      lineHeight: 20,
-    },
-    segmented: {
-      flexDirection: 'row',
-      backgroundColor: '#EFEFF3',
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: '#E5E7EB',
-      padding: 3,
-      marginBottom: 16,
-    },
-    segmentTab: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 12,
-      borderRadius: 9,
-    },
-    segmentTabActive: {
-      backgroundColor: '#FFF',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.06,
-      shadowRadius: 3,
-      elevation: 1,
-    },
-    segmentText: {
-      fontSize: 13.5,
-      fontWeight: '600',
-      color: '#6B7280',
-    },
-    segmentTextActive: {
-      color: '#8B2A8B',
-    },
-    card: {
-      backgroundColor: '#FFF',
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: '#E5E7EB',
-      padding: 16,
-      marginBottom: 14,
-    },
-    cardTopRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 6,
-    },
-    cardTitle: {
-      fontSize: 14.5,
-      fontWeight: '700',
-      color: '#111827',
-    },
-    cardSubtitle: {
-      fontSize: 12.5,
-      color: '#9CA3AF',
-      marginTop: 2,
-      marginBottom: 12,
-    },
-    enabledBadge: {
-      backgroundColor: '#F3E1F3',
-      borderRadius: 6,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-    },
-    enabledBadgeText: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: '#8B2A8B',
-    },
-    lowTextWrap: {
-      flex: 1,
-      marginRight: 12,
-    },
-    inputLabel: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: '#374151',
-      marginBottom: 8,
-    },
-    limitInputWrap: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: '#FFF',
-      borderWidth: 1,
-      borderColor: '#E5E7EB',
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      height: 52,
-    },
-    limitInput: {
-      flex: 1,
-      fontSize: 15,
-      color: '#111827',
-      padding: 0,
-    },
-    stepperContainer: {
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: 8,
-    },
-    stepperButton: {
-      paddingVertical: 1,
-      paddingHorizontal: 4,
-    },
-    unitText: {
-      fontSize: 13,
-      color: '#6B7280',
-    },
-    chipRow: {
-      flexDirection: 'row',
-      gap: 8,
-      marginTop: 14,
-    },
-    chip: {
-      backgroundColor: '#F5E6F5',
-      borderRadius: 6,
-      paddingHorizontal: 11,
-      paddingVertical: 6,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    chipText: {
-      fontSize: 11.5,
-      fontWeight: '700',
-      color: '#8B2A8B',
-    },
-    appliesText: {
-      fontSize: 12.5,
-      color: '#6B7280',
-      marginTop: 12,
-    },
-    behaviourLink: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      marginTop: 6,
-      marginBottom: 14,
-    },
-    behaviourLinkText: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: '#8B2A8B',
-    },
-    behaviourRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingBottom: 14,
-      marginBottom: 14,
-      borderBottomWidth: 1,
-      borderBottomColor: '#EDEDF0',
-    },
-    behaviourTextWrap: {
-      flex: 1,
-      marginRight: 12,
-    },
-    behaviourTitle: {
-      fontSize: 13.5,
-      fontWeight: '600',
-      color: '#111827',
-    },
-    behaviourHint: {
-      fontSize: 12,
-      color: '#9CA3AF',
-      marginTop: 2,
-    },
-    behaviourInput: {
-      width: 64,
-      height: 40,
-      textAlign: 'center',
-      fontSize: 14,
-      color: '#111827',
-      backgroundColor: '#FFF',
-      borderWidth: 1,
-      borderColor: '#E5E7EB',
-      borderRadius: 10,
-      padding: 0,
-    },
-    bottomFooterSheet: {
-      backgroundColor: '#FFF',
-      paddingHorizontal: 20,
-      paddingTop: 16,
-      paddingBottom: Math.max(insets.bottom, 16),
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
-      borderTopWidth: 1,
-      borderTopColor: '#F0F0F5',
-    },
-    primaryActionButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: '#8B2A8B',
-      borderRadius: 14,
-      paddingVertical: 16,
-      gap: 8,
-    },
-    primaryActionButtonText: {
-      color: '#FFF',
-      fontSize: 16,
-      fontWeight: '700',
-    },
-    brandFooterRow: {
-      alignItems: 'center',
-      marginTop: 14,
-    },
-    brandFooterText: {
-      fontSize: 12,
-      color: '#6E6577',
-    },
-    brandFooterBold: {
-      fontWeight: '800',
-      color: '#7B2B75',
-      letterSpacing: 1.2,
-    },
+    container: { flex: 1, backgroundColor: '#F7F7FA',},
+    header: { flexDirection: 'row',alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: Math.max(insets.top, 12), paddingBottom: 14, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#F0F0F5', },
+    headerLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', },
+    backButton: { paddingVertical: 4,  paddingRight: 14,},
+    headerTitle: {fontSize: 18, fontWeight: '700',  color: '#1C1C1E',},
+    headerSubtitleText: { fontSize: 14, fontWeight: '600', color: '#8E8E93',},
+    brandLogo: { width: 90,  height: 24, },
+    scrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24,},
+    stepProgressContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, },
+    stepBar: { flex: 1, height: 4, backgroundColor: '#E5E5EA', borderRadius: 2, marginRight: 8, },
+    stepBarActive: {  backgroundColor: '#8B2A8B', },
+    stepSubtitle: {  fontSize: 12,fontWeight: '700',color: '#8B2A8B', letterSpacing: 0.8, marginBottom: 6, },
+    stepTitle: { fontSize: 26, fontWeight: '800', color: '#111827', letterSpacing: -0.5, },
+    stepDescription: { fontSize: 14.5, color: '#6B7280', marginTop: 6, marginBottom: 20, lineHeight: 20, },
+    segmented: { flexDirection: 'row', backgroundColor: '#EFEFF3', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', padding: 3, marginBottom: 16,  },
+    segmentTab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 9,},
+    segmentTabActive: { backgroundColor: '#FFF',shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1,},
+    segmentText: { fontSize: 13.5, fontWeight: '600', color: '#6B7280', },
+    segmentTextActive: { color: '#8B2A8B', },
+    card: { backgroundColor: '#FFF', borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', padding: 16, marginBottom: 14,},
+    cardTopRow: { flexDirection: 'row', justifyContent: 'space-between',alignItems: 'center',marginBottom: 6, },
+    cardTitle: { fontSize: 14.5, fontWeight: '700', color: '#111827',  },
+    cardSubtitle: {  fontSize: 12.5,color: '#9CA3AF',marginTop: 2,marginBottom: 12, },
+    enabledBadge: { backgroundColor: '#F3E1F3', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, },
+    enabledBadgeText: { fontSize: 12, fontWeight: '600', color: '#8B2A8B',},
+    lowTextWrap: { flex: 1, marginRight: 12,  },
+    inputLabel: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8,  },
+    limitInputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 16, height: 52, },
+    limitInput: {flex: 1,fontSize: 15,color: '#111827',padding: 0,},
+    stepperContainer: {justifyContent: 'center',alignItems: 'center', marginRight: 8, },
+    stepperButton: {  paddingVertical: 1,  paddingHorizontal: 4,},
+    unitText: { fontSize: 13, color: '#6B7280', },
+    chipRow: {flexDirection: 'row', gap: 8, marginTop: 14,  },
+    chip: { backgroundColor: '#F5E6F5', borderRadius: 6,paddingHorizontal: 11, paddingVertical: 6, alignItems: 'center', justifyContent: 'center', },
+    chipText: { fontSize: 11.5, fontWeight: '700', color: '#8B2A8B', },
+    appliesText: { fontSize: 12.5, color: '#6B7280', marginTop: 12, },
+    behaviourLink: {flexDirection: 'row',alignItems: 'center',  gap: 6, marginTop: 6, marginBottom: 14,  },
+    behaviourLinkText: { fontSize: 13, fontWeight: '700', color: '#8B2A8B', },
+    behaviourRow: {  flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, marginBottom: 14, borderBottomWidth: 1, borderBottomColor: '#EDEDF0', },
+    behaviourTextWrap: { flex: 1, marginRight: 12, },
+    behaviourTitle: { fontSize: 13.5, fontWeight: '600', color: '#111827',},
+    behaviourHint: {fontSize: 12, color: '#9CA3AF', marginTop: 2, },
+    behaviourInput: { width: 64, height: 40, textAlign: 'center', fontSize: 14, color: '#111827', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, padding: 0,},
+    bottomFooterSheet: { backgroundColor: '#FFF', paddingHorizontal: 20, paddingTop: 16, paddingBottom: Math.max(insets.bottom, 16), borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderTopColor: '#F0F0F5',},
+    primaryActionButton: {flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#8B2A8B', borderRadius: 14,  paddingVertical: 16, gap: 8,},
+    primaryActionButtonText: { color: '#FFF', fontSize: 16, fontWeight: '700', },
+    brandFooterRow: { alignItems: 'center', marginTop: 14, },
+    brandFooterText: {fontSize: 12, color: '#6E6577',},
+    brandFooterBold: {  fontWeight: '800',color: '#7B2B75', letterSpacing: 1.2,},
   });

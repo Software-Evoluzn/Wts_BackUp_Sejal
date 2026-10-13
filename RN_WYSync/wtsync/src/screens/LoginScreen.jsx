@@ -178,7 +178,7 @@ const LoginScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Bottom Section Card (Flat White Background, No Border or Shadow) */}
+        {/* Bottom Section Card */}
         <View style={styles.bottomSection}>
           <TouchableOpacity
             style={styles.button}
@@ -193,6 +193,16 @@ const LoginScreen = ({ navigation }) => {
                 <Feather name="arrow-right" size={18} color="#FFFFFF" />
               </View>
             )}
+          </TouchableOpacity>
+
+          {/* New User Register Option */}
+          <TouchableOpacity
+            style={styles.registerContainer}
+            onPress={() => navigation.navigate('Register')}
+            activeOpacity={0.7}>
+            <Text style={styles.registerText}>
+              Don't have an account? <Text style={styles.registerLink}>Register here</Text>
+            </Text>
           </TouchableOpacity>
 
           <Text style={styles.poweredByText}>
@@ -377,6 +387,19 @@ const createStyles = (colors, isDark) =>
     buttonText: {
       color: '#FFFFFF',
       fontSize: 16,
+      fontWeight: '700',
+    },
+    registerContainer: {
+      marginTop: 14,
+      alignItems: 'center',
+    },
+    registerText: {
+      fontSize: 14,
+      color: isDark ? colors.subText : '#686373',
+      fontWeight: '500',
+    },
+    registerLink: {
+      color: ACCENT,
       fontWeight: '700',
     },
     poweredByText: {

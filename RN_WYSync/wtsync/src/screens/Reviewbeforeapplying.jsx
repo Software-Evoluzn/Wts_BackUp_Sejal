@@ -1,14 +1,19 @@
-import React, { useLayoutEffect, useMemo } from 'react';
+import React, { useState, useLayoutEffect, useMemo } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
+  Alert,
+  ActivityIndicator,
   Image,
   StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Feather from 'react-native-vector-icons/Feather';
+
+import { getDraft, resetDraft, buildAlertConfig } from '../services/installationDraft';
+import { submitInstallation, confirmInstallation } from '../services/InstallationService';
 
 const TOTAL_STEPS = 6;
 const CURRENT_STEP = 4;
@@ -53,6 +58,13 @@ const buildSummary = (params = {}) => {
       } else if (isNum(config.high.all)) {
         highLines = [`High: at or above ${formatNumber(config.high.all)}°C`];
       }
+
+      // Probes that use their own limit
+      Object.entries(config.high.overrides || {})
+        .filter(([, v]) => isNum(v))
+        .forEach(([probe, v]) => {
+          highLines = [...highLines, `${probe} override: at or above ${formatNumber(v)}°C`];
+        });
     }
 
     // Low limit
@@ -109,7 +121,20 @@ const Reviewbeforeapplying = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(insets), [insets]);
 
-  const summary = useMemo(() => buildSummary(route?.params), [route?.params]);
+  const [submitting, setSubmitting] = useState(false);
+
+  // The summary is built from everything the user entered in the earlier steps
+  const summary = useMemo(() => {
+    const draft = getDraft();
+    return buildSummary({
+      ...(route?.params || {}),
+      location: draft.location,
+      deviceModel: draft.product?.['Device Name'],
+      alertConfig: buildAlertConfig(draft),
+      recipientEmail:
+        draft.emailEnabled === false ? 'Email alerts are off' : draft.alertEmail,
+    });
+  }, [route?.params]);
 
   // Hide tab bar for this screen (same as the other registration screens)
   useLayoutEffect(() => {
@@ -128,11 +153,38 @@ const Reviewbeforeapplying = ({ navigation, route }) => {
     };
   }, [navigation]);
 
-  const onApply = () => {
-    // TODO: change 'Applyconfiguration' to the actual route name of the next step
-    navigation.navigate('Applyconfiguration', {
-      ...(route?.params || {}),
-    });
+  const onApply = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+
+    try {
+      // 1. Save everything in MySQL
+      const result = await submitInstallation();
+
+      if (!result.success) {
+        Alert.alert('Could not apply', result.message || 'Please try again.');
+        return;
+      }
+
+      // 2. Mark the installation as applied.
+      // LATER: do this when the device acknowledges the configuration.
+      await confirmInstallation(result.serial_no, result.firebase_uid);
+
+      // 3. Clear the wizard data and go to the Home screen
+      resetDraft();
+      Alert.alert('Installation complete', 'IntelliTemp has been installed successfully.', [
+        {
+          text: 'OK',
+          onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Main' }] }),
+        },
+      ]);
+    } catch (e) {
+      // Shows the real reason instead of a generic message
+      console.log('Apply error:', e);
+      Alert.alert('Something went wrong', String(e?.message || e));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const onEditRule = () => {
@@ -222,16 +274,21 @@ const Reviewbeforeapplying = ({ navigation, route }) => {
       {/* Footer */}
       <View style={styles.bottomFooterSheet}>
         <TouchableOpacity
-          style={styles.primaryActionButton}
+          style={[styles.primaryActionButton, submitting && styles.primaryActionButtonDisabled]}
           activeOpacity={0.85}
+          disabled={submitting}
           onPress={onApply}>
-          <Text style={styles.primaryActionButtonText}>Apply to IntelliTemp</Text>
-          <Feather name="arrow-right" size={18} color="#FFF" />
+          {submitting && <ActivityIndicator size="small" color="#FFF" />}
+          <Text style={styles.primaryActionButtonText}>
+            {submitting ? 'Applying...' : 'Apply to IntelliTemp'}
+          </Text>
+          {!submitting && <Feather name="arrow-right" size={18} color="#FFF" />}
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.secondaryActionButton}
           activeOpacity={0.7}
+          disabled={submitting}
           onPress={onEditRule}>
           <Text style={styles.secondaryActionButtonText}>Edit rule</Text>
         </TouchableOpacity>
@@ -404,6 +461,9 @@ const createStyles = (insets) =>
       color: '#FFF',
       fontSize: 16,
       fontWeight: '700',
+    },
+    primaryActionButtonDisabled: {
+      opacity: 0.6,
     },
     secondaryActionButton: {
       alignItems: 'center',

@@ -25,6 +25,8 @@ import Setclearalertlimits from "../screens/Setclearalertlimits";
 import Individualoverride from '../screens/Individualoverride';
 import Choosealertrecipients from '../screens/Choosealertrecipients';
 import Reviewbeforeapplying from '../screens/Reviewbeforeapplying';
+import MainDashboard from '../screens/MainDashboard';
+import WtsNewUI from '../screens/WtsNewUI';
 
 const Stack = createNativeStackNavigator();
 
@@ -62,6 +64,8 @@ const AppNavigator = () => {
       <Stack.Screen name="Individualoverride" component={Individualoverride}/>
       <Stack.Screen name="Choosealertrecipients" component={Choosealertrecipients}/>
       <Stack.Screen name="Reviewbeforeapplying" component={Reviewbeforeapplying}/>
+      <Stack.Screen name="WtsNewUI" component={WtsNewUI}/>
+      <Stack.Screen name="MainDashboard" component={MainDashboard}/>
     </Stack.Navigator>
   );
 };
