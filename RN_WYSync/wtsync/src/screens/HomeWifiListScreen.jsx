@@ -9,10 +9,58 @@ import {
   ActivityIndicator,
   StyleSheet,
   StatusBar,
+  Image,
+  useColorScheme,
 } from 'react-native';
 import WifiManager from 'react-native-wifi-reborn';
 import Feather from 'react-native-vector-icons/Feather';
-import { useAppTheme } from '../services/theme';
+
+/* ---------- Theme palettes (light = original colours, dark = new) ---------- */
+const LIGHT = {
+  bg: '#F8F8FC',
+  header: '#FFFFFF',
+  surface: '#FFFFFF',
+  border: '#EFEFEF',
+  divider: '#F2F2F7',
+  footerBorder: '#F0F0F0',
+  headerText: '#1F1F1F',
+  backIcon: '#333333',
+  chevron: '#A0A0A0',
+  text: '#1C1C1E',
+  textStrong: '#1A1A1A',
+  sub: '#666666',
+  muted: '#8E8E93',
+  accent: '#8C3182',
+  onAccent: '#FFFFFF',
+  stepOff: '#E5E5EA',
+  badgeBg: '#FDF0F9',
+  noteBg: '#FAFAFC',
+  noteBorder: '#F0F0F5',
+  statusBar: 'dark-content',
+};
+
+const DARK = {
+  bg: '#17141A',
+  header: '#17141A',
+  surface: '#25212A',
+  border: '#3A3540',
+  divider: '#3A3540',
+  footerBorder: '#2E2A33',
+  headerText: '#FFFFFF',
+  backIcon: '#FFFFFF',
+  chevron: '#A1A1AA',
+  text: '#F4F4F5',
+  textStrong: '#FFFFFF',
+  sub: '#A1A1AA',
+  muted: '#A1A1AA',
+  accent: '#E5A0DC',
+  onAccent: '#2A1230',
+  stepOff: '#3A3540',
+  badgeBg: '#3A2A3A',
+  noteBg: '#2A2430',
+  noteBorder: '#2A2430',
+  statusBar: 'light-content',
+};
 
 export default function HomeWifiListScreen({ navigation, route }) {
   const { product,
@@ -21,9 +69,10 @@ export default function HomeWifiListScreen({ navigation, route }) {
     ssid,
    } = route.params || {};
 
-   
-  const { colors } = useAppTheme();
-  const styles = createStyles(colors);
+  // Follows the phone's dark / light setting
+  const scheme = useColorScheme();
+  const t = scheme === 'dark' ? DARK : LIGHT;
+  const styles = createStyles(t);
 
   const [networks, setNetworks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -126,7 +175,7 @@ export default function HomeWifiListScreen({ navigation, route }) {
               });
           }}
         >
-          <Feather name="wifi" size={18} color="#8C3182" style={styles.wifiIcon} />
+          <Feather name="wifi" size={18} color={t.accent} style={styles.wifiIcon} />
 
           <View style={{ flex: 1, paddingRight: 8 }}>
             <Text style={styles.ssidText} numberOfLines={1}>
@@ -139,10 +188,10 @@ export default function HomeWifiListScreen({ navigation, route }) {
 
           {isSelected ? (
             <View style={styles.selectedCheckWrap}>
-              <Feather name="check" size={12} color="#FFFFFF" />
+              <Feather name="check" size={12} color={t.onAccent} />
             </View>
           ) : (
-            <Feather name="chevron-right" size={18} color="#A0A0A0" />
+            <Feather name="chevron-right" size={18} color={t.chevron} />
           )}
         </TouchableOpacity>
 
@@ -178,7 +227,7 @@ export default function HomeWifiListScreen({ navigation, route }) {
 
       {loading && (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="small" color="#8C3182" />
+          <ActivityIndicator size="small" color={t.accent} />
           <Text style={styles.loadingText}>Scanning 2.4GHz WiFi...</Text>
         </View>
       )}
@@ -196,7 +245,7 @@ export default function HomeWifiListScreen({ navigation, route }) {
           fetchWifiList();
         }}
       >
-        <Feather name="rotate-cw" size={16} color="#8C3182" style={{ marginRight: 8 }} />
+        <Feather name="rotate-cw" size={16} color={t.accent} style={{ marginRight: 8 }} />
         <Text style={styles.scanAgainText}>Scan again</Text>
       </TouchableOpacity>
 
@@ -209,12 +258,12 @@ export default function HomeWifiListScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle={t.statusBar} backgroundColor={t.header} />
 
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation?.goBack()}>
-          <Feather name="arrow-left" size={22} color="#333333" />
+          <Feather name="arrow-left" size={22} color={t.backIcon} />
         </TouchableOpacity>
 
         <View style={styles.headerTitleContainer}>
@@ -223,8 +272,12 @@ export default function HomeWifiListScreen({ navigation, route }) {
         </View>
 
         <View style={styles.logoContainer}>
-          <Text style={styles.logoText}>evoluzn</Text>
-        </View>
+                  <Image
+                    source={require('../assests/images/logo.png')}
+                    style={styles.brandLogo}
+                    resizeMode="contain"
+                  />
+                </View>
       </View>
 
       <FlatList
@@ -263,7 +316,7 @@ export default function HomeWifiListScreen({ navigation, route }) {
           }}
         >
           <Text style={styles.continueButtonText}>Continue</Text>
-          <Feather name="arrow-right" size={18} color="#FFFFFF" style={{ marginLeft: 6 }} />
+          <Feather name="arrow-right" size={18} color={t.onAccent} style={{ marginLeft: 6 }} />
         </TouchableOpacity>
 
         <View style={styles.footerBrand}>
@@ -275,20 +328,20 @@ export default function HomeWifiListScreen({ navigation, route }) {
   );
 }
 
-const createStyles = (colors) =>
+const createStyles = (t) =>
   StyleSheet.create({
     safe: {
       flex: 1,
-      backgroundColor: '#F8F8FC',
+      backgroundColor: t.bg,
     },
     header: {
       height: 56,
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 20,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: t.header,
       borderBottomWidth: 1,
-      borderBottomColor: '#F0F0F0',
+      borderBottomColor: t.footerBorder,
     },
     backButton: {
       paddingRight: 12,
@@ -301,20 +354,23 @@ const createStyles = (colors) =>
     headerTitleBold: {
       fontSize: 18,
       fontWeight: '700',
-      color: '#1F1F1F',
+      color: t.headerText,
     },
     headerTitleSub: {
       fontSize: 13,
       fontWeight: '700',
-      color: '#8E8E93',
+      color: t.muted,
     },
     logoContainer: {
-      justify: 'center',
+      width: 75,
+      height: 45,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     logoText: {
       fontSize: 16,
       fontWeight: 'bold',
-      color: '#8C3182',
+      color: t.accent,
     },
     listContainer: {
       paddingHorizontal: 20,
@@ -334,27 +390,27 @@ const createStyles = (colors) =>
       marginHorizontal: 3,
     },
     progressActive: {
-      backgroundColor: '#8C3182',
+      backgroundColor: t.accent,
     },
     progressInactive: {
-      backgroundColor: '#E5E5EA',
+      backgroundColor: t.stepOff,
     },
     stepText: {
       fontSize: 12,
       fontWeight: '700',
-      color: '#8C3182',
+      color: t.accent,
       letterSpacing: 0.8,
       marginBottom: 8,
     },
     mainTitle: {
       fontSize: 24,
       fontWeight: '800',
-      color: '#1A1A1A',
+      color: t.textStrong,
       marginBottom: 6,
     },
     subTitle: {
       fontSize: 14,
-      color: '#666666',
+      color: t.sub,
       marginBottom: 24,
     },
     sectionHeaderRow: {
@@ -366,23 +422,23 @@ const createStyles = (colors) =>
     sectionTitle: {
       fontSize: 15,
       fontWeight: '700',
-      color: '#1C1C1E',
+      color: t.text,
     },
     badge24: {
-      backgroundColor: '#FDF0F9',
+      backgroundColor: t.badgeBg,
       paddingHorizontal: 8,
       paddingVertical: 4,
       borderRadius: 4,
     },
     badge24Text: {
-      color: '#8C3182',
+      color: t.accent,
       fontSize: 12,
       fontWeight: '600',
     },
     networkRowContainer: {
-      backgroundColor: '#FFFFFF',
+      backgroundColor: t.surface,
       paddingHorizontal: 16,
-      borderColor: '#EFEFEF',
+      borderColor: t.border,
       borderLeftWidth: 1,
       borderRightWidth: 1,
     },
@@ -397,23 +453,23 @@ const createStyles = (colors) =>
     ssidText: {
       fontSize: 15,
       fontWeight: '600',
-      color: '#1C1C1E',
+      color: t.text,
       marginBottom: 3,
     },
     metaText: {
       fontSize: 12.5,
-      color: '#8E8E93',
+      color: t.muted,
     },
     rowDivider: {
       height: 1,
-      backgroundColor: '#F2F2F7',
+      backgroundColor: t.divider,
       marginLeft: 32,
     },
     selectedCheckWrap: {
       width: 20,
       height: 20,
       borderRadius: 10,
-      backgroundColor: '#8C3182',
+      backgroundColor: t.accent,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -424,67 +480,67 @@ const createStyles = (colors) =>
       marginTop: 16,
     },
     scanAgainText: {
-      color: '#8C3182',
+      color: t.accent,
       fontSize: 14,
       fontWeight: '600',
     },
     notListedBox: {
-      backgroundColor: '#FAFAFC',
+      backgroundColor: t.noteBg,
       borderRadius: 10,
       paddingVertical: 18,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: '#F0F0F5',
+      borderColor: t.noteBorder,
       marginBottom: 20,
     },
     notListedText: {
       fontSize: 15,
       fontWeight: '700',
-      color: '#8C3182',
+      color: t.accent,
     },
     loadingWrap: {
       paddingVertical: 30,
       alignItems: 'center',
-      backgroundColor: '#FFFFFF',
+      backgroundColor: t.surface,
       borderRadius: 12,
       borderWidth: 1,
-      borderColor: '#EFEFEF',
+      borderColor: t.border,
       marginBottom: 16,
     },
     loadingText: {
       marginTop: 12,
       fontSize: 14,
-      color: '#8E8E93',
+      color: t.muted,
     },
     emptyWrap: {
       paddingVertical: 24,
       alignItems: 'center',
-      backgroundColor: '#FFFFFF',
+      backgroundColor: t.surface,
       borderRadius: 12,
       borderWidth: 1,
-      borderColor: '#EFEFEF',
+      borderColor: t.border,
     },
     emptyTitle: {
       fontSize: 15,
       fontWeight: '600',
-      color: '#1C1C1E',
+      color: t.text,
       marginBottom: 4,
     },
     emptyDescription: {
       fontSize: 13,
-      color: '#8E8E93',
+      color: t.muted,
       textAlign: 'center',
     },
     footer: {
       paddingHorizontal: 20,
       paddingBottom: 20,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: t.surface,
       borderTopWidth: 1,
-      borderTopColor: '#F0F0F0',
+      borderTopColor: t.footerBorder,
     },
     continueButton: {
-      backgroundColor: '#8C3182',
+      backgroundColor: t.accent,
       borderRadius: 10,
       height: 50,
       flexDirection: 'row',
@@ -494,7 +550,7 @@ const createStyles = (colors) =>
       marginBottom: 12,
     },
     continueButtonText: {
-      color: '#FFFFFF',
+      color: t.onAccent,
       fontSize: 16,
       fontWeight: '700',
     },
@@ -505,11 +561,15 @@ const createStyles = (colors) =>
     },
     poweredByText: {
       fontSize: 12,
-      color: '#8E8E93',
+      color: t.muted,
     },
     brandText: {
       fontSize: 12,
       fontWeight: '800',
-      color: '#8C3182',
+      color: t.accent,
+    },
+    brandLogo: {
+      width: 75,
+      height: 45,
     },
   });

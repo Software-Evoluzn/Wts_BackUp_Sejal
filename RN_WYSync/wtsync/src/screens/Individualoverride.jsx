@@ -10,13 +10,12 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  useColorScheme,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Feather from 'react-native-vector-icons/Feather';
 
-// Split-arrow icon embedded as base64, so no image file needs to be added to the project
-const BRANCH_SPLIT_ICON =
-  'data:image/png;base64,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';
+// NOTE: keep your existing BRANCH_SPLIT_ICON constant here if you un-comment the banner below.
 
 const TOTAL_STEPS = 6;
 const CURRENT_STEP = 4;
@@ -27,6 +26,57 @@ const PROBES = [
   { id: 'T4', name: 'Enclosure surface' },
 ];
 
+// ---------- Themes ----------
+const LIGHT = {
+  bg: '#F7F7FA',
+  surface: '#FFFFFF',
+  surfaceAlt: '#FAFAFC',
+  chip: '#EFEFF3',
+  border: '#E5E7EB',
+  divider: '#F0F0F5',
+  textPrimary: '#111827',
+  textSecondary: '#6B7280',
+  textMuted: '#9CA3AF',
+  label: '#374151',
+  icon: '#333333',
+  stepper: '#8E8E93',
+  placeholder: '#A1A1AA',
+  accent: '#8B2A8B',
+  accentSoft: '#F5E6F5',
+  accentSoft2: '#F3E1F3',
+  onAccent: '#FFFFFF',
+  stepBar: '#E5E5EA',
+  segmentActiveBg: '#FFFFFF',
+  footerText: '#6E6577',
+  footerBrand: '#7B2B75',
+  shadow: '#000',
+};
+
+const DARK = {
+  bg: '#17151B',
+  surface: '#232027',
+  surfaceAlt: '#2B2830',
+  chip: '#2B2830',
+  border: '#3A3640',
+  divider: '#2E2B33',
+  textPrimary: '#FFFFFF',
+  textSecondary: '#A9A3B3',
+  textMuted: '#8F8999',
+  label: '#E5E1EA',
+  icon: '#FFFFFF',
+  stepper: '#A9A3B3',
+  placeholder: '#6E6877',
+  accent: '#E6A8E1',
+  accentSoft: '#3A2C3C',
+  accentSoft2: '#3A2C3C',
+  onAccent: '#1C1A20',
+  stepBar: '#3A3640',
+  segmentActiveBg: '#3A3640',
+  footerText: '#A9A3B3',
+  footerBrand: '#E6A8E1',
+  shadow: '#000',
+};
+
 const toNumber = (value) => {
   if (value === null || value === undefined || String(value).trim() === '') return NaN;
   return Number(String(value).trim());
@@ -34,14 +84,14 @@ const toNumber = (value) => {
 
 const Individualoverride = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
-  const styles = useMemo(() => createStyles(insets), [insets]);
+  const scheme = useColorScheme(); // follows phone setting
+  const colors = scheme === 'dark' ? DARK : LIGHT;
+  const styles = useMemo(() => createStyles(insets, colors), [insets, colors]);
 
   const groupHighLimit = route?.params?.highLimit || '65';
   const [selectedProbeIndex, setSelectedProbeIndex] = useState(3); // Default T4 (index 3)
 
-  const [individualHigh, setIndividualHigh] = useState(
-    PROBES.map(() => '60')
-  );
+  const [individualHigh, setIndividualHigh] = useState(PROBES.map(() => '60'));
 
   const resetMargin = '3.0';
 
@@ -78,14 +128,12 @@ const Individualoverride = ({ navigation, route }) => {
   const TemperatureInput = ({ value, onChangeText, style }) => {
     const handleIncrement = () => {
       const num = toNumber(value);
-      const nextVal = Number.isNaN(num) ? 1 : num + 1;
-      onChangeText(String(nextVal));
+      onChangeText(String(Number.isNaN(num) ? 1 : num + 1));
     };
 
     const handleDecrement = () => {
       const num = toNumber(value);
-      const nextVal = Number.isNaN(num) ? -1 : num - 1;
-      onChangeText(String(nextVal));
+      onChangeText(String(Number.isNaN(num) ? -1 : num - 1));
     };
 
     return (
@@ -96,14 +144,15 @@ const Individualoverride = ({ navigation, route }) => {
           onChangeText={onChangeText}
           keyboardType="numbers-and-punctuation"
           placeholder="0"
-          placeholderTextColor="#A1A1AA"
+          placeholderTextColor={colors.placeholder}
+          keyboardAppearance={scheme === 'dark' ? 'dark' : 'light'}
         />
         <View style={styles.stepperContainer}>
           <TouchableOpacity style={styles.stepperButton} onPress={handleIncrement} activeOpacity={0.6}>
-            <Feather name="chevron-up" size={14} color="#8E8E93" />
+            <Feather name="chevron-up" size={14} color={colors.stepper} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.stepperButton} onPress={handleDecrement} activeOpacity={0.6}>
-            <Feather name="chevron-down" size={14} color="#8E8E93" />
+            <Feather name="chevron-down" size={14} color={colors.stepper} />
           </TouchableOpacity>
         </View>
         <Text style={styles.unitText}>°C</Text>
@@ -117,23 +166,16 @@ const Individualoverride = ({ navigation, route }) => {
   const onSaveOverride = () => {
     const badIndex = individualHigh.findIndex((v) => Number.isNaN(toNumber(v)));
     if (badIndex !== -1) {
-      Alert.alert(
-        'Validation Error',
-        `Please enter a valid high limit for ${PROBES[badIndex].id}.`
-      );
+      Alert.alert('Validation Error', `Please enter a valid high limit for ${PROBES[badIndex].id}.`);
       return;
     }
 
-    Alert.alert(
-      'Saved',
-      `${currentProbe.id} override updated successfully.`,
-      [
-        {
-          text: 'OK',
-          onPress: () => navigation.navigate('Setclearalertlimits'),
-        },
-      ]
-    );
+    Alert.alert('Saved', `${currentProbe.id} override updated successfully.`, [
+      {
+        text: 'OK',
+        onPress: () => navigation.navigate('Setclearalertlimits'),
+      },
+    ]);
   };
 
   const remainingProbesText = useMemo(() => {
@@ -159,7 +201,7 @@ const Individualoverride = ({ navigation, route }) => {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.canGoBack() && navigation.goBack()}>
-            <Feather name="arrow-left" size={22} color="#333" />
+            <Feather name="arrow-left" size={22} color={colors.icon} />
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>
@@ -262,7 +304,7 @@ const Individualoverride = ({ navigation, route }) => {
         </View>
 
         {/* Sync Warning Banner */}
-        <View style={styles.branchBanner}>
+        {/* <View style={styles.branchBanner}>
           <Image
             source={{ uri: BRANCH_SPLIT_ICON }}
             style={styles.branchIcon}
@@ -272,24 +314,24 @@ const Individualoverride = ({ navigation, route }) => {
             Saving this override changes {currentProbe.id} only. {remainingProbesText} keep the
             group rule.
           </Text>
-        </View>
+        </View> */}
 
         {/* Remove Override Button Link */}
-        <TouchableOpacity
+        {/* <TouchableOpacity
           style={styles.removeOverrideButton}
           activeOpacity={0.7}
           onPress={handleRemoveOverride}>
           <Text style={styles.removeOverrideText}>Remove override and use group rule</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
 
         {/* Info Card */}
-        <View style={styles.infoCard}>
-          <Feather name="info" size={18} color="#8B2A8B" style={styles.infoIcon} />
+        {/* <View style={styles.infoCard}>
+          <Feather name="info" size={18} color={colors.accent} style={styles.infoIcon} />
           <Text style={styles.infoText}>
             {currentProbe.id} clears below {clearThreshold}°C: a {resetMargin}°C reset band.
             Persistence and repeat follow the group rule.
           </Text>
-        </View>
+        </View> */}
       </ScrollView>
 
       {/* Footer Sheet */}
@@ -298,10 +340,8 @@ const Individualoverride = ({ navigation, route }) => {
           style={styles.primaryActionButton}
           activeOpacity={0.85}
           onPress={onSaveOverride}>
-          <Text style={styles.primaryActionButtonText}>
-            Save {currentProbe.id} override
-          </Text>
-          <Feather name="arrow-right" size={18} color="#FFF" />
+          <Text style={styles.primaryActionButtonText}>Save {currentProbe.id} override</Text>
+          <Feather name="arrow-right" size={18} color={colors.onAccent} />
         </TouchableOpacity>
 
         <View style={styles.brandFooterRow}>
@@ -316,11 +356,11 @@ const Individualoverride = ({ navigation, route }) => {
 
 export default Individualoverride;
 
-const createStyles = (insets) =>
+const createStyles = (insets, c) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: '#F7F7FA',
+      backgroundColor: c.bg,
     },
     header: {
       flexDirection: 'row',
@@ -329,9 +369,9 @@ const createStyles = (insets) =>
       paddingHorizontal: 20,
       paddingTop: Math.max(insets.top, 12),
       paddingBottom: 14,
-      backgroundColor: '#FFF',
+      backgroundColor: c.bg,
       borderBottomWidth: 1,
-      borderBottomColor: '#F0F0F5',
+      borderBottomColor: c.divider,
     },
     headerLeft: {
       flex: 1,
@@ -345,12 +385,12 @@ const createStyles = (insets) =>
     headerTitle: {
       fontSize: 18,
       fontWeight: '700',
-      color: '#1C1C1E',
+      color: c.textPrimary,
     },
     headerSubtitleText: {
       fontSize: 14,
       fontWeight: '600',
-      color: '#8E8E93',
+      color: c.textSecondary,
     },
     brandLogo: {
       width: 90,
@@ -369,39 +409,39 @@ const createStyles = (insets) =>
     stepBar: {
       flex: 1,
       height: 4,
-      backgroundColor: '#E5E5EA',
+      backgroundColor: c.stepBar,
       borderRadius: 2,
       marginRight: 8,
     },
     stepBarActive: {
-      backgroundColor: '#8B2A8B',
+      backgroundColor: c.accent,
     },
     stepSubtitle: {
       fontSize: 12,
       fontWeight: '700',
-      color: '#8B2A8B',
+      color: c.accent,
       letterSpacing: 0.8,
       marginBottom: 6,
     },
     stepTitle: {
       fontSize: 26,
       fontWeight: '800',
-      color: '#111827',
+      color: c.textPrimary,
       letterSpacing: -0.5,
     },
     stepDescription: {
       fontSize: 14.5,
-      color: '#6B7280',
+      color: c.textSecondary,
       marginTop: 6,
       marginBottom: 20,
       lineHeight: 20,
     },
     segmented: {
       flexDirection: 'row',
-      backgroundColor: '#EFEFF3',
+      backgroundColor: c.chip,
       borderRadius: 12,
       borderWidth: 1,
-      borderColor: '#E5E7EB',
+      borderColor: c.border,
       padding: 3,
       marginBottom: 16,
     },
@@ -413,8 +453,8 @@ const createStyles = (insets) =>
       borderRadius: 9,
     },
     segmentTabActive: {
-      backgroundColor: '#FFF',
-      shadowColor: '#000',
+      backgroundColor: c.segmentActiveBg,
+      shadowColor: c.shadow,
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.06,
       shadowRadius: 3,
@@ -423,10 +463,10 @@ const createStyles = (insets) =>
     segmentText: {
       fontSize: 13.5,
       fontWeight: '600',
-      color: '#6B7280',
+      color: c.textSecondary,
     },
     segmentTextActive: {
-      color: '#8B2A8B',
+      color: c.accent,
     },
     probeSelectorRow: {
       flexDirection: 'row',
@@ -437,24 +477,24 @@ const createStyles = (insets) =>
       paddingHorizontal: 16,
       paddingVertical: 8,
       borderRadius: 20,
-      backgroundColor: '#EFEFF3',
+      backgroundColor: c.chip,
     },
     probeSelectorChipActive: {
-      backgroundColor: '#8B2A8B',
+      backgroundColor: c.accent,
     },
     probeSelectorChipText: {
       fontSize: 13,
       fontWeight: '700',
-      color: '#6B7280',
+      color: c.textSecondary,
     },
     probeSelectorChipTextActive: {
-      color: '#FFF',
+      color: c.onAccent,
     },
     individualCard: {
-      backgroundColor: '#FFF',
+      backgroundColor: c.surface,
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: '#E5E7EB',
+      borderColor: c.border,
       padding: 16,
       marginBottom: 16,
     },
@@ -463,7 +503,7 @@ const createStyles = (insets) =>
       alignItems: 'center',
     },
     probeBadge: {
-      backgroundColor: '#F5E6F5',
+      backgroundColor: c.accentSoft,
       borderRadius: 10,
       width: 44,
       height: 44,
@@ -474,7 +514,7 @@ const createStyles = (insets) =>
     probeBadgeText: {
       fontSize: 15,
       fontWeight: '800',
-      color: '#8B2A8B',
+      color: c.accent,
     },
     probeNameContainer: {
       flex: 1,
@@ -482,15 +522,15 @@ const createStyles = (insets) =>
     probeNameText: {
       fontSize: 16,
       fontWeight: '700',
-      color: '#111827',
+      color: c.textPrimary,
     },
     groupLimitText: {
       fontSize: 13,
-      color: '#9CA3AF',
+      color: c.textMuted,
       marginTop: 2,
     },
     individualBadge: {
-      backgroundColor: '#F3E1F3',
+      backgroundColor: c.accentSoft2,
       borderRadius: 8,
       paddingHorizontal: 10,
       paddingVertical: 5,
@@ -498,7 +538,7 @@ const createStyles = (insets) =>
     individualBadgeText: {
       fontSize: 12,
       fontWeight: '600',
-      color: '#8B2A8B',
+      color: c.accent,
     },
     individualInputSection: {
       marginBottom: 16,
@@ -506,15 +546,15 @@ const createStyles = (insets) =>
     inputLabelBold: {
       fontSize: 13.5,
       fontWeight: '600',
-      color: '#374151',
+      color: c.label,
       marginBottom: 8,
     },
     limitInputWrap: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: '#FFF',
+      backgroundColor: c.surface,
       borderWidth: 1,
-      borderColor: '#E5E7EB',
+      borderColor: c.border,
       borderRadius: 12,
       paddingHorizontal: 16,
       height: 52,
@@ -522,7 +562,7 @@ const createStyles = (insets) =>
     limitInput: {
       flex: 1,
       fontSize: 15,
-      color: '#111827',
+      color: c.textPrimary,
       padding: 0,
     },
     stepperContainer: {
@@ -536,12 +576,12 @@ const createStyles = (insets) =>
     },
     unitText: {
       fontSize: 13,
-      color: '#6B7280',
+      color: c.textSecondary,
     },
     branchBanner: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      backgroundColor: '#FAFAFC',
+      backgroundColor: c.surfaceAlt,
       borderRadius: 14,
       padding: 16,
       marginBottom: 20,
@@ -555,7 +595,7 @@ const createStyles = (insets) =>
     branchText: {
       flex: 1,
       fontSize: 13.5,
-      color: '#8E8E93',
+      color: c.textSecondary,
       lineHeight: 19,
     },
     removeOverrideButton: {
@@ -564,12 +604,12 @@ const createStyles = (insets) =>
     removeOverrideText: {
       fontSize: 14,
       fontWeight: '700',
-      color: '#8B2A8B',
+      color: c.accent,
     },
     infoCard: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      backgroundColor: '#FAFAFC',
+      backgroundColor: c.surfaceAlt,
       borderRadius: 12,
       padding: 16,
       marginBottom: 16,
@@ -581,30 +621,30 @@ const createStyles = (insets) =>
     infoText: {
       flex: 1,
       fontSize: 13.5,
-      color: '#8E8E93',
+      color: c.textSecondary,
       lineHeight: 19,
     },
     bottomFooterSheet: {
-      backgroundColor: '#FFF',
+      backgroundColor: c.surface,
       paddingHorizontal: 20,
       paddingTop: 16,
       paddingBottom: Math.max(insets.bottom, 16),
       borderTopLeftRadius: 24,
       borderTopRightRadius: 24,
       borderTopWidth: 1,
-      borderTopColor: '#F0F0F5',
+      borderTopColor: c.divider,
     },
     primaryActionButton: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#8B2A8B',
+      backgroundColor: c.accent,
       borderRadius: 14,
       paddingVertical: 16,
       gap: 8,
     },
     primaryActionButtonText: {
-      color: '#FFF',
+      color: c.onAccent,
       fontSize: 16,
       fontWeight: '700',
     },
@@ -614,11 +654,11 @@ const createStyles = (insets) =>
     },
     brandFooterText: {
       fontSize: 12,
-      color: '#6E6577',
+      color: c.footerText,
     },
     brandFooterBold: {
       fontWeight: '800',
-      color: '#7B2B75',
+      color: c.footerBrand,
       letterSpacing: 1.2,
     },
   });

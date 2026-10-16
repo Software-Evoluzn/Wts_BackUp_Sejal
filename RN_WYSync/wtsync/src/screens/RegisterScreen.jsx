@@ -24,38 +24,83 @@ const RegisterScreen = ({ navigation }) => {
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [contact, setContact] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
   const [showPassword, setShowPassword] = useState(false);
   const [focused, setFocused] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [contact, setContact] = useState('')
+
+  // Field-specific error states
+  const [errors, setErrors] = useState({});
+
+  // Helper validation logic
+  const validateForm = () => {
+    let currentErrors = {};
+
+    // 1. Full Name Validation
+    if (!name.trim()) {
+      currentErrors.name = 'Full name is required';
+    } else if (name.trim().length < 2) {
+      currentErrors.name = 'Name must be at least 2 characters';
+    }
+
+    // 2. Email Validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim()) {
+      currentErrors.email = 'Email address is required';
+    } else if (!emailRegex.test(email.trim())) {
+      currentErrors.email = 'Please enter a valid email address';
+    }
+
+    // 3. Contact Number Validation
+    const phoneRegex = /^[0-9]{10}$/;
+    if (!contact.trim()) {
+      currentErrors.contact = 'Contact number is required';
+    } else if (!phoneRegex.test(contact.trim())) {
+      currentErrors.contact = 'Enter a valid 10-digit phone number';
+    }
+
+    // 4. Password Validation
+    if (!password) {
+      currentErrors.password = 'Password is required';
+    } else if (password.length < 6) {
+      currentErrors.password = 'Password must be at least 6 characters';
+    }
+
+    // 5. Confirm Password Validation
+    if (!confirmPassword) {
+      currentErrors.confirmPassword = 'Please confirm your password';
+    } else if (password !== confirmPassword) {
+      currentErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    setErrors(currentErrors);
+
+    // Return true if no error keys exist
+    return Object.keys(currentErrors).length === 0;
+  };
 
   const handleRegister = async () => {
-    if (!name || !email || !password || !confirmPassword || !contact) {
-      Alert.alert('Error', 'Please fill all fields');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
-      return;
-    }
-
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password should be at least 6 characters');
+    if (!validateForm()) {
       return;
     }
 
     setLoading(true);
-    const result = await registerUser(name, email, password, contact);
+    const result = await registerUser(
+      name.trim(),
+      email.trim(),
+      password,
+      contact.trim()
+    );
     setLoading(false);
 
     if (result.success) {
       Alert.alert('Success', 'Registration Successful');
       navigation.replace('Main');
     } else {
-      Alert.alert('Registration Failed', result.message);
+      Alert.alert('Registration Failed', result.message || 'Something went wrong');
     }
   };
 
@@ -64,22 +109,37 @@ const RegisterScreen = ({ navigation }) => {
     placeholder,
     value,
     setter,
-    extraProps = {},
-  ) => (
-    <View style={styles.fieldGroup}>
-      <Text style={styles.label}>{placeholder}</Text>
-      <TextInput
-        placeholder={placeholder}
-        placeholderTextColor={colors.subText}
-        style={[styles.input, focused === key && styles.inputFocused]}
-        value={value}
-        onChangeText={setter}
-        onFocus={() => setFocused(key)}
-        onBlur={() => setFocused(null)}
-        {...extraProps}
-      />
-    </View>
-  );
+    extraProps = {}
+  ) => {
+    const hasError = !!errors[key];
+
+    return (
+      <View style={styles.fieldGroup}>
+        <Text style={styles.label}>{placeholder}</Text>
+        <TextInput
+          placeholder={placeholder}
+          placeholderTextColor={colors.subText || '#9CA3AF'}
+          style={[
+            styles.input,
+            focused === key && styles.inputFocused,
+            hasError && styles.inputError,
+          ]}
+          value={value}
+          onChangeText={(text) => {
+            setter(text);
+            // Clear specific field error when user starts typing
+            if (errors[key]) {
+              setErrors((prev) => ({ ...prev, [key]: null }));
+            }
+          }}
+          onFocus={() => setFocused(key)}
+          onBlur={() => setFocused(null)}
+          {...extraProps}
+        />
+        {hasError && <Text style={styles.errorText}>{errors[key]}</Text>}
+      </View>
+    );
+  };
 
   return (
     <KeyboardAvoidingView
@@ -93,7 +153,7 @@ const RegisterScreen = ({ navigation }) => {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Feather name="arrow-left" size={20} color={colors.text} />
+          <Feather name="arrow-left" size={20} color={colors.text || '#111827'} />
         </TouchableOpacity>
 
         <View style={styles.iconCircle}>
@@ -107,6 +167,7 @@ const RegisterScreen = ({ navigation }) => {
 
         <View style={styles.form}>
           {renderInput('name', 'Full Name', name, setName)}
+
           {renderInput('email', 'Email', email, setEmail, {
             keyboardType: 'email-address',
             autoCapitalize: 'none',
@@ -120,22 +181,29 @@ const RegisterScreen = ({ navigation }) => {
             {
               keyboardType: 'phone-pad',
               maxLength: 10,
-            },
+            }
           )}
 
+          {/* Password Field */}
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Password</Text>
             <View
               style={[
                 styles.passwordWrapper,
                 focused === 'password' && styles.inputFocused,
+                !!errors.password && styles.inputError,
               ]}>
               <TextInput
                 placeholder="Password"
-                placeholderTextColor={colors.subText}
+                placeholderTextColor={colors.subText || '#9CA3AF'}
                 style={styles.passwordInput}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (errors.password) {
+                    setErrors((prev) => ({ ...prev, password: null }));
+                  }
+                }}
                 secureTextEntry={!showPassword}
                 onFocus={() => setFocused('password')}
                 onBlur={() => setFocused(null)}
@@ -146,22 +214,26 @@ const RegisterScreen = ({ navigation }) => {
                 <Feather
                   name={showPassword ? 'eye-off' : 'eye'}
                   size={18}
-                  color={colors.subText}
+                  color={colors.subText || '#6B7280'}
                 />
               </TouchableOpacity>
             </View>
+            {!!errors.password && (
+              <Text style={styles.errorText}>{errors.password}</Text>
+            )}
           </View>
 
+          {/* Confirm Password Field */}
           {renderInput(
-            'confirm',
+            'confirmPassword',
             'Confirm Password',
             confirmPassword,
             setConfirmPassword,
-            { secureTextEntry: !showPassword },
+            { secureTextEntry: !showPassword }
           )}
 
           <TouchableOpacity
-            style={styles.button}
+            style={[styles.button, loading && styles.buttonDisabled]}
             onPress={handleRegister}
             activeOpacity={0.85}
             disabled={loading}>
@@ -193,7 +265,7 @@ const createStyles = (colors) =>
     flex: { flex: 1, backgroundColor: '#FFFFFF' },
     container: {
       flexGrow: 1,
-      justifyContent: 'center',
+      justify: 'center',
       paddingHorizontal: 24,
       paddingTop: 50,
       paddingBottom: 40,
@@ -250,7 +322,7 @@ const createStyles = (colors) =>
       elevation: 2,
     },
     fieldGroup: {
-      marginBottom: 18,
+      marginBottom: 16,
     },
     label: {
       fontSize: 13,
@@ -273,6 +345,16 @@ const createStyles = (colors) =>
     inputFocused: {
       borderColor: PURPLE,
       backgroundColor: '#FFFFFF',
+    },
+    inputError: {
+      borderColor: '#EF4444',
+    },
+    errorText: {
+      color: '#EF4444',
+      fontSize: 12,
+      marginTop: 4,
+      marginLeft: 4,
+      fontWeight: '500',
     },
     passwordWrapper: {
       flexDirection: 'row',
@@ -303,6 +385,9 @@ const createStyles = (colors) =>
       shadowOpacity: 0.22,
       shadowRadius: 14,
       elevation: 3,
+    },
+    buttonDisabled: {
+      opacity: 0.7,
     },
     buttonText: {
       color: '#FFFFFF',

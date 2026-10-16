@@ -2,11 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   View, Text, TouchableOpacity, TextInput,
-  Alert, ActivityIndicator, ScrollView, StyleSheet, Animated, Image, KeyboardAvoidingView, Platform
+  Alert, ActivityIndicator, ScrollView, StyleSheet, Animated, Image, KeyboardAvoidingView, Platform,
+  useColorScheme,
 } from 'react-native';
 import WifiManager from 'react-native-wifi-reborn';
 import Feather from 'react-native-vector-icons/Feather';
-import { useAppTheme } from '../services/theme';
 
 import { saveDeviceWifi } from '../services/WifiService';
 
@@ -26,14 +26,68 @@ const STATUS = {
   FAILED: 'failed',       // wrong password / network na mila
 };
 
+/* ---------- Theme palettes (light = original colours, dark = new) ---------- */
+const LIGHT = {
+  bg: '#F8F9FB',
+  header: '#FFFFFF',
+  surface: '#FFFFFF',
+  border: '#EFEFEF',
+  inputBorder: '#E0E0E0',
+  footerBorder: '#F0F0F0',
+  backIcon: '#333333',
+  title: '#222222',
+  titleSub: '#777777',
+  strong: '#111111',
+  label: '#333333',
+  sub: '#666666',
+  muted: '#777777',
+  iconMuted: '#8E8E93',
+  iconStrong: '#4A4A4A',
+  placeholder: '#8E8E93',
+  accent: '#8E24AA',
+  infoIcon: '#9C3AB3',
+  onAccent: '#FFFFFF',
+  stepOff: '#E5E5EA',
+  required: '#D32F2F',
+  poweredBy: '#888888',
+};
+
+const DARK = {
+  bg: '#17141A',
+  header: '#17141A',
+  surface: '#25212A',
+  border: '#3A3540',
+  inputBorder: '#3A3540',
+  footerBorder: '#2E2A33',
+  backIcon: '#FFFFFF',
+  title: '#FFFFFF',
+  titleSub: '#E5A0DC',
+  strong: '#FFFFFF',
+  label: '#F4F4F5',
+  sub: '#A1A1AA',
+  muted: '#A1A1AA',
+  iconMuted: '#A1A1AA',
+  iconStrong: '#F4F4F5',
+  placeholder: '#71717A',
+  accent: '#E5A0DC',
+  infoIcon: '#E5A0DC',
+  onAccent: '#2A1230',
+  stepOff: '#3A3540',
+  required: '#F87171',
+  poweredBy: '#A1A1AA',
+};
+
 export default function PasswordScreen({ route, navigation }) {
   const { network, product, autoConnect, serialNo, ssid, deviceId, firebaseUid } = route.params || {};
 
   console.log("Password screen serialNo", serialNo);
 
-  const { colors, isDark } = useAppTheme();
+  // Follows the phone's dark / light setting
+  const scheme = useColorScheme();
+  const isDark = scheme === 'dark';
+  const p = isDark ? DARK : LIGHT;
 
-  const styles = createStyles(colors);
+  const styles = createStyles(p);
 
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -256,12 +310,13 @@ export default function PasswordScreen({ route, navigation }) {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+    <SafeAreaView style={{ flex: 1, backgroundColor: p.bg }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
         {/* App Bar Header */}
+
         <View style={styles.topHeader}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -269,14 +324,20 @@ export default function PasswordScreen({ route, navigation }) {
             activeOpacity={0.7}
             style={styles.backButton}
           >
-            <Feather name="arrow-left" size={20} color="#333333" />
+            <Feather name="arrow-left" size={20} color={p.backIcon} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>IntelliTemp <Text style={styles.headerSubTitle}>4P</Text></Text>
+
+          <Text style={styles.headerTitle}>
+            IntelliTemp <Text style={styles.headerSubTitle}>4P</Text>
+          </Text>
+
+          {/* Evoluzn Logo Image */}
           <View style={styles.logoContainer}>
-            <View style={styles.logoIcon}>
-              <Text style={styles.logoTextSymbol}>e</Text>
-            </View>
-            <Text style={styles.brandName}>evoluzn</Text>
+            <Image
+              source={require('../assests/images/logo.png')}
+              style={styles.brandLogo}
+              resizeMode="contain"
+            />
           </View>
         </View>
 
@@ -309,7 +370,7 @@ export default function PasswordScreen({ route, navigation }) {
           </Animated.View>
 
           <Animated.View style={{ opacity: cardFade, transform: [{ translateY: cardSlide }] }}>
-            
+
             {/* Target Network Card */}
             <View style={styles.networkCard}>
               <View style={{ flex: 1 }}>
@@ -317,7 +378,7 @@ export default function PasswordScreen({ route, navigation }) {
                 <Text style={styles.networkSsid} numberOfLines={1}>{network?.SSID || 'Evoluzn_Demo_2G'}</Text>
                 <Text style={styles.networkSubDetails}>2.4 GHz · Password protected</Text>
               </View>
-              <Feather name="wifi" size={20} color="#4A4A4A" />
+              <Feather name="wifi" size={20} color={p.iconStrong} />
             </View>
 
             {/* Password Field Label */}
@@ -328,11 +389,11 @@ export default function PasswordScreen({ route, navigation }) {
 
             {/* Password Input Box */}
             <View style={styles.fieldCard}>
-              <Feather name="lock" size={18} color="#8E8E93" style={{ marginRight: 10 }} />
+              <Feather name="lock" size={18} color={p.iconMuted} style={{ marginRight: 10 }} />
               <TextInput
                 style={styles.passwordInput}
                 placeholder=""
-                placeholderTextColor={colors.subText}
+                placeholderTextColor={p.placeholder}
                 secureTextEntry={!showPassword}
                 value={password}
                 onChangeText={setPassword}
@@ -346,7 +407,7 @@ export default function PasswordScreen({ route, navigation }) {
                 <Feather
                   name={showPassword ? 'eye-off' : 'eye'}
                   size={18}
-                  color="#8E8E93"
+                  color={p.iconMuted}
                 />
               </TouchableOpacity>
             </View>
@@ -354,14 +415,14 @@ export default function PasswordScreen({ route, navigation }) {
 
             {/* Power Note Box */}
             <View style={styles.infoBox}>
-              <Feather name="zap" size={16} color="#9C3AB3" style={{ marginRight: 10 }} />
+              <Feather name="zap" size={16} color={p.infoIcon} style={{ marginRight: 10 }} />
               <Text style={styles.infoBoxText}>
                 Keep IntelliTemp powered while the connection is configured.
               </Text>
             </View>
 
             {/* Choose another network button */}
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => navigation.goBack()}
               disabled={busy}
               style={styles.chooseNetworkButton}
@@ -372,7 +433,7 @@ export default function PasswordScreen({ route, navigation }) {
             {/* ---- SENDING / VERIFYING: spinner ---- */}
             {busy && (
               <View style={[styles.button, styles.buttonBusy]}>
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={p.onAccent} />
                 <Text style={styles.buttonText}>
                   {status === STATUS.SENDING ? 'Sending credentials...' : 'Verifying connection...'}
                 </Text>
@@ -401,7 +462,7 @@ export default function PasswordScreen({ route, navigation }) {
                   <View
                     style={[
                       styles.phonePillDot,
-                      { backgroundColor: phoneConnected ? statusColors.success.fg : colors.subText },
+                      { backgroundColor: phoneConnected ? statusColors.success.fg : p.sub },
                     ]}
                   />
                   <Text style={styles.phonePillText} numberOfLines={1}>
@@ -418,7 +479,7 @@ export default function PasswordScreen({ route, navigation }) {
                   style={[styles.button, styles.statusButtonSpacing, !phoneConnected && styles.buttonDisabled]}
                 >
                   <Text style={styles.buttonText}>Continue to Installation</Text>
-                  <Feather name="arrow-right" size={16} color="#fff" />
+                  <Feather name="arrow-right" size={16} color={p.onAccent} />
                 </TouchableOpacity>
               </View>
             )}
@@ -459,7 +520,7 @@ export default function PasswordScreen({ route, navigation }) {
           <View style={styles.bottomBar}>
             <TouchableOpacity style={styles.button} onPress={handleConnect} activeOpacity={0.85}>
               <Text style={styles.buttonText}>Connect to site Wi-Fi</Text>
-              <Feather name="arrow-right" size={18} color="#fff" />
+              <Feather name="arrow-right" size={18} color={p.onAccent} />
             </TouchableOpacity>
             <Text style={styles.poweredByText}>
               Powered By <Text style={styles.poweredByBrand}>EVOLUZN</Text>
@@ -471,14 +532,14 @@ export default function PasswordScreen({ route, navigation }) {
   );
 }
 
-const createStyles = (colors) => StyleSheet.create({
+const createStyles = (p) => StyleSheet.create({
   topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: p.header,
   },
   backButton: {
     padding: 4,
@@ -486,17 +547,18 @@ const createStyles = (colors) => StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#222222',
+    color: p.title,
   },
   headerSubTitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#777777',
+    color: p.titleSub,
   },
   logoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+    width: 90,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
   },
   logoIcon: {
     width: 24,
@@ -505,6 +567,11 @@ const createStyles = (colors) => StyleSheet.create({
     backgroundColor: '#9C27B0',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  brandLogo: {
+    width: 90,
+    height: 40,
+    resizeMode: 'contain',
   },
   logoTextSymbol: {
     color: '#FFFFFF',
@@ -515,14 +582,14 @@ const createStyles = (colors) => StyleSheet.create({
   brandName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#333333',
+    color: p.label,
   },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
-    backgroundColor: '#F8F9FB',
+    backgroundColor: p.bg,
   },
   stepProgressContainer: {
     flexDirection: 'row',
@@ -532,11 +599,11 @@ const createStyles = (colors) => StyleSheet.create({
   stepSegment: {
     flex: 1,
     height: 3,
-    backgroundColor: '#E5E5EA',
+    backgroundColor: p.stepOff,
     borderRadius: 2,
   },
   stepSegmentActive: {
-    backgroundColor: '#8E24AA',
+    backgroundColor: p.accent,
   },
   header: {
     marginBottom: 20,
@@ -544,47 +611,47 @@ const createStyles = (colors) => StyleSheet.create({
   eyebrow: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#8E24AA',
+    color: p.accent,
     letterSpacing: 0.8,
     marginBottom: 6,
   },
   heading: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#111111',
+    color: p.strong,
     letterSpacing: -0.4,
   },
   subtitle: {
     fontSize: 14,
-    color: '#666666',
+    color: p.sub,
     marginTop: 6,
     lineHeight: 20,
   },
   networkCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: p.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#EFEFEF',
+    borderColor: p.border,
   },
   networkLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#8E24AA',
+    color: p.accent,
     letterSpacing: 0.8,
     marginBottom: 4,
   },
   networkSsid: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111111',
+    color: p.strong,
   },
   networkSubDetails: {
     fontSize: 13,
-    color: '#777777',
+    color: p.muted,
     marginTop: 4,
   },
   labelRow: {
@@ -595,46 +662,46 @@ const createStyles = (colors) => StyleSheet.create({
   fieldLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333333',
+    color: p.label,
   },
   requiredAsterisk: {
-    color: '#D32F2F',
+    color: p.required,
     marginLeft: 4,
     fontSize: 14,
   },
   fieldCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: p.surface,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: p.inputBorder,
   },
   passwordInput: {
     flex: 1,
     fontSize: 16,
-    color: '#111111',
+    color: p.strong,
     paddingVertical: 0,
   },
   helperText: {
     fontSize: 12,
-    color: '#777777',
+    color: p.muted,
     marginTop: 6,
     marginBottom: 20,
   },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: p.surface,
     borderRadius: 10,
     padding: 14,
     marginBottom: 24,
   },
   infoBoxText: {
     fontSize: 13,
-    color: '#666666',
+    color: p.sub,
     flex: 1,
     lineHeight: 18,
   },
@@ -645,15 +712,15 @@ const createStyles = (colors) => StyleSheet.create({
   chooseNetworkText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#8E24AA',
+    color: p.accent,
   },
   bottomBar: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: p.header,
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: Platform.OS === 'ios' ? 24 : 16,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: p.footerBorder,
     alignItems: 'center',
   },
   button: {
@@ -665,7 +732,7 @@ const createStyles = (colors) => StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 10,
     width: '100%',
-    backgroundColor: '#8E24AA',
+    backgroundColor: p.accent,
   },
   buttonBusy: {
     opacity: 0.9,
@@ -674,23 +741,23 @@ const createStyles = (colors) => StyleSheet.create({
     opacity: 0.4,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: p.onAccent,
     fontSize: 15,
     fontWeight: '700',
   },
   buttonDestructive: {
-    backgroundColor: colors.card,
+    backgroundColor: p.surface,
     borderWidth: 1,
     borderColor: 'rgba(185,28,28,0.28)',
   },
   poweredByText: {
     fontSize: 11,
-    color: '#888888',
+    color: p.poweredBy,
     marginTop: 10,
   },
   poweredByBrand: {
     fontWeight: '700',
-    color: '#8E24AA',
+    color: p.accent,
   },
   statusCard: {
     marginTop: 4,
@@ -716,7 +783,7 @@ const createStyles = (colors) => StyleSheet.create({
   },
   statusBody: {
     fontSize: 14,
-    color: colors.subText,
+    color: p.sub,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -731,9 +798,9 @@ const createStyles = (colors) => StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,
-    backgroundColor: colors.background,
+    backgroundColor: p.bg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: p.border,
     maxWidth: '100%',
   },
   phonePillDot: {
@@ -744,7 +811,7 @@ const createStyles = (colors) => StyleSheet.create({
   phonePillText: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: colors.subText,
+    color: p.sub,
     flexShrink: 1,
   },
 });

@@ -13,10 +13,73 @@ import {
   Linking,
   ActivityIndicator,
   Animated,
+  Image,
+  useColorScheme,
 } from 'react-native';
 import WifiManager from 'react-native-wifi-reborn';
 
 const ESP_SSID_PREFIX = 'WTS';
+
+/* ---------- Theme palettes (light = original colours, dark = new) ---------- */
+const LIGHT = {
+  bg: '#F8F8FC',
+  header: '#FFFFFF',
+  surface: '#FFFFFF',
+  border: '#EFEFEF',
+  divider: '#F2F2F7',
+  footerBorder: '#F0F0F0',
+  headerText: '#522D70',
+  text: '#1C1C1E',
+  textStrong: '#1A1A1A',
+  deviceName: '#222222',
+  sub: '#666666',
+  muted: '#8E8E93',
+  accent: '#8C3182',
+  onAccent: '#FFFFFF',
+  stepOff: '#E5E5EA',
+  radarBg: '#FAF5F9',
+  radarInner: '#FFFFFF',
+  loadingBg: '#FDF0F9',
+  okBg: '#E8F7EE',
+  okText: '#27AE60',
+  failBg: '#FDE8E8',
+  failText: '#E53E3E',
+  pendingBorder: '#D1D1D6',
+  noteBg: '#FAFAFC',
+  noteBorder: '#F0F0F5',
+  noteText: '#7C7C80',
+  statusBar: 'dark-content',
+};
+
+const DARK = {
+  bg: '#17141A',
+  header: '#17141A',
+  surface: '#25212A',
+  border: '#3A3540',
+  divider: '#3A3540',
+  footerBorder: '#2E2A33',
+  headerText: '#FFFFFF',
+  text: '#F4F4F5',
+  textStrong: '#FFFFFF',
+  deviceName: '#F4F4F5',
+  sub: '#A1A1AA',
+  muted: '#A1A1AA',
+  accent: '#E5A0DC',
+  onAccent: '#2A1230',
+  stepOff: '#3A3540',
+  radarBg: '#17141A',
+  radarInner: '#25212A',
+  loadingBg: '#3A2A3A',
+  okBg: '#143A24',
+  okText: '#4ADE80',
+  failBg: '#4A1F1F',
+  failText: '#F87171',
+  pendingBorder: '#4B4651',
+  noteBg: '#2A2430',
+  noteBorder: '#2A2430',
+  noteText: '#A1A1AA',
+  statusBar: 'light-content',
+};
 
 // Helper function to generate AP SSID from Serial No
 export const generateApSsid = (serialNo) => {
@@ -38,6 +101,11 @@ export const generateApSsid = (serialNo) => {
 
 const FindIntelliTempDevice = ({ navigation, route }) => {
   const { product, autoConnect, serialNo, accessPoint } = route.params || {};
+
+  // Follows the phone's dark / light setting
+  const scheme = useColorScheme();
+  const t = scheme === 'dark' ? DARK : LIGHT;
+  const styles = createStyles(t);
 
   // Statuses: 'scanning' | 'found' | 'not_found'
   const [scanStatus, setScanStatus] = useState('scanning');
@@ -168,7 +236,7 @@ const FindIntelliTempDevice = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle={t.statusBar} backgroundColor={t.header} />
 
       {/* Top Header */}
       <View style={styles.header}>
@@ -180,7 +248,11 @@ const FindIntelliTempDevice = ({ navigation, route }) => {
           <Text style={styles.headerTitleSub}>4P</Text>
         </View>
         <View style={styles.logoContainer}>
-          <Text style={styles.logoText}>evoluzn</Text>
+           <Image
+                    source={require('../assests/images/logo.png')}
+                    style={styles.brandLogo}
+                    resizeMode="contain"
+                  />
         </View>
       </View>
 
@@ -209,7 +281,7 @@ const FindIntelliTempDevice = ({ navigation, route }) => {
           <Animated.View style={[styles.radarCircle, { transform: [{ scale: pulseAnim }] }]}>
             <View style={styles.radarInnerIcon}>
               {scanStatus === 'scanning' ? (
-                <ActivityIndicator size="small" color="#8C3182" />
+                <ActivityIndicator size="small" color={t.accent} />
               ) : scanStatus === 'found' ? (
                 <Text style={{ fontSize: 20 }}>🎯</Text>
               ) : (
@@ -249,7 +321,7 @@ const FindIntelliTempDevice = ({ navigation, route }) => {
           <View style={styles.stepRow}>
             {scanStatus === 'scanning' && (
               <View style={[styles.statusIconContainer, styles.statusLoading]}>
-                <ActivityIndicator size="small" color="#8C3182" />
+                <ActivityIndicator size="small" color={t.accent} />
               </View>
             )}
             {scanStatus === 'found' && (
@@ -331,291 +403,302 @@ const FindIntelliTempDevice = ({ navigation, route }) => {
 
 export default FindIntelliTempDevice;
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F8FC',
-  },
-  header: {
-    height: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  backButton: {
-    paddingRight: 12,
-  },
-  backArrow: {
-    fontSize: 22,
-    color: '#333',
-  },
-  headerTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  headerTitleBold: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F1F1F',
-  },
-  headerTitleSub: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#8E8E93',
-  },
-  logoContainer: {
-    justifyContent: 'center',
-  },
-  logoText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#8C3182',
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 20,
-  },
-  progressBarContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  progressSegment: {
-    flex: 1,
-    height: 3,
-    borderRadius: 2,
-    marginHorizontal: 3,
-  },
-  progressActive: {
-    backgroundColor: '#8C3182',
-  },
-  progressInactive: {
-    backgroundColor: '#E5E5EA',
-  },
-  stepText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#8C3182',
-    letterSpacing: 0.8,
-    marginBottom: 8,
-  },
-  mainTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#1A1A1A',
-    marginBottom: 6,
-  },
-  subTitle: {
-    fontSize: 14,
-    color: '#666666',
-    marginBottom: 24,
-  },
-  radarContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 10,
-  },
-  radarCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    borderWidth: 2,
-    borderColor: '#8C3182',
-    borderStyle: 'solid',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FAF5F9',
-  },
-  radarInnerIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deviceCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#EFEFEF',
-    marginTop: 20,
-    marginBottom: 16,
-  },
-  deviceCardLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  thermometerIcon: {
-    fontSize: 18,
-    marginRight: 10,
-  },
-  deviceName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#222222',
-  },
-  deviceCode: {
-    fontSize: 13,
-    color: '#8E8E93',
-  },
-  stepsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#EFEFEF',
-    marginBottom: 16,
-  },
-  stepRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 8,
-  },
-  statusIconContainer: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-    marginTop: 2,
-  },
-  statusSuccess: {
-    backgroundColor: '#E8F7EE',
-  },
-  statusFailed: {
-    backgroundColor: '#FDE8E8',
-  },
-  statusCheck: {
-    color: '#27AE60',
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  statusCross: {
-    color: '#E53E3E',
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  statusLoading: {
-    backgroundColor: '#FDF0F9',
-    borderWidth: 1.5,
-    borderColor: '#8C3182',
-  },
-  statusPending: {
-    borderWidth: 1,
-    borderColor: '#D1D1D6',
-  },
-  statusNumber: {
-    color: '#8E8E93',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  stepTextContainer: {
-    flex: 1,
-  },
-  stepRowTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 2,
-  },
-  stepRowTitleDisabled: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#2C2C2E',
-    marginBottom: 2,
-  },
-  stepRowSubtitle: {
-    fontSize: 13,
-    color: '#8E8E93',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#F2F2F7',
-    marginVertical: 4,
-    marginLeft: 40,
-  },
-  securityBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FAFAFC',
-    borderRadius: 10,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#F0F0F5',
-  },
-  securityIcon: {
-    fontSize: 16,
-    color: '#8C3182',
-    marginRight: 10,
-  },
-  securityText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#7C7C80',
-    lineHeight: 18,
-  },
-  retryButton: {
-    backgroundColor: '#8C3182',
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  footer: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-  },
-  cancelButton: {
-    backgroundColor: '#8C3182',
-    borderRadius: 10,
-    height: 50,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 16,
-    marginBottom: 12,
-  },
-  cancelButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  cancelButtonArrow: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  footerBrand: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  poweredByText: {
-    fontSize: 12,
-    color: '#8E8E93',
-  },
-  brandText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#8C3182',
-  },
-});
+const createStyles = (t) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: t.bg,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingTop: 15,
+      paddingBottom: 12,
+      marginTop: 25, // Top bar ko neeche karega
+      minHeight: 45,
+      backgroundColor: t.header,
+    },
+    backButton: {
+      paddingRight: 12,
+    },
+    backArrow: {
+      fontSize: 28,
+      color: t.headerText,
+    },
+    headerTitleContainer: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginLeft: 8,
+    },
+    headerTitleBold: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: t.headerText,
+    },
+    headerTitleSub: {
+      fontSize: 18,
+      fontWeight: '500',
+      color: t.headerText,
+    },
+    logoContainer: {
+      width: 75,
+      height: 45,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    logoText: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: t.accent,
+    },
+    scrollContent: {
+      paddingHorizontal: 20,
+      paddingTop: 16,
+      paddingBottom: 20,
+    },
+    progressBarContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 20,
+    },
+    progressSegment: {
+      flex: 1,
+      height: 3,
+      borderRadius: 2,
+      marginHorizontal: 3,
+    },
+    progressActive: {
+      backgroundColor: t.accent,
+    },
+    progressInactive: {
+      backgroundColor: t.stepOff,
+    },
+    stepText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: t.accent,
+      letterSpacing: 0.8,
+      marginBottom: 8,
+    },
+    mainTitle: {
+      fontSize: 24,
+      fontWeight: '800',
+      color: t.textStrong,
+      marginBottom: 6,
+    },
+    subTitle: {
+      fontSize: 14,
+      color: t.sub,
+      marginBottom: 24,
+    },
+    radarContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginVertical: 10,
+    },
+    radarCircle: {
+      width: 90,
+      height: 90,
+      borderRadius: 45,
+      borderWidth: 2,
+      borderColor: t.accent,
+      borderStyle: 'solid',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: t.radarBg,
+    },
+    radarInnerIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: t.radarInner,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    deviceCard: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      backgroundColor: t.surface,
+      borderRadius: 8,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: t.border,
+      marginTop: 20,
+      marginBottom: 16,
+    },
+    deviceCardLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    thermometerIcon: {
+      fontSize: 18,
+      marginRight: 10,
+    },
+    deviceName: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: t.deviceName,
+    },
+    deviceCode: {
+      fontSize: 13,
+      color: t.muted,
+    },
+    stepsCard: {
+      backgroundColor: t.surface,
+      borderRadius: 12,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: t.border,
+      marginBottom: 16,
+    },
+    stepRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      paddingVertical: 8,
+    },
+    statusIconContainer: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+      marginTop: 2,
+    },
+    statusSuccess: {
+      backgroundColor: t.okBg,
+    },
+    statusFailed: {
+      backgroundColor: t.failBg,
+    },
+    statusCheck: {
+      color: t.okText,
+      fontWeight: 'bold',
+      fontSize: 13,
+    },
+    statusCross: {
+      color: t.failText,
+      fontWeight: 'bold',
+      fontSize: 13,
+    },
+    statusLoading: {
+      backgroundColor: t.loadingBg,
+      borderWidth: 1.5,
+      borderColor: t.accent,
+    },
+    statusPending: {
+      borderWidth: 1,
+      borderColor: t.pendingBorder,
+    },
+    statusNumber: {
+      color: t.muted,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    stepTextContainer: {
+      flex: 1,
+    },
+    stepRowTitle: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: t.text,
+      marginBottom: 2,
+    },
+    stepRowTitleDisabled: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: t.text,
+      marginBottom: 2,
+    },
+    stepRowSubtitle: {
+      fontSize: 13,
+      color: t.muted,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: t.divider,
+      marginVertical: 4,
+      marginLeft: 40,
+    },
+    securityBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: t.noteBg,
+      borderRadius: 10,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: t.noteBorder,
+    },
+    securityIcon: {
+      fontSize: 16,
+      color: t.accent,
+      marginRight: 10,
+    },
+    securityText: {
+      flex: 1,
+      fontSize: 13,
+      color: t.noteText,
+      lineHeight: 18,
+    },
+    retryButton: {
+      backgroundColor: t.accent,
+      borderRadius: 8,
+      paddingVertical: 12,
+      alignItems: 'center',
+      marginTop: 16,
+    },
+    retryButtonText: {
+      color: t.onAccent,
+      fontWeight: '700',
+      fontSize: 14,
+    },
+    footer: {
+      paddingHorizontal: 20,
+      paddingBottom: 20,
+      backgroundColor: t.surface,
+      borderTopWidth: 1,
+      borderTopColor: t.footerBorder,
+    },
+    cancelButton: {
+      backgroundColor: t.accent,
+      borderRadius: 10,
+      height: 50,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 16,
+      marginBottom: 12,
+    },
+    cancelButtonText: {
+      color: t.onAccent,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    cancelButtonArrow: {
+      color: t.onAccent,
+      fontSize: 18,
+      fontWeight: 'bold',
+    },
+    footerBrand: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    poweredByText: {
+      fontSize: 12,
+      color: t.muted,
+    },
+    brandText: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: t.accent,
+    },
+    brandLogo: {
+      width: 75,
+      height: 45,
+    },
+  });

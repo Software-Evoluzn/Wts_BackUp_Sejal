@@ -22,6 +22,8 @@
     <!-- Optional but helpful for multicast stability -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
     <!--  ADDED: Storage Permissions for Downloading/Sharing Files  -->
 <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/>
 <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>

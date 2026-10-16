@@ -10,11 +10,57 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  useColorScheme,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Feather from 'react-native-vector-icons/Feather';
 
 import { updateDraft } from '../services/installationDraft';
+
+/* ---------- Theme palettes (light = original colours, dark = new) ---------- */
+const LIGHT = {
+  bg: '#F7F7FA',
+  surface: '#FFF',
+  border: '#E5E7EB',
+  divider: '#EDEDF0',
+  optionDivider: '#F3F4F6',
+  footerBorder: '#F0F0F5',
+  backIcon: '#333',
+  title: '#1C1C1E',
+  titleSub: '#8E8E93',
+  text: '#111827',
+  label: '#374151',
+  sub: '#6B7280',
+  placeholder: '#A1A1AA',
+  accent: '#8B2A8B',
+  onAccent: '#FFF',
+  stepOff: '#E5E5EA',
+  hint: '#F3EFF6',
+  brandText: '#6E6577',
+  brandBold: '#7B2B75',
+};
+
+const DARK = {
+  bg: '#17141A',
+  surface: '#25212A',
+  border: '#3A3540',
+  divider: '#3A3540',
+  optionDivider: '#332F38',
+  footerBorder: '#2E2A33',
+  backIcon: '#FFFFFF',
+  title: '#FFFFFF',
+  titleSub: '#E5A0DC',
+  text: '#F4F4F5',
+  label: '#D4D4D8',
+  sub: '#A1A1AA',
+  placeholder: '#71717A',
+  accent: '#E5A0DC',
+  onAccent: '#2A1230',
+  stepOff: '#3A3540',
+  hint: '#2A2430',
+  brandText: '#A1A1AA',
+  brandBold: '#E5A0DC',
+};
 
 const APPLICATION_OPTIONS = [
   'Electrical Panel',
@@ -39,7 +85,11 @@ const getSiteTimezone = () => {
 
 const NametheInstallation = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
-  const styles = useMemo(() => createStyles(insets), [insets]);
+
+  // Follows the phone's dark / light setting
+  const scheme = useColorScheme();
+  const t = scheme === 'dark' ? DARK : LIGHT;
+  const styles = useMemo(() => createStyles(t, insets), [t, insets]);
 
   // Passed from the previous step (device identification / setup)
   const product = route?.params?.product || null;
@@ -107,7 +157,7 @@ const NametheInstallation = ({ navigation, route }) => {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.canGoBack() && navigation.goBack()}>
-            <Feather name="arrow-left" size={22} color="#333" />
+            <Feather name="arrow-left" size={22} color={t.backIcon} />
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>
@@ -152,7 +202,7 @@ const NametheInstallation = ({ navigation, route }) => {
           <TextInput
             style={styles.input}
             placeholder="Floor 3 · MCC-01"
-            placeholderTextColor="#A1A1AA"
+            placeholderTextColor={t.placeholder}
             value={location}
             onChangeText={setLocation}
             returnKeyType="done"
@@ -173,7 +223,7 @@ const NametheInstallation = ({ navigation, route }) => {
             <Feather
               name={showApplicationPicker ? 'chevron-up' : 'chevron-down'}
               size={20}
-              color="#111827"
+              color={t.text}
             />
           </TouchableOpacity>
 
@@ -196,7 +246,7 @@ const NametheInstallation = ({ navigation, route }) => {
                     {option}
                   </Text>
                   {application === option && (
-                    <Feather name="check" size={16} color="#8B2A8B" />
+                    <Feather name="check" size={16} color={t.accent} />
                   )}
                 </TouchableOpacity>
               ))}
@@ -218,7 +268,7 @@ const NametheInstallation = ({ navigation, route }) => {
 
         {/* Hint card */}
         <View style={styles.hintCard}>
-          <Feather name="copy" size={16} color="#8B2A8B" style={styles.hintIcon} />
+          <Feather name="copy" size={16} color={t.accent} style={styles.hintIcon} />
           <Text style={styles.hintText}>
             Purchase and warranty records can be added later under Device details.
           </Text>
@@ -232,7 +282,7 @@ const NametheInstallation = ({ navigation, route }) => {
           activeOpacity={0.85}
           onPress={onContinue}>
           <Text style={styles.primaryActionButtonText}>Identify probes</Text>
-          <Feather name="arrow-right" size={18} color="#FFF" />
+          <Feather name="arrow-right" size={18} color={t.onAccent} />
         </TouchableOpacity>
 
         <View style={styles.brandFooterRow}>
@@ -247,11 +297,11 @@ const NametheInstallation = ({ navigation, route }) => {
 
 export default NametheInstallation;
 
-const createStyles = (insets) =>
+const createStyles = (t, insets) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: '#F7F7FA',
+      backgroundColor: t.bg,
     },
 
     /* Header */
@@ -262,9 +312,9 @@ const createStyles = (insets) =>
       paddingHorizontal: 20,
       paddingTop: Math.max(insets.top, 12),
       paddingBottom: 14,
-      backgroundColor: '#FFF',
+      backgroundColor: t.bg,
       borderBottomWidth: 1,
-      borderBottomColor: '#F0F0F5',
+      borderBottomColor: t.footerBorder,
     },
     headerLeft: {
       flex: 1,
@@ -278,12 +328,12 @@ const createStyles = (insets) =>
     headerTitle: {
       fontSize: 18,
       fontWeight: '700',
-      color: '#1C1C1E',
+      color: t.title,
     },
     headerSubtitleText: {
       fontSize: 14,
       fontWeight: '600',
-      color: '#8E8E93',
+      color: t.titleSub,
     },
     brandLogo: {
       width: 90,
@@ -304,29 +354,29 @@ const createStyles = (insets) =>
     stepBar: {
       flex: 1,
       height: 4,
-      backgroundColor: '#E5E5EA',
+      backgroundColor: t.stepOff,
       borderRadius: 2,
       marginRight: 8,
     },
     stepBarActive: {
-      backgroundColor: '#8B2A8B',
+      backgroundColor: t.accent,
     },
     stepSubtitle: {
       fontSize: 12,
       fontWeight: '700',
-      color: '#8B2A8B',
+      color: t.accent,
       letterSpacing: 0.8,
       marginBottom: 6,
     },
     stepTitle: {
       fontSize: 26,
       fontWeight: '800',
-      color: '#111827',
+      color: t.text,
       letterSpacing: -0.5,
     },
     stepDescription: {
       fontSize: 15,
-      color: '#6B7280',
+      color: t.sub,
       marginTop: 4,
       marginBottom: 24,
     },
@@ -338,42 +388,42 @@ const createStyles = (insets) =>
     inputLabel: {
       fontSize: 14,
       fontWeight: '600',
-      color: '#374151',
+      color: t.label,
       marginBottom: 8,
     },
     input: {
-      backgroundColor: '#FFF',
+      backgroundColor: t.surface,
       borderWidth: 1,
-      borderColor: '#E5E7EB',
+      borderColor: t.border,
       borderRadius: 12,
       paddingHorizontal: 16,
       paddingVertical: 14,
       fontSize: 15,
-      color: '#111827',
+      color: t.text,
     },
     dropdownTrigger: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      backgroundColor: '#FFF',
+      backgroundColor: t.surface,
       borderWidth: 1,
-      borderColor: '#E5E7EB',
+      borderColor: t.border,
       borderRadius: 12,
       paddingHorizontal: 16,
       paddingVertical: 14,
     },
     dropdownTriggerText: {
       fontSize: 15,
-      color: '#111827',
+      color: t.text,
       fontWeight: '500',
     },
 
     /* Info card */
     infoCard: {
-      backgroundColor: '#FFF',
+      backgroundColor: t.surface,
       borderRadius: 14,
       borderWidth: 1,
-      borderColor: '#E5E7EB',
+      borderColor: t.border,
       paddingHorizontal: 16,
       marginTop: 4,
     },
@@ -383,26 +433,26 @@ const createStyles = (insets) =>
       alignItems: 'center',
       paddingVertical: 14,
       borderBottomWidth: 1,
-      borderBottomColor: '#EDEDF0',
+      borderBottomColor: t.divider,
     },
     infoRowLast: {
       borderBottomWidth: 0,
     },
     infoLabel: {
       fontSize: 13,
-      color: '#6B7280',
+      color: t.sub,
     },
     infoValue: {
       fontSize: 13,
       fontWeight: '700',
-      color: '#111827',
+      color: t.text,
     },
 
     /* Hint card */
     hintCard: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      backgroundColor: '#F3EFF6',
+      backgroundColor: t.hint,
       borderRadius: 12,
       padding: 14,
       marginTop: 20,
@@ -415,31 +465,31 @@ const createStyles = (insets) =>
       flex: 1,
       fontSize: 12.5,
       lineHeight: 18,
-      color: '#6B7280',
+      color: t.sub,
     },
 
     /* Footer */
     bottomFooterSheet: {
-      backgroundColor: '#FFF',
+      backgroundColor: t.surface,
       paddingHorizontal: 20,
       paddingTop: 16,
       paddingBottom: Math.max(insets.bottom, 16),
       borderTopLeftRadius: 24,
       borderTopRightRadius: 24,
       borderTopWidth: 1,
-      borderTopColor: '#F0F0F5',
+      borderTopColor: t.footerBorder,
     },
     primaryActionButton: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#8B2A8B',
+      backgroundColor: t.accent,
       borderRadius: 14,
       paddingVertical: 16,
       gap: 8,
     },
     primaryActionButtonText: {
-      color: '#FFF',
+      color: t.onAccent,
       fontSize: 16,
       fontWeight: '700',
     },
@@ -449,22 +499,22 @@ const createStyles = (insets) =>
     },
     brandFooterText: {
       fontSize: 12,
-      color: '#6E6577',
+      color: t.brandText,
     },
     brandFooterBold: {
       fontWeight: '800',
-      color: '#7B2B75',
+      color: t.brandBold,
       letterSpacing: 1.2,
     },
 
     /* Inline application dropdown */
     dropdownTriggerOpen: {
-      borderColor: '#8B2A8B',
+      borderColor: t.accent,
     },
     dropdownList: {
-      backgroundColor: '#FFF',
+      backgroundColor: t.surface,
       borderWidth: 1,
-      borderColor: '#E5E7EB',
+      borderColor: t.border,
       borderRadius: 12,
       marginTop: 6,
       paddingHorizontal: 16,
@@ -475,17 +525,17 @@ const createStyles = (insets) =>
       alignItems: 'center',
       paddingVertical: 14,
       borderBottomWidth: 1,
-      borderBottomColor: '#F3F4F6',
+      borderBottomColor: t.optionDivider,
     },
     optionRowLast: {
       borderBottomWidth: 0,
     },
     optionText: {
       fontSize: 15,
-      color: '#111827',
+      color: t.text,
     },
     optionTextSelected: {
-      color: '#8B2A8B',
+      color: t.accent,
       fontWeight: '600',
     },
   });

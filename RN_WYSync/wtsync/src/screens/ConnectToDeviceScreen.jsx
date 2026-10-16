@@ -9,10 +9,62 @@ import {
   StatusBar,
   ActivityIndicator,
   Alert,
+  Image,
+  useColorScheme,
 } from 'react-native';
 import WifiManager from 'react-native-wifi-reborn';
 
+/* ---------- Theme palettes (light = original colours, dark = new) ---------- */
+const LIGHT = {
+  bg: '#F8F8FC',
+  header: '#FFFFFF',
+  surface: '#FFFFFF',
+  border: '#EFEFEF',
+  divider: '#F2F2F7',
+  footerBorder: '#F0F0F0',
+  headerText: '#522D70',
+  text: '#1C1C1E',
+  textStrong: '#1A1A1A',
+  deviceName: '#222222',
+  sub: '#666666',
+  muted: '#8E8E93',
+  accent: '#8C3182',
+  onAccent: '#FFFFFF',
+  stepOff: '#E5E5EA',
+  noteBg: '#FAFAFC',
+  noteBorder: '#F0F0F5',
+  noteText: '#7C7C80',
+  statusBar: 'dark-content',
+};
+
+const DARK = {
+  bg: '#17141A',
+  header: '#17141A',
+  surface: '#25212A',
+  border: '#3A3540',
+  divider: '#3A3540',
+  footerBorder: '#2E2A33',
+  headerText: '#FFFFFF',
+  text: '#F4F4F5',
+  textStrong: '#FFFFFF',
+  deviceName: '#F4F4F5',
+  sub: '#A1A1AA',
+  muted: '#A1A1AA',
+  accent: '#E5A0DC',
+  onAccent: '#2A1230',
+  stepOff: '#3A3540',
+  noteBg: '#2A2430',
+  noteBorder: '#2A2430',
+  noteText: '#A1A1AA',
+  statusBar: 'light-content',
+};
+
 const ConnectToDeviceScreen = ({ navigation, route }) => {
+  // Follows the phone's dark / light setting
+  const scheme = useColorScheme();
+  const t = scheme === 'dark' ? DARK : LIGHT;
+  const styles = createStyles(t);
+
   const [connecting, setConnecting] = useState(false);
 
   // Navigation params destructuring
@@ -67,15 +119,11 @@ const ConnectToDeviceScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle={t.statusBar} backgroundColor={t.header} />
 
       {/* Navigation Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation?.goBack()}
-          disabled={connecting}
-        >
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
@@ -83,7 +131,11 @@ const ConnectToDeviceScreen = ({ navigation, route }) => {
           <Text style={styles.headerTitleSub}>4P</Text>
         </View>
         <View style={styles.logoContainer}>
-          <Text style={styles.logoText}>evoluzn</Text>
+          <Image
+            source={require('../assests/images/logo.png')}
+            style={styles.brandLogo}
+            resizeMode="contain"
+          />
         </View>
       </View>
 
@@ -155,7 +207,7 @@ const ConnectToDeviceScreen = ({ navigation, route }) => {
           disabled={connecting}
         >
           {connecting ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
+            <ActivityIndicator color={t.onAccent} size="small" />
           ) : (
             <>
               <Text style={styles.primaryButtonText}>Connect to IntelliTemp</Text>
@@ -174,45 +226,86 @@ const ConnectToDeviceScreen = ({ navigation, route }) => {
 
 export default ConnectToDeviceScreen;
 
-const styles = StyleSheet.create({
-  container: {flex: 1,backgroundColor: '#F8F8FC',},
-  header: { height: 56,flexDirection: 'row',alignItems: 'center',paddingHorizontal: 20,backgroundColor: '#FFFFFF',borderBottomWidth: 1,borderBottomColor: '#F0F0F0',},
-  backButton: { paddingRight: 12, },
-  backArrow: { fontSize: 22, color: '#333333',},
-  headerTitleContainer: {flexDirection: 'row', alignItems: 'center', flex: 1, },
-  headerTitleBold: { fontSize: 18, fontWeight: '700', color: '#1F1F1F',},
-  headerTitleSub: { fontSize: 13, fontWeight: '700',  color: '#8E8E93', },
-  logoContainer: {justifyContent: 'center',},
-  logoText: { fontSize: 16, fontWeight: 'bold',  color: '#8C3182',},
-  scrollContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20, },
-  progressBarContainer: { flexDirection: 'row',  justifyContent: 'space-between',  marginBottom: 20, },
-  progressSegment: { flex: 1, height: 3, borderRadius: 2, marginHorizontal: 3, },
-  progressActive: {backgroundColor: '#8C3182',},
-  progressInactive: {backgroundColor: '#E5E5EA',},
-  stepText: { fontSize: 12, fontWeight: '700', color: '#8C3182', letterSpacing: 0.8, marginBottom: 8,},
-  mainTitle: { fontSize: 24, fontWeight: '800', color: '#1A1A1A', marginBottom: 8,},
-  subTitle: {fontSize: 14,color: '#666666',lineHeight: 20,marginBottom: 24,},
-  deviceCard: { flexDirection: 'row', justifyContent: 'space-between',alignItems: 'center',backgroundColor: '#FFFFFF',borderRadius: 8,padding: 16,borderWidth: 1,borderColor: '#EFEFEF',marginBottom: 16, },
-  deviceCardLeft: { flexDirection: 'row', alignItems: 'center',},
-  thermometerIcon: { fontSize: 18, marginRight: 10,},
-  deviceName: { fontSize: 15,fontWeight: '700', color: '#222222',},
-  deviceCode: {fontSize: 13,color: '#8E8E93',},
-  infoCard: {backgroundColor: '#FFFFFF',borderRadius: 12,padding: 18,borderWidth: 1,borderColor: '#EFEFEF',marginBottom: 16,},
-  infoCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10,},
-  infoCardTitle: { fontSize: 16, fontWeight: '700',color: '#1C1C1E',},
-  phoneIcon: { fontSize: 18,},
-  infoCardBody: { fontSize: 13.5, color: '#666666', lineHeight: 19, marginBottom: 14,},
-  divider: {   height: 1, backgroundColor: '#F2F2F7', marginBottom: 14,},
-  infoCardFooter: { fontSize: 13.5, color: '#666666', lineHeight: 19,},
-  wifiHelperBox: {flexDirection: 'row',alignItems: 'center',backgroundColor: '#FAFAFC',borderRadius: 10,padding: 14,borderWidth: 1,borderColor: '#F0F0F5',},
-  wifiIcon: {fontSize: 16,marginRight: 10,},
-  wifiHelperText: {flex: 1,fontSize: 13,color: '#7C7C80',lineHeight: 18,},
-  footer: {  paddingHorizontal: 20,  paddingBottom: 20,backgroundColor: '#FFFFFF',  borderTopWidth: 1,  borderTopColor: '#F0F0F0',},
-  primaryButton: { backgroundColor: '#8C3182', borderRadius: 10, height: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 16, marginBottom: 12,},
-  disabledButton: { opacity: 0.7, },
-  primaryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700',},
-  primaryButtonArrow: {color: '#FFFFFF',fontSize: 18,fontWeight: 'bold', },
-  footerBrand: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center',},
-  poweredByText: {fontSize: 12,  color: '#8E8E93',},
-  brandText: { fontSize: 12,  fontWeight: '800',  color: '#8C3182', },
-});
+const createStyles = (t) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: t.bg, },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingTop: 15,
+      paddingBottom: 12,
+      marginTop: 25, // Top bar ko neeche karega
+      minHeight: 45,
+      backgroundColor: t.header,
+    },
+    backButton: { paddingRight: 12, },
+    backArrow: {
+      fontSize: 28,
+      color: t.headerText,
+    },
+    headerTitleContainer: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginLeft: 8,
+    },
+    headerTitleBold: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: t.headerText,
+    },
+    headerTitleSub: {
+      fontSize: 18,
+      fontWeight: '500',
+      color: t.headerText,
+    },
+    logoContainer: {
+      width: 75,
+      height: 45,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+
+    logoText: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: t.accent,
+    },
+    scrollContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20, },
+    progressBarContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, },
+    progressSegment: { flex: 1, height: 3, borderRadius: 2, marginHorizontal: 3, },
+    progressActive: { backgroundColor: t.accent, },
+    progressInactive: { backgroundColor: t.stepOff, },
+    stepText: { fontSize: 12, fontWeight: '700', color: t.accent, letterSpacing: 0.8, marginBottom: 8, },
+    mainTitle: { fontSize: 24, fontWeight: '800', color: t.textStrong, marginBottom: 8, },
+    subTitle: { fontSize: 14, color: t.sub, lineHeight: 20, marginBottom: 24, },
+    deviceCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: t.surface, borderRadius: 8, padding: 16, borderWidth: 1, borderColor: t.border, marginBottom: 16, },
+    deviceCardLeft: { flexDirection: 'row', alignItems: 'center', },
+    thermometerIcon: { fontSize: 18, marginRight: 10, },
+    deviceName: { fontSize: 15, fontWeight: '700', color: t.deviceName, },
+    deviceCode: { fontSize: 13, color: t.muted, },
+    infoCard: { backgroundColor: t.surface, borderRadius: 12, padding: 18, borderWidth: 1, borderColor: t.border, marginBottom: 16, },
+    infoCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, },
+    infoCardTitle: { fontSize: 16, fontWeight: '700', color: t.text, },
+    phoneIcon: { fontSize: 18, },
+    infoCardBody: { fontSize: 13.5, color: t.sub, lineHeight: 19, marginBottom: 14, },
+    divider: { height: 1, backgroundColor: t.divider, marginBottom: 14, },
+    infoCardFooter: { fontSize: 13.5, color: t.sub, lineHeight: 19, },
+    wifiHelperBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: t.noteBg, borderRadius: 10, padding: 14, borderWidth: 1, borderColor: t.noteBorder, },
+    wifiIcon: { fontSize: 16, marginRight: 10, },
+    wifiHelperText: { flex: 1, fontSize: 13, color: t.noteText, lineHeight: 18, },
+    footer: { paddingHorizontal: 20, paddingBottom: 20, backgroundColor: t.surface, borderTopWidth: 1, borderTopColor: t.footerBorder, },
+    primaryButton: { backgroundColor: t.accent, borderRadius: 10, height: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 16, marginBottom: 12, },
+    disabledButton: { opacity: 0.7, },
+    primaryButtonText: { color: t.onAccent, fontSize: 16, fontWeight: '700', },
+    primaryButtonArrow: { color: t.onAccent, fontSize: 18, fontWeight: 'bold', },
+    footerBrand: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', },
+    poweredByText: { fontSize: 12, color: t.muted, },
+    brandText: { fontSize: 12, fontWeight: '800', color: t.accent, },
+    brandLogo: {
+      width: 75,
+      height: 45,
+    },
+  });

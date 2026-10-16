@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Image,
   StyleSheet,
+  useColorScheme,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Feather from 'react-native-vector-icons/Feather';
@@ -17,6 +18,49 @@ import { submitInstallation, confirmInstallation } from '../services/Installatio
 
 const TOTAL_STEPS = 6;
 const CURRENT_STEP = 4;
+
+// ---------- Themes ----------
+const LIGHT = {
+  bg: '#F7F7FA',
+  surface: '#FFFFFF',
+  border: '#E5E7EB',
+  divider: '#F0F0F5',
+  sectionDivider: '#EDEDF0',
+  textPrimary: '#111827',
+  textSecondary: '#6B7280',
+  textMuted: '#9CA3AF',
+  lineText: '#1F2937',
+  icon: '#333333',
+  accent: '#8B2A8B',
+  onAccent: '#FFFFFF',
+  stepBar: '#E5E5EA',
+  footerText: '#6E6577',
+  footerBrand: '#7B2B75',
+  headerSub: '#8E8E93',
+  headerTitle: '#1C1C1E',
+  hintBg: '#F3EFF6',
+};
+
+const DARK = {
+  bg: '#17151B',
+  surface: '#232027',
+  border: '#3A3640',
+  divider: '#2E2B33',
+  sectionDivider: '#3A3640',
+  textPrimary: '#FFFFFF',
+  textSecondary: '#A9A3B3',
+  textMuted: '#8F8999',
+  lineText: '#F3F0F7',
+  icon: '#FFFFFF',
+  accent: '#E6A8E1',
+  onAccent: '#1C1A20',
+  stepBar: '#3A3640',
+  footerText: '#A9A3B3',
+  footerBrand: '#E6A8E1',
+  headerSub: '#A9A3B3',
+  headerTitle: '#FFFFFF',
+  hintBg: '#2B2830',
+};
 
 // Demo values (match the design). They are used whenever the earlier steps
 // don't pass real data into this screen.
@@ -119,7 +163,9 @@ const Section = ({ title, lines, styles, last }) => (
 
 const Reviewbeforeapplying = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
-  const styles = useMemo(() => createStyles(insets), [insets]);
+  const scheme = useColorScheme(); // follows phone setting
+  const colors = scheme === 'dark' ? DARK : LIGHT;
+  const styles = useMemo(() => createStyles(insets, colors), [insets, colors]);
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -200,7 +246,7 @@ const Reviewbeforeapplying = ({ navigation, route }) => {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.canGoBack() && navigation.goBack()}>
-            <Feather name="arrow-left" size={22} color="#333" />
+            <Feather name="arrow-left" size={22} color={colors.icon} />
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>
@@ -264,7 +310,7 @@ const Reviewbeforeapplying = ({ navigation, route }) => {
 
         {/* Hint card */}
         <View style={styles.hintCard}>
-          <Feather name="file" size={16} color="#8B2A8B" style={styles.hintIcon} />
+          <Feather name="file" size={16} color={colors.accent} style={styles.hintIcon} />
           <Text style={styles.hintText}>
             The app must wait for the device to acknowledge the applied configuration.
           </Text>
@@ -278,11 +324,11 @@ const Reviewbeforeapplying = ({ navigation, route }) => {
           activeOpacity={0.85}
           disabled={submitting}
           onPress={onApply}>
-          {submitting && <ActivityIndicator size="small" color="#FFF" />}
+          {submitting && <ActivityIndicator size="small" color={colors.onAccent} />}
           <Text style={styles.primaryActionButtonText}>
             {submitting ? 'Applying...' : 'Apply to IntelliTemp'}
           </Text>
-          {!submitting && <Feather name="arrow-right" size={18} color="#FFF" />}
+          {!submitting && <Feather name="arrow-right" size={18} color={colors.onAccent} />}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -305,11 +351,11 @@ const Reviewbeforeapplying = ({ navigation, route }) => {
 
 export default Reviewbeforeapplying;
 
-const createStyles = (insets) =>
+const createStyles = (insets, c) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: '#F7F7FA',
+      backgroundColor: c.bg,
     },
 
     /* Header */
@@ -320,9 +366,9 @@ const createStyles = (insets) =>
       paddingHorizontal: 20,
       paddingTop: Math.max(insets.top, 12),
       paddingBottom: 14,
-      backgroundColor: '#FFF',
+      backgroundColor: c.bg,
       borderBottomWidth: 1,
-      borderBottomColor: '#F0F0F5',
+      borderBottomColor: c.divider,
     },
     headerLeft: {
       flex: 1,
@@ -336,12 +382,12 @@ const createStyles = (insets) =>
     headerTitle: {
       fontSize: 18,
       fontWeight: '700',
-      color: '#1C1C1E',
+      color: c.headerTitle,
     },
     headerSubtitleText: {
       fontSize: 14,
       fontWeight: '600',
-      color: '#8E8E93',
+      color: c.headerSub,
     },
     brandLogo: {
       width: 90,
@@ -362,66 +408,66 @@ const createStyles = (insets) =>
     stepBar: {
       flex: 1,
       height: 4,
-      backgroundColor: '#E5E5EA',
+      backgroundColor: c.stepBar,
       borderRadius: 2,
       marginRight: 8,
     },
     stepBarActive: {
-      backgroundColor: '#8B2A8B',
+      backgroundColor: c.accent,
     },
     stepSubtitle: {
       fontSize: 12,
       fontWeight: '700',
-      color: '#8B2A8B',
+      color: c.accent,
       letterSpacing: 0.8,
       marginBottom: 6,
     },
     stepTitle: {
       fontSize: 26,
       fontWeight: '800',
-      color: '#111827',
+      color: c.textPrimary,
       letterSpacing: -0.5,
     },
     stepDescription: {
       fontSize: 15,
-      color: '#6B7280',
+      color: c.textSecondary,
       marginTop: 4,
       marginBottom: 22,
     },
 
     /* Summary card */
     summaryCard: {
-      backgroundColor: '#FFF',
+      backgroundColor: c.surface,
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: '#E5E7EB',
+      borderColor: c.border,
       paddingHorizontal: 16,
     },
     section: {
       paddingVertical: 16,
       borderBottomWidth: 1,
-      borderBottomColor: '#EDEDF0',
+      borderBottomColor: c.sectionDivider,
     },
     sectionLast: {
       borderBottomWidth: 0,
     },
     sectionTitle: {
       fontSize: 12,
-      color: '#9CA3AF',
+      color: c.textMuted,
       letterSpacing: 0.4,
       marginBottom: 8,
     },
     sectionLine: {
       fontSize: 13.5,
       lineHeight: 21,
-      color: '#1F2937',
+      color: c.lineText,
     },
 
     /* Hint card */
     hintCard: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      backgroundColor: '#F3EFF6',
+      backgroundColor: c.hintBg,
       borderRadius: 12,
       padding: 14,
       marginTop: 16,
@@ -434,31 +480,31 @@ const createStyles = (insets) =>
       flex: 1,
       fontSize: 12.5,
       lineHeight: 18,
-      color: '#6B7280',
+      color: c.textSecondary,
     },
 
     /* Footer */
     bottomFooterSheet: {
-      backgroundColor: '#FFF',
+      backgroundColor: c.surface,
       paddingHorizontal: 20,
       paddingTop: 16,
       paddingBottom: Math.max(insets.bottom, 16),
       borderTopLeftRadius: 24,
       borderTopRightRadius: 24,
       borderTopWidth: 1,
-      borderTopColor: '#F0F0F5',
+      borderTopColor: c.divider,
     },
     primaryActionButton: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#8B2A8B',
+      backgroundColor: c.accent,
       borderRadius: 14,
       paddingVertical: 16,
       gap: 8,
     },
     primaryActionButtonText: {
-      color: '#FFF',
+      color: c.onAccent,
       fontSize: 16,
       fontWeight: '700',
     },
@@ -468,15 +514,15 @@ const createStyles = (insets) =>
     secondaryActionButton: {
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#FFF',
+      backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: '#E5E7EB',
+      borderColor: c.border,
       borderRadius: 14,
       paddingVertical: 14,
       marginTop: 10,
     },
     secondaryActionButtonText: {
-      color: '#8B2A8B',
+      color: c.accent,
       fontSize: 15,
       fontWeight: '700',
     },
@@ -486,11 +532,11 @@ const createStyles = (insets) =>
     },
     brandFooterText: {
       fontSize: 12,
-      color: '#6E6577',
+      color: c.footerText,
     },
     brandFooterBold: {
       fontWeight: '800',
-      color: '#7B2B75',
+      color: c.footerBrand,
       letterSpacing: 1.2,
     },
   });

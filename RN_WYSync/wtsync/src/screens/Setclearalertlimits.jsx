@@ -11,11 +11,65 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  useColorScheme,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Feather from 'react-native-vector-icons/Feather';
 
 import { getDraft, updateDraft } from '../services/installationDraft';
+
+/* ---------- Theme palettes (light = original colours, dark = new) ---------- */
+const LIGHT = {
+  bg: '#F7F7FA',
+  surface: '#FFF',
+  border: '#E5E7EB',
+  divider: '#EDEDF0',
+  footerBorder: '#F0F0F5',
+  backIcon: '#333',
+  title: '#1C1C1E',
+  titleSub: '#8E8E93',
+  text: '#111827',
+  label: '#374151',
+  sub: '#6B7280',
+  muted: '#9CA3AF',
+  placeholder: '#A1A1AA',
+  stepper: '#8E8E93',
+  accent: '#8B2A8B',
+  onAccent: '#FFF',
+  stepOff: '#E5E5EA',
+  chip: '#F5E6F5',
+  badge: '#F3E1F3',
+  segBg: '#EFEFF3',
+  segActive: '#FFF',
+  brandText: '#6E6577',
+  brandBold: '#7B2B75',
+};
+
+const DARK = {
+  bg: '#17141A',
+  surface: '#25212A',
+  border: '#3A3540',
+  divider: '#3A3540',
+  footerBorder: '#2E2A33',
+  backIcon: '#FFFFFF',
+  title: '#FFFFFF',
+  titleSub: '#E5A0DC',
+  text: '#F4F4F5',
+  label: '#D4D4D8',
+  sub: '#A1A1AA',
+  muted: '#A1A1AA',
+  placeholder: '#71717A',
+  stepper: '#A1A1AA',
+  accent: '#E5A0DC',
+  onAccent: '#2A1230',
+  stepOff: '#3A3540',
+  chip: '#3A2A3A',
+  badge: '#3A2A3A',
+  segBg: '#2A262E',
+  segActive: '#17141A',
+  brandText: '#A1A1AA',
+  brandBold: '#E5A0DC',
+};
 
 const TOTAL_STEPS = 6;
 const CURRENT_STEP = 4;
@@ -36,7 +90,11 @@ const toNumber = (value) => {
 
 const Setclearalertlimits = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
-  const styles = useMemo(() => createStyles(insets), [insets]);
+
+  // Follows the phone's dark / light setting
+  const scheme = useColorScheme();
+  const t = scheme === 'dark' ? DARK : LIGHT;
+  const styles = useMemo(() => createStyles(t, insets), [t, insets]);
 
   // High-temperature alert limits
   const saved = getDraft().alertForm || {};
@@ -99,14 +157,14 @@ const Setclearalertlimits = ({ navigation, route }) => {
           onChangeText={onChangeText}
           keyboardType="numbers-and-punctuation"
           placeholder="0"
-          placeholderTextColor="#A1A1AA"
+          placeholderTextColor={t.placeholder}
         />
         <View style={styles.stepperContainer}>
           <TouchableOpacity style={styles.stepperButton} onPress={handleIncrement} activeOpacity={0.6}>
-            <Feather name="chevron-up" size={14} color="#8E8E93" />
+            <Feather name="chevron-up" size={14} color={t.stepper} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.stepperButton} onPress={handleDecrement} activeOpacity={0.6}>
-            <Feather name="chevron-down" size={14} color="#8E8E93" />
+            <Feather name="chevron-down" size={14} color={t.stepper} />
           </TouchableOpacity>
         </View>
         <Text style={styles.unitText}>°C</Text>
@@ -160,7 +218,7 @@ const Setclearalertlimits = ({ navigation, route }) => {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.canGoBack() && navigation.goBack()}>
-            <Feather name="arrow-left" size={22} color="#333" />
+            <Feather name="arrow-left" size={22} color={t.backIcon} />
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>
@@ -236,15 +294,15 @@ const Setclearalertlimits = ({ navigation, route }) => {
         </View>
 
         {/* Low-temperature alert */}
-        <View style={styles.card}>
+        {/* <View style={styles.card}>
           <View style={styles.cardTopRow}>
             <View style={styles.lowTextWrap}>
-              <Text style={styles.cardTitle}>Low-temperature alert</Text>
-              <Text style={styles.cardSubtitle}>
+               <Text style={styles.cardTitle}>Low-temperature alert</Text> 
+               <Text style={styles.cardSubtitle}>
                 {lowEnabled
                   ? 'At or below the configured low limit.'
                   : 'Optional. Disabled for this example.'}
-              </Text>
+              </Text> 
             </View>
             <Switch
               value={lowEnabled}
@@ -260,20 +318,20 @@ const Setclearalertlimits = ({ navigation, route }) => {
               <TemperatureInput value={lowLimit} onChangeText={setLowLimit} />
             </View>
           )}
-        </View>
+        </View> */}
 
         {/* Persistence, reset & repeat behaviour link */}
-        <TouchableOpacity
+        {/* <TouchableOpacity
           style={styles.behaviourLink}
           activeOpacity={0.7}
           onPress={() => setShowBehaviour((prev) => !prev)}>
-          <Text style={styles.behaviourLinkText}>Persistence, reset &amp; repeat behaviour</Text>
+           <Text style={styles.behaviourLinkText}>Persistence, reset &amp; repeat behaviour</Text> 
           <Feather
             name={showBehaviour ? 'chevron-down' : 'chevron-right'}
             size={16}
             color="#8B2A8B"
           />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
 
         {showBehaviour && (
           <View style={styles.card}>
@@ -326,7 +384,7 @@ const Setclearalertlimits = ({ navigation, route }) => {
           activeOpacity={0.85}
           onPress={onContinue}>
           <Text style={styles.primaryActionButtonText}>Choose recipients</Text>
-          <Feather name="arrow-right" size={18} color="#FFF" />
+          <Feather name="arrow-right" size={18} color={t.onAccent} />
         </TouchableOpacity>
 
         <View style={styles.brandFooterRow}>
@@ -341,55 +399,55 @@ const Setclearalertlimits = ({ navigation, route }) => {
 
 export default Setclearalertlimits;
 
-const createStyles = (insets) =>
+const createStyles = (t, insets) =>
   StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F7F7FA',},
-    header: { flexDirection: 'row',alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: Math.max(insets.top, 12), paddingBottom: 14, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#F0F0F5', },
+    container: { flex: 1, backgroundColor: t.bg,},
+    header: { flexDirection: 'row',alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: Math.max(insets.top, 12), paddingBottom: 14, backgroundColor: t.bg, borderBottomWidth: 1, borderBottomColor: t.footerBorder, },
     headerLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', },
     backButton: { paddingVertical: 4,  paddingRight: 14,},
-    headerTitle: {fontSize: 18, fontWeight: '700',  color: '#1C1C1E',},
-    headerSubtitleText: { fontSize: 14, fontWeight: '600', color: '#8E8E93',},
+    headerTitle: {fontSize: 18, fontWeight: '700',  color: t.title,},
+    headerSubtitleText: { fontSize: 14, fontWeight: '600', color: t.titleSub,},
     brandLogo: { width: 90,  height: 24, },
     scrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24,},
     stepProgressContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, },
-    stepBar: { flex: 1, height: 4, backgroundColor: '#E5E5EA', borderRadius: 2, marginRight: 8, },
-    stepBarActive: {  backgroundColor: '#8B2A8B', },
-    stepSubtitle: {  fontSize: 12,fontWeight: '700',color: '#8B2A8B', letterSpacing: 0.8, marginBottom: 6, },
-    stepTitle: { fontSize: 26, fontWeight: '800', color: '#111827', letterSpacing: -0.5, },
-    stepDescription: { fontSize: 14.5, color: '#6B7280', marginTop: 6, marginBottom: 20, lineHeight: 20, },
-    segmented: { flexDirection: 'row', backgroundColor: '#EFEFF3', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', padding: 3, marginBottom: 16,  },
+    stepBar: { flex: 1, height: 4, backgroundColor: t.stepOff, borderRadius: 2, marginRight: 8, },
+    stepBarActive: {  backgroundColor: t.accent, },
+    stepSubtitle: {  fontSize: 12,fontWeight: '700',color: t.accent, letterSpacing: 0.8, marginBottom: 6, },
+    stepTitle: { fontSize: 26, fontWeight: '800', color: t.text, letterSpacing: -0.5, },
+    stepDescription: { fontSize: 14.5, color: t.sub, marginTop: 6, marginBottom: 20, lineHeight: 20, },
+    segmented: { flexDirection: 'row', backgroundColor: t.segBg, borderRadius: 12, borderWidth: 1, borderColor: t.border, padding: 3, marginBottom: 16,  },
     segmentTab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 9,},
-    segmentTabActive: { backgroundColor: '#FFF',shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1,},
-    segmentText: { fontSize: 13.5, fontWeight: '600', color: '#6B7280', },
-    segmentTextActive: { color: '#8B2A8B', },
-    card: { backgroundColor: '#FFF', borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', padding: 16, marginBottom: 14,},
+    segmentTabActive: { backgroundColor: t.segActive,shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1,},
+    segmentText: { fontSize: 13.5, fontWeight: '600', color: t.sub, },
+    segmentTextActive: { color: t.accent, },
+    card: { backgroundColor: t.surface, borderRadius: 16, borderWidth: 1, borderColor: t.border, padding: 16, marginBottom: 14,},
     cardTopRow: { flexDirection: 'row', justifyContent: 'space-between',alignItems: 'center',marginBottom: 6, },
-    cardTitle: { fontSize: 14.5, fontWeight: '700', color: '#111827',  },
-    cardSubtitle: {  fontSize: 12.5,color: '#9CA3AF',marginTop: 2,marginBottom: 12, },
-    enabledBadge: { backgroundColor: '#F3E1F3', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, },
-    enabledBadgeText: { fontSize: 12, fontWeight: '600', color: '#8B2A8B',},
+    cardTitle: { fontSize: 14.5, fontWeight: '700', color: t.text,  },
+    cardSubtitle: {  fontSize: 12.5,color: t.muted,marginTop: 2,marginBottom: 12, },
+    enabledBadge: { backgroundColor: t.badge, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, },
+    enabledBadgeText: { fontSize: 12, fontWeight: '600', color: t.accent,},
     lowTextWrap: { flex: 1, marginRight: 12,  },
-    inputLabel: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8,  },
-    limitInputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 16, height: 52, },
-    limitInput: {flex: 1,fontSize: 15,color: '#111827',padding: 0,},
+    inputLabel: { fontSize: 13, fontWeight: '600', color: t.label, marginBottom: 8,  },
+    limitInputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: 12, paddingHorizontal: 16, height: 52, },
+    limitInput: {flex: 1,fontSize: 15,color: t.text,padding: 0,},
     stepperContainer: {justifyContent: 'center',alignItems: 'center', marginRight: 8, },
     stepperButton: {  paddingVertical: 1,  paddingHorizontal: 4,},
-    unitText: { fontSize: 13, color: '#6B7280', },
+    unitText: { fontSize: 13, color: t.sub, },
     chipRow: {flexDirection: 'row', gap: 8, marginTop: 14,  },
-    chip: { backgroundColor: '#F5E6F5', borderRadius: 6,paddingHorizontal: 11, paddingVertical: 6, alignItems: 'center', justifyContent: 'center', },
-    chipText: { fontSize: 11.5, fontWeight: '700', color: '#8B2A8B', },
-    appliesText: { fontSize: 12.5, color: '#6B7280', marginTop: 12, },
+    chip: { backgroundColor: t.chip, borderRadius: 6,paddingHorizontal: 11, paddingVertical: 6, alignItems: 'center', justifyContent: 'center', },
+    chipText: { fontSize: 11.5, fontWeight: '700', color: t.accent, },
+    appliesText: { fontSize: 12.5, color: t.sub, marginTop: 12, },
     behaviourLink: {flexDirection: 'row',alignItems: 'center',  gap: 6, marginTop: 6, marginBottom: 14,  },
-    behaviourLinkText: { fontSize: 13, fontWeight: '700', color: '#8B2A8B', },
-    behaviourRow: {  flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, marginBottom: 14, borderBottomWidth: 1, borderBottomColor: '#EDEDF0', },
+    behaviourLinkText: { fontSize: 13, fontWeight: '700', color: t.accent, },
+    behaviourRow: {  flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, marginBottom: 14, borderBottomWidth: 1, borderBottomColor: t.divider, },
     behaviourTextWrap: { flex: 1, marginRight: 12, },
-    behaviourTitle: { fontSize: 13.5, fontWeight: '600', color: '#111827',},
-    behaviourHint: {fontSize: 12, color: '#9CA3AF', marginTop: 2, },
-    behaviourInput: { width: 64, height: 40, textAlign: 'center', fontSize: 14, color: '#111827', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, padding: 0,},
-    bottomFooterSheet: { backgroundColor: '#FFF', paddingHorizontal: 20, paddingTop: 16, paddingBottom: Math.max(insets.bottom, 16), borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderTopColor: '#F0F0F5',},
-    primaryActionButton: {flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#8B2A8B', borderRadius: 14,  paddingVertical: 16, gap: 8,},
-    primaryActionButtonText: { color: '#FFF', fontSize: 16, fontWeight: '700', },
+    behaviourTitle: { fontSize: 13.5, fontWeight: '600', color: t.text,},
+    behaviourHint: {fontSize: 12, color: t.muted, marginTop: 2, },
+    behaviourInput: { width: 64, height: 40, textAlign: 'center', fontSize: 14, color: t.text, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: 10, padding: 0,},
+    bottomFooterSheet: { backgroundColor: t.surface, paddingHorizontal: 20, paddingTop: 16, paddingBottom: Math.max(insets.bottom, 16), borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderTopColor: t.footerBorder,},
+    primaryActionButton: {flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: t.accent, borderRadius: 14,  paddingVertical: 16, gap: 8,},
+    primaryActionButtonText: { color: t.onAccent, fontSize: 16, fontWeight: '700', },
     brandFooterRow: { alignItems: 'center', marginTop: 14, },
-    brandFooterText: {fontSize: 12, color: '#6E6577',},
-    brandFooterBold: {  fontWeight: '800',color: '#7B2B75', letterSpacing: 1.2,},
+    brandFooterText: {fontSize: 12, color: t.brandText,},
+    brandFooterBold: {  fontWeight: '800',color: t.brandBold, letterSpacing: 1.2,},
   });

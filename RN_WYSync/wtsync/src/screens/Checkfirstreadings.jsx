@@ -6,9 +6,61 @@ import {
   ScrollView,
   Image,
   StyleSheet,
+  useColorScheme,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Feather from 'react-native-vector-icons/Feather';
+
+/* ---------- Theme palettes (light = original colours, dark = new) ---------- */
+const LIGHT = {
+  bg: '#F7F7FA',
+  surface: '#FFF',
+  border: '#E5E7EB',
+  divider: '#EDEDF0',
+  footerBorder: '#F0F0F5',
+  backIcon: '#333',
+  title: '#1C1C1E',
+  titleSub: '#8E8E93',
+  text: '#111827',
+  sub: '#6B7280',
+  muted: '#9CA3AF',
+  accent: '#8B2A8B',
+  onAccent: '#FFF',
+  stepOff: '#E5E5EA',
+  chip: '#F5E6F5',
+  hint: '#F3EFF6',
+  okBg: '#DCFCE7',
+  okText: '#15803D',
+  warnBg: '#FEF3C7',
+  warnText: '#B45309',
+  brandText: '#6E6577',
+  brandBold: '#7B2B75',
+};
+
+const DARK = {
+  bg: '#17141A',
+  surface: '#25212A',
+  border: '#3A3540',
+  divider: '#3A3540',
+  footerBorder: '#2E2A33',
+  backIcon: '#FFFFFF',
+  title: '#FFFFFF',
+  titleSub: '#E5A0DC',
+  text: '#F4F4F5',
+  sub: '#A1A1AA',
+  muted: '#A1A1AA',
+  accent: '#E5A0DC',
+  onAccent: '#2A1230',
+  stepOff: '#3A3540',
+  chip: '#3A2A3A',
+  hint: '#2A2430',
+  okBg: '#143A24',
+  okText: '#4ADE80',
+  warnBg: '#3A2F20',
+  warnText: '#FBBF24',
+  brandText: '#A1A1AA',
+  brandBold: '#E5A0DC',
+};
 
 const TOTAL_STEPS = 6;
 const CURRENT_STEP = 3;
@@ -31,7 +83,11 @@ const isValidReading = (value) =>
 
 const Checkfirstreadings = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
-  const styles = useMemo(() => createStyles(insets), [insets]);
+
+  // Follows the phone's dark / light setting
+  const scheme = useColorScheme();
+  const t = scheme === 'dark' ? DARK : LIGHT;
+  const styles = useMemo(() => createStyles(t, insets), [t, insets]);
 
   // Probe names come from the previous step (Identifyfourprobes)
   const labels = route?.params?.probeLabels || DEFAULT_LABELS;
@@ -75,7 +131,7 @@ const Checkfirstreadings = ({ navigation, route }) => {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.canGoBack() && navigation.goBack()}>
-            <Feather name="arrow-left" size={22} color="#333" />
+            <Feather name="arrow-left" size={22} color={t.backIcon} />
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>
@@ -138,16 +194,16 @@ const Checkfirstreadings = ({ navigation, route }) => {
                   <Text style={styles.readingLabel} numberOfLines={1}>
                     {label}
                   </Text>
-                  <Text style={styles.readingSub}>
+                  {/* <Text style={styles.readingSub}>
                     {valid ? `Valid sample · ${sampleTime}` : 'No valid sample'}
-                  </Text>
+                  </Text> */}
                 </View>
 
                 <View style={styles.readingValueWrap}>
-                  <Text style={styles.readingValue}>
+                  {/* <Text style={styles.readingValue}>
                     {valid ? Number(value).toFixed(1) : '—'}
-                  </Text>
-                  {valid && <Text style={styles.readingUnit}>°C</Text>}
+                  </Text> */}
+                  {/* {valid && <Text style={styles.readingUnit}>°C</Text>} */}
                 </View>
               </View>
             );
@@ -160,7 +216,7 @@ const Checkfirstreadings = ({ navigation, route }) => {
             <Feather
               name={allValid ? 'check' : 'alert-circle'}
               size={11}
-              color={allValid ? '#15803D' : '#B45309'}
+              color={allValid ? t.okText : t.warnText}
             />
             <Text style={[styles.validBadgeText, !allValid && styles.validBadgeTextWarn]}>
               {`${validCount} / ${totalCount} valid`}
@@ -168,14 +224,14 @@ const Checkfirstreadings = ({ navigation, route }) => {
           </View>
 
           <View style={styles.receivedWrap}>
-            <Feather name="clock" size={12} color="#9CA3AF" />
-            <Text style={styles.receivedText}>{STATIC_RECEIVED_TEXT}</Text>
+            {/* <Feather name="clock" size={12} color="#9CA3AF" /> */}
+            {/* <Text style={styles.receivedText}>{STATIC_RECEIVED_TEXT}</Text> */}
           </View>
         </View>
 
         {/* Info card */}
         <View style={styles.hintCard}>
-          <Feather name="info" size={16} color="#8B2A8B" style={styles.hintIcon} />
+          <Feather name="info" size={16} color={t.accent} style={styles.hintIcon} />
           <Text style={styles.hintText}>
             A genuine 0.0°C is valid when reported by the sensor. Missing or invalid values
             are shown as —.
@@ -190,7 +246,7 @@ const Checkfirstreadings = ({ navigation, route }) => {
           activeOpacity={0.85}
           onPress={onContinue}>
           <Text style={styles.primaryActionButtonText}>Set alert limits</Text>
-          <Feather name="arrow-right" size={18} color="#FFF" />
+          <Feather name="arrow-right" size={18} color={t.onAccent} />
         </TouchableOpacity>
 
         <View style={styles.brandFooterRow}>
@@ -205,47 +261,47 @@ const Checkfirstreadings = ({ navigation, route }) => {
 
 export default Checkfirstreadings;
 
-const createStyles = (insets) =>
+const createStyles = (t, insets) =>
   StyleSheet.create({
-    container: {flex: 1, backgroundColor: '#F7F7FA', },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20,  paddingTop: Math.max(insets.top, 12), paddingBottom: 14, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#F0F0F5', },
+    container: {flex: 1, backgroundColor: t.bg, },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20,  paddingTop: Math.max(insets.top, 12), paddingBottom: 14, backgroundColor: t.bg, borderBottomWidth: 1, borderBottomColor: t.footerBorder, },
     headerLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', },
     backButton: { paddingVertical: 4, paddingRight: 14, },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: '#1C1C1E', },
-    headerSubtitleText: {fontSize: 14,fontWeight: '600',color: '#8E8E93', },
+    headerTitle: { fontSize: 18, fontWeight: '700', color: t.title, },
+    headerSubtitleText: {fontSize: 14,fontWeight: '600',color: t.titleSub, },
     brandLogo: {  width: 90,  height: 24, },
     scrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24, },
     stepProgressContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24,},
-    stepBar: { flex: 1, height: 4, backgroundColor: '#E5E5EA', borderRadius: 2, marginRight: 8, },
-    stepBarActive: { backgroundColor: '#8B2A8B', },
-    stepSubtitle: { fontSize: 12, fontWeight: '700', color: '#8B2A8B', letterSpacing: 0.8, marginBottom: 6, },
-    stepTitle: { fontSize: 26, fontWeight: '800', color: '#111827', letterSpacing: -0.5,},
-    stepDescription: {fontSize: 15, color: '#6B7280', marginTop: 4, marginBottom: 24,},
-    readingsCard: { backgroundColor: '#FFF', borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 14, },
-    readingRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#EDEDF0',},
+    stepBar: { flex: 1, height: 4, backgroundColor: t.stepOff, borderRadius: 2, marginRight: 8, },
+    stepBarActive: { backgroundColor: t.accent, },
+    stepSubtitle: { fontSize: 12, fontWeight: '700', color: t.accent, letterSpacing: 0.8, marginBottom: 6, },
+    stepTitle: { fontSize: 26, fontWeight: '800', color: t.text, letterSpacing: -0.5,},
+    stepDescription: {fontSize: 15, color: t.sub, marginTop: 4, marginBottom: 24,},
+    readingsCard: { backgroundColor: t.surface, borderRadius: 16, borderWidth: 1, borderColor: t.border, paddingHorizontal: 14, },
+    readingRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: t.divider,},
     readingRowLast: { borderBottomWidth: 0,},
-    probeChip: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#F5E6F5', alignItems: 'center', justifyContent: 'center', marginRight: 12,},
-    probeChipText: {fontSize: 11, fontWeight: '800', color: '#8B2A8B',},
+    probeChip: { width: 32, height: 32, borderRadius: 8, backgroundColor: t.chip, alignItems: 'center', justifyContent: 'center', marginRight: 12,},
+    probeChipText: {fontSize: 11, fontWeight: '800', color: t.accent,},
     readingInfo: { flex: 1, marginRight: 10,},
-    readingLabel: { fontSize: 14.5, fontWeight: '600', color: '#111827',},
-    readingSub: { fontSize: 12, color: '#9CA3AF', marginTop: 4,},
+    readingLabel: { fontSize: 14.5, fontWeight: '600', color: t.text,},
+    readingSub: { fontSize: 12, color: t.muted, marginTop: 4,},
     readingValueWrap: { flexDirection: 'row', alignItems: 'flex-start', },
-    readingValue: { fontSize: 22, fontWeight: '600', color: '#111827',},
-    readingUnit: { fontSize: 11, color: '#6B7280',  marginTop: 4,  marginLeft: 1,},
+    readingValue: { fontSize: 22, fontWeight: '600', color: t.text,},
+    readingUnit: { fontSize: 11, color: t.sub,  marginTop: 4,  marginLeft: 1,},
     summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14,},
-    validBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#DCFCE7', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, gap: 4,},
-    validBadgeWarn: { backgroundColor: '#FEF3C7',},
-    validBadgeText: { fontSize: 12, fontWeight: '600', color: '#15803D',},
-    validBadgeTextWarn: { color: '#B45309',},
+    validBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: t.okBg, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, gap: 4,},
+    validBadgeWarn: { backgroundColor: t.warnBg,},
+    validBadgeText: { fontSize: 12, fontWeight: '600', color: t.okText,},
+    validBadgeTextWarn: { color: t.warnText,},
     receivedWrap: { flexDirection: 'row', alignItems: 'center', gap: 5,},
-    receivedText: { fontSize: 12, color: '#9CA3AF', },
-    hintCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#F3EFF6', borderRadius: 12, padding: 14, marginTop: 18,},
+    receivedText: { fontSize: 12, color: t.muted, },
+    hintCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: t.hint, borderRadius: 12, padding: 14, marginTop: 18,},
     hintIcon: {  marginRight: 10,  marginTop: 1, },
-    hintText: {flex: 1, fontSize: 12.5, lineHeight: 18, color: '#6B7280',},
-    bottomFooterSheet: { backgroundColor: '#FFF', paddingHorizontal: 20, paddingTop: 16, paddingBottom: Math.max(insets.bottom, 16), borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderTopColor: '#F0F0F5', },
-    primaryActionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#8B2A8B', borderRadius: 14, paddingVertical: 16, gap: 8,},
-    primaryActionButtonText: { color: '#FFF', fontSize: 16, fontWeight: '700',},
+    hintText: {flex: 1, fontSize: 12.5, lineHeight: 18, color: t.sub,},
+    bottomFooterSheet: { backgroundColor: t.surface, paddingHorizontal: 20, paddingTop: 16, paddingBottom: Math.max(insets.bottom, 16), borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderTopColor: t.footerBorder, },
+    primaryActionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: t.accent, borderRadius: 14, paddingVertical: 16, gap: 8,},
+    primaryActionButtonText: { color: t.onAccent, fontSize: 16, fontWeight: '700',},
     brandFooterRow: { alignItems: 'center', marginTop: 14, },
-    brandFooterText: { fontSize: 12, color: '#6E6577',},
-    brandFooterBold: { fontWeight: '800', color: '#7B2B75', letterSpacing: 1.2, },
+    brandFooterText: { fontSize: 12, color: t.brandText,},
+    brandFooterBold: { fontWeight: '800', color: t.brandBold, letterSpacing: 1.2, },
   });

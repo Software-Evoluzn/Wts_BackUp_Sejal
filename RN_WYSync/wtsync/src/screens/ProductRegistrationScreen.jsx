@@ -13,6 +13,7 @@ import {
   StyleSheet,
   Modal,
   Image,
+  useColorScheme,
 } from 'react-native';
 
 import { Camera } from 'react-native-camera-kit';
@@ -20,9 +21,65 @@ import Feather from 'react-native-vector-icons/Feather';
 
 import { registerProduct } from '../services/ProductApi';
 import { getUserDetails } from '../services/AuthService';
-import { useAppTheme } from '../services/theme';
 import PowerSupplyAlert from '../components/PowerSupplyAlert';
 import { updateDraft, resetDraft } from '../services/installationDraft';
+
+/* ---------- Theme palettes (light = original colours, dark = new) ---------- */
+const LIGHT = {
+  bg: '#F7F7FA',
+  surface: '#FFF',
+  border: '#E5E7EB',
+  divider: '#EDEDF0',
+  footerBorder: '#F0F0F5',
+  title: '#1C1C1E',
+  text: '#111827',
+  label: '#374151',
+  sub: '#6B7280',
+  muted: '#9CA3AF',
+  placeholder: '#A1A1AA',
+  accent: '#8B2A8B',
+  onAccent: '#FFF',
+  hint: '#F0F0F3',
+  banner: '#F8F4FA',
+  field: '#F9FAFB',
+  stepOff: '#E5E5EA',
+  checkboxBorder: '#9CA3AF',
+  numBorder: '#D1D5DB',
+  warnBg: '#FBF1DC',
+  warnText: '#8A5A12',
+  okBg: '#DCFCE7',
+  okText: '#15803D',
+  brandText: '#6E6577',
+  brandBold: '#7B2B75',
+};
+
+const DARK = {
+  bg: '#17141A',
+  surface: '#25212A',
+  border: '#3A3540',
+  divider: '#332F38',
+  footerBorder: '#2E2A33',
+  title: '#FFFFFF',
+  text: '#F4F4F5',
+  label: '#D4D4D8',
+  sub: '#A1A1AA',
+  muted: '#8B8794',
+  placeholder: '#71717A',
+  accent: '#E5A0DC',
+  onAccent: '#2A1230',
+  hint: '#2A262E',
+  banner: '#2A2430',
+  field: '#2A262E',
+  stepOff: '#3A3540',
+  checkboxBorder: '#71717A',
+  numBorder: '#4B4651',
+  warnBg: '#3A2F20',
+  warnText: '#E9B866',
+  okBg: '#143A24',
+  okText: '#4ADE80',
+  brandText: '#A1A1AA',
+  brandBold: '#E5A0DC',
+};
 
 const DEVICE_LIST = [
   'IntelliTemp 4P',
@@ -132,9 +189,11 @@ const CounterInput = ({ value, onChange, placeholder, styles, colors }) => {
 };
 
 const ProductRegistrationScreen = ({ navigation, route }) => {
-  const { colors } = useAppTheme();
+  // Follows the phone's dark / light setting
+  const scheme = useColorScheme();
+  const t = scheme === 'dark' ? DARK : LIGHT;
   const insets = useSafeAreaInsets();
-  const styles = createStyles(colors, insets);
+  const styles = createStyles(t, insets);
 
   const [mode, setMode] = useState('scan');
   const [product, setProduct] = useState(null);
@@ -555,7 +614,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
               }
               navigation.canGoBack() && navigation.goBack();
             }}>
-            <Feather name="arrow-left" size={22} color="#333" />
+            <Feather name="arrow-left" size={22} color={t.text} />
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>
@@ -614,7 +673,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
           <View>
             <View style={styles.warningBanner}>
               <View style={styles.warningIcon}>
-                <Feather name="shield" size={18} color="#8A5A12" />
+                <Feather name="shield" size={18} color={t.warnText} />
                 <Text style={styles.warningIconMark}>!</Text>
               </View>
               <Text style={styles.warningText}>
@@ -647,7 +706,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
               activeOpacity={0.7}
               onPress={() => setSafetyConfirmed((prev) => !prev)}>
               <View style={[styles.checkbox, safetyConfirmed && styles.checkboxChecked]}>
-                {safetyConfirmed && <Feather name="check" size={14} color="#FFF" />}
+                {safetyConfirmed && <Feather name="check" size={14} color={t.onAccent} />}
               </View>
               <Text style={styles.checkboxText}>
                 I confirm installation is complete and it is safe to commission the device.
@@ -665,7 +724,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
                   <Text style={styles.confirmSeries}>{confirmSeries.toUpperCase()}</Text>
                   {!!confirmModel && <Text style={styles.confirmModel}>{confirmModel}</Text>}
                 </View>
-                <Feather name="thermometer" size={34} color="#8B2A8B" />
+                <Feather name="thermometer" size={34} color={t.accent} />
               </View>
 
               {!!confirmInputsValue && (
@@ -688,7 +747,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
               <View style={[styles.confirmRow, styles.confirmRowLast]}>
                 <Text style={styles.label}>Registration check</Text>
                 <View style={styles.availableBadge}>
-                  <Feather name="check" size={11} color="#15803D" />
+                  <Feather name="check" size={11} color={t.okText} />
                   <Text style={styles.availableBadgeText}>Available</Text>
                 </View>
               </View>
@@ -696,7 +755,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
 
             {confirmProbeCount > 0 && (
               <View style={styles.hintCard}>
-                <Feather name="grid" size={16} color="#8B2A8B" style={styles.hintIcon} />
+                <Feather name="grid" size={16} color={t.accent} style={styles.hintIcon} />
                 <Text style={styles.hintText}>
                   {confirmProbeCount === 4
                     ? 'The four temperature inputs will stay visible throughout setup and monitoring.'
@@ -709,7 +768,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
               style={styles.notDeviceRow}
               activeOpacity={0.7}
               onPress={onScanAgain}>
-              <Feather name="maximize" size={14} color="#8B2A8B" />
+              <Feather name="maximize" size={14} color={t.accent} />
               <Text style={styles.notDeviceText}>Not this device? Scan again</Text>
             </TouchableOpacity>
           </View>
@@ -727,7 +786,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
                 <Text style={styles.dropdownTriggerText}>
                   {manualForm['Device Name'] || 'Select Product Model'}
                 </Text>
-                <Feather name="chevron-down" size={20} color="#111827" />
+                <Feather name="chevron-down" size={20} color={t.text} />
               </TouchableOpacity>
             </View>
 
@@ -736,7 +795,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
               <TextInput
                 style={styles.input}
                 placeholder="DEMO-4P-001"
-                placeholderTextColor="#A1A1AA"
+                placeholderTextColor={t.placeholder}
                 autoCapitalize="characters"
                 value={manualForm['Serial No']}
                 onChangeText={(text) => updateManualField('Serial No', text)}
@@ -746,7 +805,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
             {/* Confirmation Banner */}
             <View style={styles.infoBannerCard}>
               <View style={styles.checkIconWrapper}>
-                <Feather name="check" size={14} color="#8B2A8B" />
+                <Feather name="check" size={14} color={t.accent} />
               </View>
               <Text style={styles.infoBannerText}>
                 The registered device profile will confirm the model and supported channels.
@@ -758,7 +817,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
               style={styles.scanInsteadButton}
               activeOpacity={0.7}
               onPress={() => switchMode('scan')}>
-              <Feather name="maximize" size={18} color="#8B2A8B" style={{ marginRight: 8 }} />
+              <Feather name="maximize" size={18} color={t.accent} style={{ marginRight: 8 }} />
               <Text style={styles.scanInsteadText}>Scan QR instead</Text>
             </TouchableOpacity>
           </View>
@@ -813,7 +872,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
             {/* Camera status row */}
             <View style={styles.cameraStatusRow}>
               <View style={styles.cameraStatusLeft}>
-                <Feather name="camera" size={12} color="#9CA3AF" />
+                <Feather name="camera" size={12} color={t.muted} />
                 <Text style={styles.cameraStatusText}>Camera permission required</Text>
               </View>
               <TouchableOpacity activeOpacity={0.7} onPress={onSampleLabelPress}>
@@ -823,7 +882,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
 
             {/* Hint card */}
             <View style={styles.hintCard}>
-              <Feather name="maximize" size={16} color="#8B2A8B" style={styles.hintIcon} />
+              <Feather name="maximize" size={16} color={t.accent} style={styles.hintIcon} />
               <Text style={styles.hintText}>
                 Use the label on your IntelliTemp device, not a carton or another installed unit.
               </Text>
@@ -850,7 +909,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
                 setScannedData(null);
                 setDeviceSetupComplete(false);
               }}>
-              <Feather name="edit-3" size={14} color="#8B2A8B" />
+              <Feather name="edit-3" size={14} color={t.accent} />
               <Text style={styles.editLink}>Edit Details</Text>
             </TouchableOpacity>
 
@@ -867,7 +926,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
                 activeOpacity={0.85}
                 onPress={onContinueToConfig}>
                 <Text style={styles.primaryActionButtonText}>Continue to Device Setup</Text>
-                <Feather name="arrow-right" size={16} color="#fff" />
+                <Feather name="arrow-right" size={16} color={t.onAccent} />
               </TouchableOpacity>
             )}
           </View>
@@ -882,7 +941,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
               <TextInput
                 style={[styles.input, { marginBottom: 16 }]}
                 placeholder="e.g. Server Room 1, Floor 2"
-                placeholderTextColor={colors.subText}
+                placeholderTextColor={t.placeholder}
                 value={location}
                 onChangeText={setLocation}
               />
@@ -892,7 +951,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
                 style={styles.dateButton}
                 activeOpacity={0.85}
                 onPress={() => setShowDatePicker(true)}>
-                <Feather name="calendar" size={16} color={colors.subText} />
+                <Feather name="calendar" size={16} color={t.sub} />
                 <Text style={styles.dateText}>{purchaseDate.toLocaleDateString()}</Text>
               </TouchableOpacity>
 
@@ -901,6 +960,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
                   value={purchaseDate}
                   mode="date"
                   display="default"
+                  themeVariant={scheme === 'dark' ? 'dark' : 'light'}
                   onChange={onDateChange}
                 />
               )}
@@ -911,7 +971,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
               activeOpacity={0.85}
               onPress={onRegister}>
               <Text style={styles.primaryActionButtonText}>Register Product</Text>
-              <Feather name="arrow-right" size={16} color="#fff" />
+              <Feather name="arrow-right" size={16} color={t.onAccent} />
             </TouchableOpacity>
           </>
         )}
@@ -925,7 +985,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
             activeOpacity={0.85}
             onPress={onUseScannedDevice}>
             <Text style={styles.primaryActionButtonText}>Use scanned device</Text>
-            <Feather name="arrow-right" size={18} color="#FFF" />
+            <Feather name="arrow-right" size={18} color={t.onAccent} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -954,7 +1014,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
             <Text style={styles.primaryActionButtonText}>
               Find {confirmSeries || 'device'}
             </Text>
-            <Feather name="arrow-right" size={18} color="#FFF" />
+            <Feather name="arrow-right" size={18} color={t.onAccent} />
           </TouchableOpacity>
 
           <View style={styles.brandFooterRow}>
@@ -973,7 +1033,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
             activeOpacity={0.85}
             onPress={onSetupDevice}>
             <Text style={styles.primaryActionButtonText}>Set up device</Text>
-            <Feather name="arrow-right" size={18} color="#FFF" />
+            <Feather name="arrow-right" size={18} color={t.onAccent} />
           </TouchableOpacity>
 
           <View style={styles.brandFooterRow}>
@@ -992,7 +1052,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
             activeOpacity={0.85}
             onPress={onManualSubmit}>
             <Text style={styles.primaryActionButtonText}>Verify device</Text>
-            <Feather name="arrow-right" size={18} color="#FFF" />
+            <Feather name="arrow-right" size={18} color={t.onAccent} />
           </TouchableOpacity>
 
           <View style={styles.brandFooterRow}>
@@ -1019,7 +1079,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
                   onPress={() => handleDeviceSelect(dev)}>
                   <Text style={styles.deviceOptionText}>{dev}</Text>
                   {manualForm['Device Name'] === dev && (
-                    <Feather name="check" size={16} color="#8B2A8B" />
+                    <Feather name="check" size={16} color={t.accent} />
                   )}
                 </TouchableOpacity>
               ))}
@@ -1050,11 +1110,11 @@ const Row = ({ label, value, last, styles }) => {
 
 export default ProductRegistrationScreen;
 
-const createStyles = (colors, insets) =>
+const createStyles = (t, insets) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: '#F7F7FA',
+      backgroundColor: t.bg,
     },
     header: {
       flexDirection: 'row',
@@ -1063,9 +1123,9 @@ const createStyles = (colors, insets) =>
       paddingHorizontal: 20,
       paddingTop: Math.max(insets.top, 12),
       paddingBottom: 14,
-      backgroundColor: '#FFF',
+      backgroundColor: t.bg,
       borderBottomWidth: 1,
-      borderBottomColor: '#F0F0F5',
+      borderBottomColor: t.footerBorder,
     },
     headerLeft: {
       flex: 1,
@@ -1079,12 +1139,12 @@ const createStyles = (colors, insets) =>
     headerTitle: {
       fontSize: 18,
       fontWeight: '700',
-      color: '#1C1C1E',
+      color: t.title,
     },
     headerSubtitleText: {
       fontSize: 14,
       fontWeight: '600',
-      color: '#8E8E93',
+      color: t.muted,
     },
     brandLogo: {
       width: 90,
@@ -1103,29 +1163,29 @@ const createStyles = (colors, insets) =>
     stepBar: {
       flex: 1,
       height: 4,
-      backgroundColor: '#E5E5EA',
+      backgroundColor: t.stepOff,
       borderRadius: 2,
       marginRight: 8,
     },
     stepBarActive: {
-      backgroundColor: '#8B2A8B',
+      backgroundColor: t.accent,
     },
     stepSubtitle: {
       fontSize: 12,
       fontWeight: '700',
-      color: '#8B2A8B',
+      color: t.accent,
       letterSpacing: 0.8,
       marginBottom: 6,
     },
     stepTitle: {
       fontSize: 26,
       fontWeight: '800',
-      color: '#111827',
+      color: t.text,
       letterSpacing: -0.5,
     },
     stepDescription: {
       fontSize: 15,
-      color: '#6B7280',
+      color: t.sub,
       marginTop: 4,
       marginBottom: 24,
     },
@@ -1138,39 +1198,39 @@ const createStyles = (colors, insets) =>
     inputLabel: {
       fontSize: 14,
       fontWeight: '600',
-      color: '#374151',
+      color: t.label,
       marginBottom: 8,
     },
     input: {
-      backgroundColor: '#FFF',
+      backgroundColor: t.surface,
       borderWidth: 1,
-      borderColor: '#E5E7EB',
+      borderColor: t.border,
       borderRadius: 12,
       paddingHorizontal: 16,
       paddingVertical: 14,
       fontSize: 15,
-      color: '#111827',
+      color: t.text,
     },
     dropdownTrigger: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      backgroundColor: '#FFF',
+      backgroundColor: t.surface,
       borderWidth: 1,
-      borderColor: '#E5E7EB',
+      borderColor: t.border,
       borderRadius: 12,
       paddingHorizontal: 16,
       paddingVertical: 14,
     },
     dropdownTriggerText: {
       fontSize: 15,
-      color: '#111827',
+      color: t.text,
       fontWeight: '500',
     },
     infoBannerCard: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      backgroundColor: '#F8F4FA',
+      backgroundColor: t.banner,
       padding: 16,
       borderRadius: 14,
       marginTop: 6,
@@ -1181,7 +1241,7 @@ const createStyles = (colors, insets) =>
       height: 22,
       borderRadius: 11,
       borderWidth: 1.5,
-      borderColor: '#8B2A8B',
+      borderColor: t.accent,
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: 12,
@@ -1190,7 +1250,7 @@ const createStyles = (colors, insets) =>
     infoBannerText: {
       flex: 1,
       fontSize: 13,
-      color: '#6B7280',
+      color: t.sub,
       lineHeight: 18,
     },
     scanInsteadButton: {
@@ -1201,7 +1261,7 @@ const createStyles = (colors, insets) =>
     scanInsteadText: {
       fontSize: 15,
       fontWeight: '700',
-      color: '#8B2A8B',
+      color: t.accent,
     },
 
     /* ---------- QR scan section ---------- */
@@ -1265,17 +1325,17 @@ const createStyles = (colors, insets) =>
     },
     cameraStatusText: {
       fontSize: 12,
-      color: '#9CA3AF',
+      color: t.muted,
     },
     sampleLabelText: {
       fontSize: 12,
       fontWeight: '700',
-      color: '#6B7280',
+      color: t.sub,
     },
     hintCard: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      backgroundColor: '#F0F0F3',
+      backgroundColor: t.hint,
       borderRadius: 12,
       padding: 14,
       marginTop: 16,
@@ -1288,14 +1348,14 @@ const createStyles = (colors, insets) =>
       flex: 1,
       fontSize: 12.5,
       lineHeight: 18,
-      color: '#6B7280',
+      color: t.sub,
     },
 
     /* ---------- Prepare the device safely ---------- */
     warningBanner: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      backgroundColor: '#FBF1DC',
+      backgroundColor: t.warnBg,
       borderRadius: 12,
       padding: 14,
       marginBottom: 16,
@@ -1317,20 +1377,20 @@ const createStyles = (colors, insets) =>
       fontSize: 9,
       lineHeight: 11,
       fontWeight: '900',
-      color: '#8A5A12',
+      color: t.warnText,
       includeFontPadding: false,
     },
     warningText: {
       flex: 1,
       fontSize: 12.5,
       lineHeight: 18,
-      color: '#8A5A12',
+      color: t.warnText,
     },
     safetyCard: {
-      backgroundColor: '#FFF',
+      backgroundColor: t.surface,
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: '#E5E7EB',
+      borderColor: t.border,
       paddingHorizontal: 16,
     },
     safetyRow: {
@@ -1338,7 +1398,7 @@ const createStyles = (colors, insets) =>
       alignItems: 'flex-start',
       paddingVertical: 14,
       borderBottomWidth: 1,
-      borderBottomColor: '#EDEDF0',
+      borderBottomColor: t.divider,
     },
     safetyRowLast: {
       borderBottomWidth: 0,
@@ -1348,7 +1408,7 @@ const createStyles = (colors, insets) =>
       height: 24,
       borderRadius: 12,
       borderWidth: 1,
-      borderColor: '#D1D5DB',
+      borderColor: t.numBorder,
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: 12,
@@ -1356,7 +1416,7 @@ const createStyles = (colors, insets) =>
     },
     safetyNumberText: {
       fontSize: 11,
-      color: '#9CA3AF',
+      color: t.muted,
       fontWeight: '600',
     },
     safetyTextWrap: {
@@ -1365,12 +1425,12 @@ const createStyles = (colors, insets) =>
     safetyTitle: {
       fontSize: 14,
       fontWeight: '600',
-      color: '#111827',
+      color: t.text,
     },
     safetyDesc: {
       fontSize: 12.5,
       lineHeight: 18,
-      color: '#6B7280',
+      color: t.sub,
       marginTop: 3,
     },
     checkboxRow: {
@@ -1383,30 +1443,30 @@ const createStyles = (colors, insets) =>
       height: 20,
       borderRadius: 4,
       borderWidth: 1.5,
-      borderColor: '#9CA3AF',
-      backgroundColor: '#FFF',
+      borderColor: t.checkboxBorder,
+      backgroundColor: t.surface,
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: 12,
       marginTop: 1,
     },
     checkboxChecked: {
-      backgroundColor: '#8B2A8B',
-      borderColor: '#8B2A8B',
+      backgroundColor: t.accent,
+      borderColor: t.accent,
     },
     checkboxText: {
       flex: 1,
       fontSize: 13,
       lineHeight: 19,
-      color: '#4B5563',
+      color: t.label,
     },
 
     /* ---------- Confirm device screen ---------- */
     confirmCard: {
-      backgroundColor: '#FFF',
+      backgroundColor: t.surface,
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: '#E5E7EB',
+      borderColor: t.border,
       paddingHorizontal: 16,
       paddingTop: 16,
       paddingBottom: 4,
@@ -1419,13 +1479,13 @@ const createStyles = (colors, insets) =>
     },
     confirmSeries: {
       fontSize: 12,
-      color: '#6B7280',
+      color: t.sub,
       letterSpacing: 0.6,
     },
     confirmModel: {
       fontSize: 28,
       fontWeight: '800',
-      color: '#111827',
+      color: t.text,
       marginTop: 2,
     },
     confirmRow: {
@@ -1434,7 +1494,7 @@ const createStyles = (colors, insets) =>
       alignItems: 'center',
       paddingVertical: 14,
       borderTopWidth: 1,
-      borderTopColor: '#EDEDF0',
+      borderTopColor: t.divider,
     },
     confirmRowLast: {
       // keeps last row spacing balanced inside the card
@@ -1442,7 +1502,7 @@ const createStyles = (colors, insets) =>
     availableBadge: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: '#DCFCE7',
+      backgroundColor: t.okBg,
       borderRadius: 6,
       paddingHorizontal: 8,
       paddingVertical: 4,
@@ -1451,7 +1511,7 @@ const createStyles = (colors, insets) =>
     availableBadgeText: {
       fontSize: 12,
       fontWeight: '600',
-      color: '#15803D',
+      color: t.okText,
     },
     notDeviceRow: {
       flexDirection: 'row',
@@ -1462,11 +1522,11 @@ const createStyles = (colors, insets) =>
     notDeviceText: {
       fontSize: 13,
       fontWeight: '700',
-      color: '#8B2A8B',
+      color: t.accent,
     },
 
     card: {
-      backgroundColor: '#FFF',
+      backgroundColor: t.surface,
       borderRadius: 16,
       padding: 16,
       marginBottom: 16,
@@ -1479,7 +1539,7 @@ const createStyles = (colors, insets) =>
     cardTitle: {
       fontSize: 16,
       fontWeight: '700',
-      color: '#111827',
+      color: t.text,
       marginBottom: 14,
     },
     cardTitleRow: {
@@ -1492,13 +1552,13 @@ const createStyles = (colors, insets) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#8B2A8B',
+      backgroundColor: t.accent,
       borderRadius: 14,
       paddingVertical: 16,
       gap: 8,
     },
     primaryActionButtonText: {
-      color: '#FFF',
+      color: t.onAccent,
       fontSize: 16,
       fontWeight: '700',
     },
@@ -1508,15 +1568,15 @@ const createStyles = (colors, insets) =>
     secondaryActionButton: {
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#FFF',
+      backgroundColor: t.surface,
       borderWidth: 1,
-      borderColor: '#E5E7EB',
+      borderColor: t.border,
       borderRadius: 14,
       paddingVertical: 14,
       marginTop: 10,
     },
     secondaryActionButtonText: {
-      color: '#8B2A8B',
+      color: t.accent,
       fontSize: 15,
       fontWeight: '700',
     },
@@ -1525,16 +1585,16 @@ const createStyles = (colors, insets) =>
       justifyContent: 'space-between',
       paddingVertical: 10,
       borderBottomWidth: 1,
-      borderBottomColor: '#F3F4F6',
+      borderBottomColor: t.divider,
     },
     label: {
       fontSize: 13,
-      color: '#6B7280',
+      color: t.sub,
     },
     value: {
       fontSize: 13,
       fontWeight: '600',
-      color: '#111827',
+      color: t.text,
     },
     editLinkRow: {
       flexDirection: 'row',
@@ -1546,13 +1606,13 @@ const createStyles = (colors, insets) =>
     editLink: {
       fontSize: 13,
       fontWeight: '600',
-      color: '#8B2A8B',
+      color: t.accent,
     },
     setupCompleteBadge: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#DCFCE7',
+      backgroundColor: t.okBg,
       borderRadius: 10,
       paddingVertical: 10,
       marginTop: 14,
@@ -1569,14 +1629,14 @@ const createStyles = (colors, insets) =>
     setupCompleteText: {
       fontSize: 13,
       fontWeight: '700',
-      color: '#15803D',
+      color: t.okText,
     },
     dateButton: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: '#F9FAFB',
+      backgroundColor: t.field,
       borderWidth: 1,
-      borderColor: '#E5E7EB',
+      borderColor: t.border,
       borderRadius: 10,
       paddingHorizontal: 12,
       paddingVertical: 12,
@@ -1584,38 +1644,38 @@ const createStyles = (colors, insets) =>
     },
     dateText: {
       fontSize: 14,
-      color: '#111827',
+      color: t.text,
     },
     counterContainer: {
       flexDirection: 'row',
       alignItems: 'center',
       borderWidth: 1,
-      borderColor: '#E5E7EB',
+      borderColor: t.border,
       borderRadius: 10,
       overflow: 'hidden',
     },
     counterBtn: {
       paddingHorizontal: 14,
       paddingVertical: 10,
-      backgroundColor: '#F3F4F6',
+      backgroundColor: t.field,
     },
     counterInput: {
       flex: 1,
       textAlign: 'center',
       fontSize: 15,
       fontWeight: '600',
-      color: '#111827',
+      color: t.text,
       paddingVertical: 8,
     },
     bottomFooterSheet: {
-      backgroundColor: '#FFF',
+      backgroundColor: t.surface,
       paddingHorizontal: 20,
       paddingTop: 16,
       paddingBottom: Math.max(insets.bottom, 16),
       borderTopLeftRadius: 24,
       borderTopRightRadius: 24,
       borderTopWidth: 1,
-      borderTopColor: '#F0F0F5',
+      borderTopColor: t.footerBorder,
     },
     brandFooterRow: {
       alignItems: 'center',
@@ -1623,11 +1683,11 @@ const createStyles = (colors, insets) =>
     },
     brandFooterText: {
       fontSize: 12,
-      color: '#6E6577',
+      color: t.brandText,
     },
     brandFooterBold: {
       fontWeight: '800',
-      color: '#7B2B75',
+      color: t.brandBold,
       letterSpacing: 1.2,
     },
     modalOverlay: {
@@ -1637,14 +1697,14 @@ const createStyles = (colors, insets) =>
       paddingHorizontal: 24,
     },
     modalCard: {
-      backgroundColor: '#FFF',
+      backgroundColor: t.surface,
       borderRadius: 16,
       padding: 20,
     },
     modalTitle: {
       fontSize: 16,
       fontWeight: '700',
-      color: '#111827',
+      color: t.text,
       marginBottom: 12,
     },
     deviceOption: {
@@ -1653,10 +1713,10 @@ const createStyles = (colors, insets) =>
       alignItems: 'center',
       paddingVertical: 12,
       borderBottomWidth: 1,
-      borderBottomColor: '#F3F4F6',
+      borderBottomColor: t.divider,
     },
     deviceOptionText: {
       fontSize: 14,
-      color: '#111827',
+      color: t.text,
     },
   });
