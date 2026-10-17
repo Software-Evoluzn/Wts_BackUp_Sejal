@@ -36,6 +36,7 @@ export async function fetchPhaseLabels(serialNo) {
 /**
  * POST /api/phase-labels
  * Renames a single phase for one device.
+ * 
  */
 export async function updatePhaseLabel(serialNo, phaseCode, customLabel) {
   const res = await fetch(`${BACKEND_URL}/api/phase-labels`, {

@@ -1,4 +1,4 @@
-import React, { useState, useLayoutEffect, useMemo } from 'react';
+import React, { useState, useLayoutEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,9 +13,10 @@ import {
   useColorScheme,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import Feather from 'react-native-vector-icons/Feather';
 
-// NOTE: keep your existing BRANCH_SPLIT_ICON constant here if you un-comment the banner below.
+import { getDraft, updateDraft } from '../services/installationDraft';
 
 const TOTAL_STEPS = 6;
 const CURRENT_STEP = 4;
@@ -82,16 +83,65 @@ const toNumber = (value) => {
   return Number(String(value).trim());
 };
 
+// Temperature Input Component defined OUTSIDE the parent component
+const TemperatureInput = ({ value, onChangeText, style, styles, colors, scheme }) => {
+  const handleIncrement = () => {
+    const num = toNumber(value);
+    onChangeText(String(Number.isNaN(num) ? 1 : num + 1));
+  };
+
+  const handleDecrement = () => {
+    const num = toNumber(value);
+    onChangeText(String(Number.isNaN(num) ? -1 : num - 1));
+  };
+
+  return (
+    <View style={[styles.limitInputWrap, style]}>
+      <TextInput
+        style={styles.limitInput}
+        value={value}
+        onChangeText={onChangeText}
+        keyboardType="numbers-and-punctuation"
+        placeholder="0"
+        placeholderTextColor={colors.placeholder}
+        keyboardAppearance={scheme === 'dark' ? 'dark' : 'light'}
+      />
+      <View style={styles.stepperContainer}>
+        <TouchableOpacity style={styles.stepperButton} onPress={handleIncrement} activeOpacity={0.6}>
+          <Feather name="chevron-up" size={14} color={colors.stepper} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.stepperButton} onPress={handleDecrement} activeOpacity={0.6}>
+          <Feather name="chevron-down" size={14} color={colors.stepper} />
+        </TouchableOpacity>
+      </View>
+      <Text style={styles.unitText}>°C</Text>
+    </View>
+  );
+};
+
 const Individualoverride = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const scheme = useColorScheme(); // follows phone setting
   const colors = scheme === 'dark' ? DARK : LIGHT;
   const styles = useMemo(() => createStyles(insets, colors), [insets, colors]);
 
-  const groupHighLimit = route?.params?.highLimit || '65';
+  const groupHighLimit = route?.params?.highLimit || getDraft().alertForm?.highLimit || '65';
   const [selectedProbeIndex, setSelectedProbeIndex] = useState(3); // Default T4 (index 3)
 
-  const [individualHigh, setIndividualHigh] = useState(PROBES.map(() => '60'));
+  // Load existing overrides from installationDraft, falling back to '60'
+  const loadSavedOverrides = () => {
+    const savedOverrides = getDraft().overrides || {};
+    return PROBES.map((probe) => String(savedOverrides[probe.id] ?? '60'));
+  };
+
+  const [individualHigh, setIndividualHigh] = useState(loadSavedOverrides);
+
+  // Sync with draft state whenever the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      setIndividualHigh(loadSavedOverrides());
+    }, [])
+  );
 
   const resetMargin = '3.0';
 
@@ -116,52 +166,22 @@ const Individualoverride = ({ navigation, route }) => {
     setIndividualHigh((prev) => prev.map((item, i) => (i === index ? value : item)));
   };
 
-  const handleRemoveOverride = () => {
-    updateIndividualHigh(selectedProbeIndex, groupHighLimit);
-    Alert.alert(
-      'Override Removed',
-      `${PROBES[selectedProbeIndex].id} will now use the group limit (${groupHighLimit}°C).`
-    );
-  };
-
-  // Temperature Input Component with Stepper Arrows
-  const TemperatureInput = ({ value, onChangeText, style }) => {
-    const handleIncrement = () => {
-      const num = toNumber(value);
-      onChangeText(String(Number.isNaN(num) ? 1 : num + 1));
-    };
-
-    const handleDecrement = () => {
-      const num = toNumber(value);
-      onChangeText(String(Number.isNaN(num) ? -1 : num - 1));
-    };
-
-    return (
-      <View style={[styles.limitInputWrap, style]}>
-        <TextInput
-          style={styles.limitInput}
-          value={value}
-          onChangeText={onChangeText}
-          keyboardType="numbers-and-punctuation"
-          placeholder="0"
-          placeholderTextColor={colors.placeholder}
-          keyboardAppearance={scheme === 'dark' ? 'dark' : 'light'}
-        />
-        <View style={styles.stepperContainer}>
-          <TouchableOpacity style={styles.stepperButton} onPress={handleIncrement} activeOpacity={0.6}>
-            <Feather name="chevron-up" size={14} color={colors.stepper} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.stepperButton} onPress={handleDecrement} activeOpacity={0.6}>
-            <Feather name="chevron-down" size={14} color={colors.stepper} />
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.unitText}>°C</Text>
-      </View>
-    );
-  };
-
   const currentProbe = PROBES[selectedProbeIndex];
   const currentIndividualValue = individualHigh[selectedProbeIndex];
+
+  const handleRemoveOverride = () => {
+    updateIndividualHigh(selectedProbeIndex, groupHighLimit);
+
+    // Remove override entry for this probe in the draft store
+    const existingOverrides = { ...(getDraft().overrides || {}) };
+    delete existingOverrides[currentProbe.id];
+    updateDraft({ overrides: existingOverrides });
+
+    Alert.alert(
+      'Override Removed',
+      `${currentProbe.id} will now use the group limit (${groupHighLimit}°C).`
+    );
+  };
 
   const onSaveOverride = () => {
     const badIndex = individualHigh.findIndex((v) => Number.isNaN(toNumber(v)));
@@ -170,6 +190,17 @@ const Individualoverride = ({ navigation, route }) => {
       return;
     }
 
+    // Persist all current overrides to the installation draft store
+    const updatedOverrides = { ...(getDraft().overrides || {}) };
+    PROBES.forEach((probe, idx) => {
+      const val = individualHigh[idx];
+      if (val !== undefined && val !== null && val !== '') {
+        updatedOverrides[probe.id] = toNumber(val);
+      }
+    });
+
+    updateDraft({ overrides: updatedOverrides });
+
     Alert.alert('Saved', `${currentProbe.id} override updated successfully.`, [
       {
         text: 'OK',
@@ -177,19 +208,6 @@ const Individualoverride = ({ navigation, route }) => {
       },
     ]);
   };
-
-  const remainingProbesText = useMemo(() => {
-    const otherProbes = PROBES.filter((_, idx) => idx !== selectedProbeIndex).map((p) => p.id);
-    if (otherProbes.length === 0) return '';
-    return `${otherProbes[0]}–${otherProbes[otherProbes.length - 1]}`;
-  }, [selectedProbeIndex]);
-
-  const clearThreshold = useMemo(() => {
-    const currentVal = toNumber(currentIndividualValue);
-    const margin = toNumber(resetMargin);
-    if (Number.isNaN(currentVal) || Number.isNaN(margin)) return '57.0';
-    return (currentVal - margin).toFixed(1);
-  }, [currentIndividualValue]);
 
   return (
     <KeyboardAvoidingView
@@ -300,38 +318,11 @@ const Individualoverride = ({ navigation, route }) => {
           <TemperatureInput
             value={currentIndividualValue}
             onChangeText={(val) => updateIndividualHigh(selectedProbeIndex, val)}
+            styles={styles}
+            colors={colors}
+            scheme={scheme}
           />
         </View>
-
-        {/* Sync Warning Banner */}
-        {/* <View style={styles.branchBanner}>
-          <Image
-            source={{ uri: BRANCH_SPLIT_ICON }}
-            style={styles.branchIcon}
-            resizeMode="contain"
-          />
-          <Text style={styles.branchText}>
-            Saving this override changes {currentProbe.id} only. {remainingProbesText} keep the
-            group rule.
-          </Text>
-        </View> */}
-
-        {/* Remove Override Button Link */}
-        {/* <TouchableOpacity
-          style={styles.removeOverrideButton}
-          activeOpacity={0.7}
-          onPress={handleRemoveOverride}>
-          <Text style={styles.removeOverrideText}>Remove override and use group rule</Text>
-        </TouchableOpacity> */}
-
-        {/* Info Card */}
-        {/* <View style={styles.infoCard}>
-          <Feather name="info" size={18} color={colors.accent} style={styles.infoIcon} />
-          <Text style={styles.infoText}>
-            {currentProbe.id} clears below {clearThreshold}°C: a {resetMargin}°C reset band.
-            Persistence and repeat follow the group rule.
-          </Text>
-        </View> */}
       </ScrollView>
 
       {/* Footer Sheet */}

@@ -133,8 +133,10 @@ const HomeScreen = ({ navigation }) => {
           // it has not reported yet.
           if (isConnected || isInstalled) {
             navigation.navigate('WtsDashboard', { product: item });
-          } else {
-            navigation.navigate('DeviceConfig', { product: item });
+          }
+           else {
+            AreaChart.alert("Device is Offline , Make it Online")
+            //navigation.navigate('DeviceConfig', { product: item });
           }
         }}>
         {/* Device Name + Status Badge */}

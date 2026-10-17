@@ -88,6 +88,43 @@ const toNumber = (value) => {
   return Number(String(value).trim());
 };
 
+// Temperature Input Component defined OUTSIDE the main component
+const TemperatureInput = ({ value, onChangeText, style, styles, t }) => {
+  const handleIncrement = () => {
+    const num = toNumber(value);
+    const nextVal = Number.isNaN(num) ? 1 : num + 1;
+    onChangeText(String(nextVal));
+  };
+
+  const handleDecrement = () => {
+    const num = toNumber(value);
+    const nextVal = Number.isNaN(num) ? -1 : num - 1;
+    onChangeText(String(nextVal));
+  };
+
+  return (
+    <View style={[styles.limitInputWrap, style]}>
+      <TextInput
+        style={styles.limitInput}
+        value={value}
+        onChangeText={onChangeText}
+        keyboardType="numbers-and-punctuation"
+        placeholder="0"
+        placeholderTextColor={t.placeholder}
+      />
+      <View style={styles.stepperContainer}>
+        <TouchableOpacity style={styles.stepperButton} onPress={handleIncrement} activeOpacity={0.6}>
+          <Feather name="chevron-up" size={14} color={t.stepper} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.stepperButton} onPress={handleDecrement} activeOpacity={0.6}>
+          <Feather name="chevron-down" size={14} color={t.stepper} />
+        </TouchableOpacity>
+      </View>
+      <Text style={styles.unitText}>°C</Text>
+    </View>
+  );
+};
+
 const Setclearalertlimits = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
 
@@ -134,43 +171,6 @@ const Setclearalertlimits = ({ navigation, route }) => {
       }
     };
   }, [navigation]);
-
-  // Temperature Input Component with Stepper Arrows
-  const TemperatureInput = ({ value, onChangeText, style }) => {
-    const handleIncrement = () => {
-      const num = toNumber(value);
-      const nextVal = Number.isNaN(num) ? 1 : num + 1;
-      onChangeText(String(nextVal));
-    };
-
-    const handleDecrement = () => {
-      const num = toNumber(value);
-      const nextVal = Number.isNaN(num) ? -1 : num - 1;
-      onChangeText(String(nextVal));
-    };
-
-    return (
-      <View style={[styles.limitInputWrap, style]}>
-        <TextInput
-          style={styles.limitInput}
-          value={value}
-          onChangeText={onChangeText}
-          keyboardType="numbers-and-punctuation"
-          placeholder="0"
-          placeholderTextColor={t.placeholder}
-        />
-        <View style={styles.stepperContainer}>
-          <TouchableOpacity style={styles.stepperButton} onPress={handleIncrement} activeOpacity={0.6}>
-            <Feather name="chevron-up" size={14} color={t.stepper} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.stepperButton} onPress={handleDecrement} activeOpacity={0.6}>
-            <Feather name="chevron-down" size={14} color={t.stepper} />
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.unitText}>°C</Text>
-      </View>
-    );
-  };
 
   const onContinue = () => {
     if (Number.isNaN(toNumber(highLimit))) {
@@ -281,7 +281,7 @@ const Setclearalertlimits = ({ navigation, route }) => {
           <Text style={styles.cardSubtitle}>Trigger when a valid reading is at or above:</Text>
 
           <Text style={styles.inputLabel}>High limit</Text>
-          <TemperatureInput value={highLimit} onChangeText={setHighLimit} />
+          <TemperatureInput value={highLimit} onChangeText={setHighLimit} styles={styles} t={t} />
 
           <View style={styles.chipRow}>
             {PROBES.map((probe) => (
@@ -315,7 +315,7 @@ const Setclearalertlimits = ({ navigation, route }) => {
           {lowEnabled && (
             <View style={{ marginTop: 8 }}>
               <Text style={styles.inputLabel}>Low limit</Text>
-              <TemperatureInput value={lowLimit} onChangeText={setLowLimit} />
+              <TemperatureInput value={lowLimit} onChangeText={setLowLimit} styles={styles} t={t} />
             </View>
           )}
         </View> */}
@@ -325,7 +325,7 @@ const Setclearalertlimits = ({ navigation, route }) => {
           style={styles.behaviourLink}
           activeOpacity={0.7}
           onPress={() => setShowBehaviour((prev) => !prev)}>
-           <Text style={styles.behaviourLinkText}>Persistence, reset &amp; repeat behaviour</Text> 
+            <Text style={styles.behaviourLinkText}>Persistence, reset &amp; repeat behaviour</Text> 
           <Feather
             name={showBehaviour ? 'chevron-down' : 'chevron-right'}
             size={16}
@@ -401,53 +401,53 @@ export default Setclearalertlimits;
 
 const createStyles = (t, insets) =>
   StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.bg,},
-    header: { flexDirection: 'row',alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: Math.max(insets.top, 12), paddingBottom: 14, backgroundColor: t.bg, borderBottomWidth: 1, borderBottomColor: t.footerBorder, },
-    headerLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', },
-    backButton: { paddingVertical: 4,  paddingRight: 14,},
-    headerTitle: {fontSize: 18, fontWeight: '700',  color: t.title,},
-    headerSubtitleText: { fontSize: 14, fontWeight: '600', color: t.titleSub,},
-    brandLogo: { width: 90,  height: 24, },
-    scrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24,},
-    stepProgressContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, },
-    stepBar: { flex: 1, height: 4, backgroundColor: t.stepOff, borderRadius: 2, marginRight: 8, },
-    stepBarActive: {  backgroundColor: t.accent, },
-    stepSubtitle: {  fontSize: 12,fontWeight: '700',color: t.accent, letterSpacing: 0.8, marginBottom: 6, },
-    stepTitle: { fontSize: 26, fontWeight: '800', color: t.text, letterSpacing: -0.5, },
-    stepDescription: { fontSize: 14.5, color: t.sub, marginTop: 6, marginBottom: 20, lineHeight: 20, },
-    segmented: { flexDirection: 'row', backgroundColor: t.segBg, borderRadius: 12, borderWidth: 1, borderColor: t.border, padding: 3, marginBottom: 16,  },
-    segmentTab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 9,},
-    segmentTabActive: { backgroundColor: t.segActive,shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1,},
-    segmentText: { fontSize: 13.5, fontWeight: '600', color: t.sub, },
-    segmentTextActive: { color: t.accent, },
-    card: { backgroundColor: t.surface, borderRadius: 16, borderWidth: 1, borderColor: t.border, padding: 16, marginBottom: 14,},
-    cardTopRow: { flexDirection: 'row', justifyContent: 'space-between',alignItems: 'center',marginBottom: 6, },
-    cardTitle: { fontSize: 14.5, fontWeight: '700', color: t.text,  },
-    cardSubtitle: {  fontSize: 12.5,color: t.muted,marginTop: 2,marginBottom: 12, },
-    enabledBadge: { backgroundColor: t.badge, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, },
-    enabledBadgeText: { fontSize: 12, fontWeight: '600', color: t.accent,},
-    lowTextWrap: { flex: 1, marginRight: 12,  },
-    inputLabel: { fontSize: 13, fontWeight: '600', color: t.label, marginBottom: 8,  },
-    limitInputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: 12, paddingHorizontal: 16, height: 52, },
-    limitInput: {flex: 1,fontSize: 15,color: t.text,padding: 0,},
-    stepperContainer: {justifyContent: 'center',alignItems: 'center', marginRight: 8, },
-    stepperButton: {  paddingVertical: 1,  paddingHorizontal: 4,},
-    unitText: { fontSize: 13, color: t.sub, },
-    chipRow: {flexDirection: 'row', gap: 8, marginTop: 14,  },
-    chip: { backgroundColor: t.chip, borderRadius: 6,paddingHorizontal: 11, paddingVertical: 6, alignItems: 'center', justifyContent: 'center', },
-    chipText: { fontSize: 11.5, fontWeight: '700', color: t.accent, },
-    appliesText: { fontSize: 12.5, color: t.sub, marginTop: 12, },
-    behaviourLink: {flexDirection: 'row',alignItems: 'center',  gap: 6, marginTop: 6, marginBottom: 14,  },
-    behaviourLinkText: { fontSize: 13, fontWeight: '700', color: t.accent, },
-    behaviourRow: {  flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, marginBottom: 14, borderBottomWidth: 1, borderBottomColor: t.divider, },
-    behaviourTextWrap: { flex: 1, marginRight: 12, },
-    behaviourTitle: { fontSize: 13.5, fontWeight: '600', color: t.text,},
-    behaviourHint: {fontSize: 12, color: t.muted, marginTop: 2, },
-    behaviourInput: { width: 64, height: 40, textAlign: 'center', fontSize: 14, color: t.text, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: 10, padding: 0,},
-    bottomFooterSheet: { backgroundColor: t.surface, paddingHorizontal: 20, paddingTop: 16, paddingBottom: Math.max(insets.bottom, 16), borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderTopColor: t.footerBorder,},
-    primaryActionButton: {flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: t.accent, borderRadius: 14,  paddingVertical: 16, gap: 8,},
-    primaryActionButtonText: { color: t.onAccent, fontSize: 16, fontWeight: '700', },
-    brandFooterRow: { alignItems: 'center', marginTop: 14, },
-    brandFooterText: {fontSize: 12, color: t.brandText,},
-    brandFooterBold: {  fontWeight: '800',color: t.brandBold, letterSpacing: 1.2,},
+    container: { flex: 1, backgroundColor: t.bg },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: Math.max(insets.top, 12), paddingBottom: 14, backgroundColor: t.bg, borderBottomWidth: 1, borderBottomColor: t.footerBorder },
+    headerLeft: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+    backButton: { paddingVertical: 4, paddingRight: 14 },
+    headerTitle: { fontSize: 18, fontWeight: '700', color: t.title },
+    headerSubtitleText: { fontSize: 14, fontWeight: '600', color: t.titleSub },
+    brandLogo: { width: 90, height: 24 },
+    scrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24 },
+    stepProgressContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+    stepBar: { flex: 1, height: 4, backgroundColor: t.stepOff, borderRadius: 2, marginRight: 8 },
+    stepBarActive: { backgroundColor: t.accent },
+    stepSubtitle: { fontSize: 12, fontWeight: '700', color: t.accent, letterSpacing: 0.8, marginBottom: 6 },
+    stepTitle: { fontSize: 26, fontWeight: '800', color: t.text, letterSpacing: -0.5 },
+    stepDescription: { fontSize: 14.5, color: t.sub, marginTop: 6, marginBottom: 20, lineHeight: 20 },
+    segmented: { flexDirection: 'row', backgroundColor: t.segBg, borderRadius: 12, borderWidth: 1, borderColor: t.border, padding: 3, marginBottom: 16 },
+    segmentTab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 9 },
+    segmentTabActive: { backgroundColor: t.segActive, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1 },
+    segmentText: { fontSize: 13.5, fontWeight: '600', color: t.sub },
+    segmentTextActive: { color: t.accent },
+    card: { backgroundColor: t.surface, borderRadius: 16, borderWidth: 1, borderColor: t.border, padding: 16, marginBottom: 14 },
+    cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+    cardTitle: { fontSize: 14.5, fontWeight: '700', color: t.text },
+    cardSubtitle: { fontSize: 12.5, color: t.muted, marginTop: 2, marginBottom: 12 },
+    enabledBadge: { backgroundColor: t.badge, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
+    enabledBadgeText: { fontSize: 12, fontWeight: '600', color: t.accent },
+    lowTextWrap: { flex: 1, marginRight: 12 },
+    inputLabel: { fontSize: 13, fontWeight: '600', color: t.label, marginBottom: 8 },
+    limitInputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: 12, paddingHorizontal: 16, height: 52 },
+    limitInput: { flex: 1, fontSize: 15, color: t.text, padding: 0 },
+    stepperContainer: { justifyContent: 'center', alignItems: 'center', marginRight: 8 },
+    stepperButton: { paddingVertical: 1, paddingHorizontal: 4 },
+    unitText: { fontSize: 13, color: t.sub },
+    chipRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
+    chip: { backgroundColor: t.chip, borderRadius: 6, paddingHorizontal: 11, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
+    chipText: { fontSize: 11.5, fontWeight: '700', color: t.accent },
+    appliesText: { fontSize: 12.5, color: t.sub, marginTop: 12 },
+    behaviourLink: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, marginBottom: 14 },
+    behaviourLinkText: { fontSize: 13, fontWeight: '700', color: t.accent },
+    behaviourRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, marginBottom: 14, borderBottomWidth: 1, borderBottomColor: t.divider },
+    behaviourTextWrap: { flex: 1, marginRight: 12 },
+    behaviourTitle: { fontSize: 13.5, fontWeight: '600', color: t.text },
+    behaviourHint: { fontSize: 12, color: t.muted, marginTop: 2 },
+    behaviourInput: { width: 64, height: 40, textAlign: 'center', fontSize: 14, color: t.text, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: 10, padding: 0 },
+    bottomFooterSheet: { backgroundColor: t.surface, paddingHorizontal: 20, paddingTop: 16, paddingBottom: Math.max(insets.bottom, 16), borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderTopColor: t.footerBorder },
+    primaryActionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: t.accent, borderRadius: 14, paddingVertical: 16, gap: 8 },
+    primaryActionButtonText: { color: t.onAccent, fontSize: 16, fontWeight: '700' },
+    brandFooterRow: { alignItems: 'center', marginTop: 14 },
+    brandFooterText: { fontSize: 12, color: t.brandText },
+    brandFooterBold: { fontWeight: '800', color: t.brandBold, letterSpacing: 1.2 },
   });
