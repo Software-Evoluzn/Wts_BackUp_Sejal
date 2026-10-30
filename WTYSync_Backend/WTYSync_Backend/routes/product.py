@@ -278,6 +278,8 @@ def get_products():
             "purchase_date": prod.purchase_date.strftime("%Y-%m-%d") if prod.purchase_date else None,
             "warranty_expiry": prod.warranty_expiry.strftime("%Y-%m-%d") if prod.warranty_expiry else None,
             "online": prod.online_status,
+            # epoch milliseconds, so the app never has to guess the server time zone
+            "last_seen": int(prod.last_seen.timestamp() * 1000) if prod.last_seen else None,
             "email_enabled": prod.email_enabled,
             "alert_email": prod.alert_email,
             "sms_enabled": prod.sms_enabled,

@@ -1,5 +1,7 @@
 import json
+import time
 from datetime import datetime, timedelta
+from sqlalchemy import or_
 from apscheduler.schedulers.background import BackgroundScheduler
 import paho.mqtt.client as mqtt
 
@@ -19,39 +21,66 @@ flask_app = None
 socketio_instance = None
 scheduler = None
 
+# A device is marked offline when it has sent nothing for OFFLINE_AFTER_SECONDS.
+# Keep this at least 2-3x the interval at which the device publishes, otherwise a
+# healthy device will flicker offline. The check itself runs every
+# OFFLINE_CHECK_EVERY_SECONDS, so the worst-case delay before "offline" shows is
+# OFFLINE_AFTER_SECONDS + OFFLINE_CHECK_EVERY_SECONDS (it used to be 150 + 60).
+OFFLINE_AFTER_SECONDS = 150
+OFFLINE_CHECK_EVERY_SECONDS = 15
+
+
+def emit_device_status(serial, online):
+    """Pushes an online/offline change to every connected app instantly."""
+    if socketio_instance is None:
+        return
+    try:
+        socketio_instance.emit(
+            "device_status",
+            {
+                "serial_no": serial,
+                "online": bool(online),
+                "last_seen": int(time.time() * 1000) if online else None,
+            },
+        )
+    except Exception as e:
+        print(f"Error emitting device_status for {serial}:", str(e))
+
 
 def check_inactive_devices():
-    """Periodically checks for devices that haven't sent data recently
-    and marks them offline (online_status = 0).
-    """
-    print("⏰ [Scheduler] Running check for inactive devices...")
+    """Marks devices offline when they have not sent data for OFFLINE_AFTER_SECONDS,
+    and tells the apps immediately."""
     if not flask_app:
-        print("⚠️ [Scheduler] flask_app is None, skipping check.")
         return
 
     with flask_app.app_context():
         try:
-            # ✅ STRICT LOCAL TIME MATCHING DATABASE TIMESTAMPS
-            timeout_threshold = datetime.now() - timedelta(seconds=150)
+            # Local time, matching the datetime.now() used for last_seen
+            timeout_threshold = datetime.now() - timedelta(seconds=OFFLINE_AFTER_SECONDS)
 
-            # Query active devices (1) that haven't updated last_seen in > 3 minutes
-            updated_count = (
+            stale = (
                 db.session.query(RegisterProduct)
                 .filter(
                     RegisterProduct.online_status == 1,
-                    RegisterProduct.last_seen < timeout_threshold,
+                    or_(
+                        RegisterProduct.last_seen < timeout_threshold,
+                        RegisterProduct.last_seen.is_(None),  # online but never timestamped
+                    ),
                 )
-                .update({"online_status": 0}, synchronize_session=False)
+                .all()
             )
 
+            if not stale:
+                return
+
+            serials = [p.serial_no for p in stale]
+            for p in stale:
+                p.online_status = False
             db.session.commit()
 
-            if updated_count > 0:
-                print(
-                    f"✅ [Scheduler] Marked {updated_count} inactive device(s) as offline (online_status = 0)."
-                )
-            else:
-                print("ℹ️ [Scheduler] All active devices are up to date.")
+            print(f"✅ [Scheduler] Marked offline: {serials}")
+            for serial in serials:
+                emit_device_status(serial, False)
 
         except Exception as e:
             db.session.rollback()
@@ -72,10 +101,12 @@ def init_app(app, socketio_ref=None):
     if scheduler is None:
         scheduler = BackgroundScheduler()
         scheduler.add_job(
-            func=check_inactive_devices, trigger="interval", seconds=60
+            func=check_inactive_devices,
+            trigger="interval",
+            seconds=OFFLINE_CHECK_EVERY_SECONDS,
         )
         scheduler.start()
-        print("✅ Background offline status checker started successfully.")
+        print(f"✅ Offline checker started (every {OFFLINE_CHECK_EVERY_SECONDS}s, timeout {OFFLINE_AFTER_SECONDS}s).")
 
 
 def on_connect(client, userdata, flags, rc):
@@ -116,13 +147,20 @@ def on_message(client, userdata, msg):
                     product.online_status = 0
                     db.session.commit()
                     print(f"🔴 Device {serial} explicitly sent offline status.")
+                    emit_device_status(serial, False)
             except Exception as e:
                 db.session.rollback()
                 print(f"❌ Error setting offline status for {serial}:", str(e))
             return
 
         # 1. Process telemetry and save to DB
-        process_and_save_mqtt_data(serial, raw_payload)
+        came_online = process_and_save_mqtt_data(serial, raw_payload)
+
+        # 1b. First message after being offline -> tell the apps right now,
+        #     they do not have to wait for their next poll.
+        if came_online:
+            print(f"🟢 Device {serial} is now online.")
+            emit_device_status(serial, True)
 
         # 2. Live Socket.IO Emit
         try:
