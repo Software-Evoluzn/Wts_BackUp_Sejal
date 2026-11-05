@@ -21,7 +21,7 @@ const WifiConnectedScreen = ({ route, navigation }) => {
   const { colors } = useAppTheme();
 
   const displaySsid = network?.SSID || ssid || 'Unknown Network';
-  const productName = product?.name || 'IntelliTemp';
+  const productName = product?.name || 'Thermidity';
   const productVariant = product?.variant || '4P';
   const displayDeviceId = serialNo || product?.deviceId || product?.id || 'N/A';
 

@@ -66,7 +66,7 @@ const DARK = {
 // don't pass real data into this screen.
 const DEMO = {
   location: 'Floor 3 · MCC-01',
-  deviceModel: 'IntelliTemp 4P',
+  deviceModel: 'Thermidity 4P',
   probes: 'T1–T4',
   highLines: ['High: at or above 65°C'],
   lowLine: 'Low: disabled',
@@ -213,19 +213,15 @@ const Reviewbeforeapplying = ({ navigation, route }) => {
       }
 
       // 2. Mark the installation as applied.
-      // LATER: do this when the device acknowledges the configuration.
       await confirmInstallation(result.serial_no, result.firebase_uid);
 
-      // 3. Clear the wizard data and go to the Home screen
+      // 3. Clear wizard data and navigate to the static Monitoringready completion screen
       resetDraft();
-      Alert.alert('Installation complete', 'IntelliTemp has been installed successfully.', [
-        {
-          text: 'OK',
-          onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Main' }] }),
-        },
-      ]);
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Monitoringready', params: { location: summary.location } }],
+      });
     } catch (e) {
-      // Shows the real reason instead of a generic message
       console.log('Apply error:', e);
       Alert.alert('Something went wrong', String(e?.message || e));
     } finally {
@@ -250,7 +246,7 @@ const Reviewbeforeapplying = ({ navigation, route }) => {
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>
-            IntelliTemp <Text style={styles.headerSubtitleText}>4P</Text>
+            Thermidity <Text style={styles.headerSubtitleText}>4P</Text>
           </Text>
         </View>
 
@@ -326,7 +322,7 @@ const Reviewbeforeapplying = ({ navigation, route }) => {
           onPress={onApply}>
           {submitting && <ActivityIndicator size="small" color={colors.onAccent} />}
           <Text style={styles.primaryActionButtonText}>
-            {submitting ? 'Applying...' : 'Apply to IntelliTemp'}
+            {submitting ? 'Applying...' : 'Apply to Thermidity'}
           </Text>
           {!submitting && <Feather name="arrow-right" size={18} color={colors.onAccent} />}
         </TouchableOpacity>

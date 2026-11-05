@@ -222,7 +222,7 @@ const Setclearalertlimits = ({ navigation, route }) => {
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>
-            IntelliTemp <Text style={styles.headerSubtitleText}>4P</Text>
+            Thermidity <Text style={styles.headerSubtitleText}>4P</Text>
           </Text>
         </View>
 

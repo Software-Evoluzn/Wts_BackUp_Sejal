@@ -127,7 +127,7 @@ const ConnectToDeviceScreen = ({ navigation, route }) => {
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitleBold}>IntelliTemp </Text>
+          <Text style={styles.headerTitleBold}>Thermidity </Text>
           <Text style={styles.headerTitleSub}>4P</Text>
         </View>
         <View style={styles.logoContainer}>
@@ -157,7 +157,7 @@ const ConnectToDeviceScreen = ({ navigation, route }) => {
         <Text style={styles.stepText}>STEP 2 OF 6 · CONNECT</Text>
 
         {/* Header Text */}
-        <Text style={styles.mainTitle}>IntelliTemp found.</Text>
+        <Text style={styles.mainTitle}>Thermidity found.</Text>
         <Text style={styles.subTitle}>
           Your phone will briefly connect to the device to share site Wi-Fi settings.
         </Text>
@@ -166,7 +166,7 @@ const ConnectToDeviceScreen = ({ navigation, route }) => {
         <View style={styles.deviceCard}>
           <View style={styles.deviceCardLeft}>
             <Text style={styles.thermometerIcon}>🌡️</Text>
-            <Text style={styles.deviceName}>IntelliTemp 4P</Text>
+            <Text style={styles.deviceName}>Thermidity 4P</Text>
           </View>
           <Text style={styles.deviceCode}>{displaySerialNo}</Text>
         </View>
@@ -210,7 +210,7 @@ const ConnectToDeviceScreen = ({ navigation, route }) => {
             <ActivityIndicator color={t.onAccent} size="small" />
           ) : (
             <>
-              <Text style={styles.primaryButtonText}>Connect to IntelliTemp</Text>
+              <Text style={styles.primaryButtonText}>Connect to Thermidity</Text>
               <Text style={styles.primaryButtonArrow}> →</Text>
             </>
           )}

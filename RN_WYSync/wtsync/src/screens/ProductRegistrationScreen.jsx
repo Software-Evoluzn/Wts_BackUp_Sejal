@@ -82,9 +82,9 @@ const DARK = {
 };
 
 const DEVICE_LIST = [
-  'IntelliTemp 4P',
-  'IntelliTemp 12P',
-  'IntelliTemp 24P',
+  'Thermidity 4P',
+  'Thermidity 12P',
+  'Thermidity 24P',
   '3Phase portable Energy Monitor',
   'CFM',
   'Load Balancer',
@@ -97,9 +97,9 @@ const DEVICE_LIST = [
 ];
 
 const PROBE_OPTIONS = {
-  'IntelliTemp 4P': ['4P'],
-  'IntelliTemp 12P': ['12P'],
-  'IntelliTemp 24P': ['24P'],
+  'Thermidity 4P': ['4P'],
+  'Thermidity 12P': ['12P'],
+  'Thermidity 24P': ['24P'],
 };
 
 const SCAN_BOX_HEIGHT = 230;
@@ -107,7 +107,7 @@ const SCAN_BOX_HEIGHT = 230;
 const SAFETY_STEPS = [
   {
     title: 'Use the approved power connection',
-    desc: 'IntelliTemp uses an internal AC/DC supply. Follow the supplied installation instructions.',
+    desc: 'Thermidity uses an internal AC/DC supply. Follow the supplied installation instructions.',
   },
   {
     title: 'Keep the phone near the device',
@@ -143,7 +143,7 @@ const parseQR = (raw) => {
 };
 
 const EMPTY_FORM = {
-  'Device Name': 'IntelliTemp 4P',
+  'Device Name': 'Thermidity 4P',
   'Serial No': '',
 };
 
@@ -390,7 +390,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
   const onSampleLabelPress = () => {
     Alert.alert(
       'Sample label',
-      'The QR code is printed on the label of your IntelliTemp device. It includes Device Name, Model No, Serial No and MAC ID.'
+      'The QR code is printed on the label of your Thermidity device. It includes Device Name, Model No, Serial No and MAC ID.'
     );
   };
 
@@ -575,7 +575,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
   const activeSteps = isSafetyMode ? 2 : 1;
 
   // Confirm-screen display values.
-  // Works for both manual entry ("IntelliTemp 4P") and scanned QR data, where the
+  // Works for both manual entry ("Thermidity 4P") and scanned QR data, where the
   // model can come from "Device Name" and/or "Model No" in a different format.
   const confirmName = (pendingDevice?.['Device Name'] || '').trim();
   const confirmModelNo = (pendingDevice?.['Model No'] || '').trim();
@@ -585,7 +585,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
     ? confirmSource.match(/(\d{1,2})\s*-?\s*P(?![a-z])/i)
     : null;
   const confirmProbeCount = confirmProbeMatch ? parseInt(confirmProbeMatch[1], 10) : 0;
-  const confirmSeries = confirmIsIntelliTemp ? 'IntelliTemp' : confirmName || confirmModelNo;
+  const confirmSeries = confirmIsIntelliTemp ? 'Thermidity' : confirmName || confirmModelNo;
   const confirmModel = confirmProbeCount > 0 ? `${confirmProbeCount}P` : '';
   const confirmInputsValue =
     confirmProbeCount > 0
@@ -618,7 +618,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>
-            IntelliTemp <Text style={styles.headerSubtitleText}>4P</Text>
+            Thermidity <Text style={styles.headerSubtitleText}>4P</Text>
           </Text>
         </View>
 
@@ -884,7 +884,7 @@ const ProductRegistrationScreen = ({ navigation, route }) => {
             <View style={styles.hintCard}>
               <Feather name="maximize" size={16} color={t.accent} style={styles.hintIcon} />
               <Text style={styles.hintText}>
-                Use the label on your IntelliTemp device, not a carton or another installed unit.
+                Use the label on your Thermidity device, not a carton or another installed unit.
               </Text>
             </View>
           </View>

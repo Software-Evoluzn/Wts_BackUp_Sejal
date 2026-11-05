@@ -1,6 +1,7 @@
 import * as IP_CONFIG from './ipconfig';
 import { getUserDetails } from './AuthService';
 import { getDraft, buildAlertConfig } from './installationDraft';
+import messaging from '@react-native-firebase/messaging';
 
 // Finds the server address however './ipconfig' exports it:
 //   export default { BASE_URL: 'https://xxxx.ngrok-free.app' }
@@ -107,6 +108,14 @@ export const submitInstallation = async () => {
   }
   const user = userResult.user;
 
+  let fcmToken = null;
+try {
+    fcmToken = await messaging().getToken();
+    console.log('[API] Retrieved FCM Token for registration:', fcmToken);
+  } catch (err) {
+    console.log('[API] Could not get FCM token:', err);
+  }
+
   const alert = buildAlertConfig(draft);
 
   if (Number.isNaN(alert.high.all)) {
@@ -134,6 +143,7 @@ export const submitInstallation = async () => {
     user_name: user.name,
     email: user.email,
     contact: user.contact,
+    fcm_token:fcmToken,
 
     // device (step 1)
     device_name: product['Device Name'],

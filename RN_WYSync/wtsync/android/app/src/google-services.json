@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "224028074465",
-    "project_id": "wiretempsync-f87c0",
-    "storage_bucket": "wiretempsync-f87c0.firebasestorage.app"
+    "project_number": "202225021473",
+    "project_id": "thermidity-37a89",
+    "storage_bucket": "thermidity-37a89.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:224028074465:android:002854ddf5ae87a8abb2a0",
+        "mobilesdk_app_id": "1:202225021473:android:0296ada2f891a99bd06960",
         "android_client_info": {
           "package_name": "com.wtsync"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCTGvj5KABVnkWiCjqGWpx0_rrf0aRPsBM"
+          "current_key": "AIzaSyDoOXlKGkrUlr2jtdkrG-ohyDNuYjDNxxQ"
         }
       ],
       "services": {

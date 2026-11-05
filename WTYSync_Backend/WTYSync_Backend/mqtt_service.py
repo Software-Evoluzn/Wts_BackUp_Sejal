@@ -7,6 +7,8 @@ from database.db import db
 from models.RegisterProduct import RegisterProduct
 from routes.telemetry import process_and_save_mqtt_data
 
+from alert_service import send_push_notification , send_threshold_email,send_threshold_sms
+
 broker = "evoluzn.org"
 port = 18889
 username = "evzin_led"
@@ -18,6 +20,10 @@ client.username_pw_set(username, password)
 flask_app = None
 socketio_instance = None
 scheduler = None
+
+alert_cooldowns = {}
+ALERT_COOLDOWN_MINUTES = 30
+
 
 
 def check_inactive_devices():
@@ -99,6 +105,8 @@ def on_message(client, userdata, msg):
         return
 
     serial = topic.split("/")[0]
+    
+    
     raw_payload = msg.payload.decode("utf-8")
 
     print(f"Data --> {topic} | Payload: {raw_payload}")
@@ -120,6 +128,99 @@ def on_message(client, userdata, msg):
                 db.session.rollback()
                 print(f"❌ Error setting offline status for {serial}:", str(e))
             return
+        
+        
+        if "WTSAlert" in raw_payload:
+            try:
+                print("alert comes here WTSAlert")
+                print("Raw Payload:", raw_payload)
+                print("Topic Serial:", serial)
+                
+                clean_payload = raw_payload.strip("{} ")
+                parts = clean_payload.split(":")
+                
+                raw_device_id = parts[1].strip() if len(parts) > 1 else serial
+                
+                if raw_device_id.startswith("WTSAlert"):
+                    alert_device = raw_device_id.replace("WTSAlert" , "WTS" , 1)
+                else:
+                    alert_device = raw_device_id
+                
+                alert_msg = parts[2].strip() if len(parts) > 2 else "Temperature Threshold Exceeded!"
+                print(f"🚨 REALTIME ALERT PROCESSED: Parsed Serial -> {alert_device} | Msg -> {alert_msg}")
+                
+                # 🛑 COOLDOWN CHECK: Prevent duplicate alerts within the cooldown window
+                now = datetime.now()
+                if alert_device in alert_cooldowns:
+                    time_diff = now - alert_cooldowns[alert_device]
+                    if time_diff < timedelta(minutes=ALERT_COOLDOWN_MINUTES):
+                        print(f"ℹ️ Alert for {alert_device} suppressed. Cooldown active (sent {time_diff.seconds}s ago).")
+                        
+                        # Socket.io live emit kar sakte hain agar frontend par real-time update chahiye bina spam ke
+                        if socketio_instance:
+                            socketio_instance.emit("temperature_alert", {
+                                "serial_no": alert_device,
+                                "message": alert_msg,
+                                "timestamp": now.isoformat()
+                            })
+                        return
+
+                # Update last alert time
+                alert_cooldowns[alert_device] = now
+
+                # Socket.IO Realtime Emit to Active Frontend
+                if socketio_instance:
+                    print("SocketIO instance available")
+                    socketio_instance.emit("temperature_alert", {
+                        "serial_no": alert_device,
+                        "message": alert_msg,
+                        "timestamp": now.isoformat()
+                    })
+
+                # Fetch Product details from DB
+                product = RegisterProduct.query.filter_by(serial_no=alert_device).first()
+                print("Product Found: ", product)
+
+                if product:
+                    # Send App Push Notification
+                    if hasattr(product, 'fcm_token') and product.fcm_token:
+                        send_push_notification(
+                            product.fcm_token, 
+                            alert_device, 
+                            alert_msg
+                        )
+                        print("Push function completed")
+                    else:
+                        print("❌ FCM TOKEN NOT FOUND")
+
+                    # Send Email
+                    if product.email_enabled and product.alert_email:
+                        print("Calling Email Function......")
+                        send_threshold_email(
+                            to_email=product.alert_email,
+                            serial_no=alert_device,
+                            exceeded_phases=[alert_msg],
+                            threshold=getattr(product, 'threshold_value', 20),
+                            current_time=now
+                        )
+
+                    # Send SMS
+                    if product.sms_enabled and product.sms_phone:
+                        print("Calling SMS Function")
+                        send_threshold_sms(
+                            mobile_number=product.sms_phone,
+                            serial_no=alert_device,
+                            exceeded_phases=[alert_msg],
+                            current_time=now
+                        )
+                else:
+                    print("Product not found")
+
+            except Exception as e:
+                print(f"❌ Error processing WTSAlert payload: {e}")
+            return
+                
+                
 
         # 1. Process telemetry and save to DB
         process_and_save_mqtt_data(serial, raw_payload)

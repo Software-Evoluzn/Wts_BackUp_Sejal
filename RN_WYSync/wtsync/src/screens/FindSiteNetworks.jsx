@@ -95,7 +95,7 @@ const FindSiteNetworks = ({ navigation, route }) => {
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitleBold}>IntelliTemp </Text>
+          <Text style={styles.headerTitleBold}>Thermidity </Text>
           <Text style={styles.headerTitleSub}>4P</Text>
         </View>
         <View style={styles.logoContainer}>
@@ -139,7 +139,7 @@ const FindSiteNetworks = ({ navigation, route }) => {
         <View style={styles.deviceCard}>
           <View style={styles.deviceCardLeft}>
             <Text style={styles.thermometerIcon}>🌡️</Text>
-            <Text style={styles.deviceName}>IntelliTemp 4P</Text>
+            <Text style={styles.deviceName}>Thermidity 4P</Text>
           </View>
           <Text style={styles.deviceCode}>{displaySerialNo}</Text>
         </View>
@@ -150,7 +150,7 @@ const FindSiteNetworks = ({ navigation, route }) => {
             Device connection established
           </Text>
           <Text style={styles.statusCardSubtitle}>
-            IntelliTemp is looking for networks it can join.
+            Thermidity is looking for networks it can join.
           </Text>
 
           <View style={styles.badgeContainer}>

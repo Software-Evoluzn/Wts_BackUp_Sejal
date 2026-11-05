@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,16 +14,16 @@ import { useFocusEffect } from '@react-navigation/native';
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
-import { getUserDetails } from '../services/AuthService';
+import io from 'socket.io-client';
 import { getProducts } from '../services/ProductApi';
-import { fetchInstalledProducts } from '../services/InstallationService';
+import IP_ADDRESS from '../services/ipconfig';
 import { useAppTheme } from '../services/theme';
 
 const ACCENT = '#8E338A';
 
 // "2026-10-08T10:00:00Z" -> "20 seconds ago" / "8 minutes ago"
-const formatAgo = (isoString) => {
-  const time = Date.parse(isoString);
+const formatAgo = (value) => {
+  const time = typeof value === 'number' ? value : Date.parse(value);
   if (Number.isNaN(time)) return null;
 
   const seconds = Math.max(0, Math.floor((Date.now() - time) / 1000));
@@ -39,8 +39,9 @@ const formatAgo = (isoString) => {
 // Devices are matched by serial number so the same device is never listed twice
 const keyOf = (p) => p.serial_no || p.serial_number || `id-${p.id}`;
 
+const sameSerial = (a, b) => (a || '').trim().toUpperCase() === (b || '').trim().toUpperCase();
+
 // Merges the normal device list with the devices installed through the setup wizard.
-// The wizard data (location, application, probe names, ...) is added on top.
 const mergeProducts = (base = [], installed = []) => {
   const map = new Map();
   base.forEach((p) => map.set(keyOf(p), p));
@@ -56,40 +57,28 @@ const HomeScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const styles = createStyles(colors, isDark, insets);
 
-  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState([]);
+  const [, setTick] = useState(0);
   const intervalRef = useRef(null);
 
-  // Background polling that only triggers state updates if the returned data actually changed
+  // Latest status pushed by the server over Socket.IO: { SERIAL: { online, last_seen, at } }.
+  const liveRef = useRef({});
+
+  const withLive = (list) =>
+    list.map((p) => {
+      const live = liveRef.current[keyOf(p).trim().toUpperCase()];
+      if (!live || Date.now() - live.at > 15000) return p;
+      return { ...p, online: live.online, last_seen: live.last_seen ?? p.last_seen };
+    });
+
   const loadHomeData = async () => {
     try {
-      const userResult = await getUserDetails();
-      if (userResult?.success) {
-        setUser((prev) =>
-          JSON.stringify(prev) === JSON.stringify(userResult.user) ? prev : userResult.user
-        );
-      }
-
-      const uid = userResult?.user?.firebase_uid;
-
-      // Normal device list + devices installed through the setup wizard
-      const [baseResult, installedResult] = await Promise.all([
-        getProducts().catch(() => null),
-        uid ? fetchInstalledProducts(uid).catch(() => null) : Promise.resolve(null),
-      ]);
-
-      const baseOk = !!baseResult?.success;
-      const installedOk = !!installedResult?.success;
-
-      if (baseOk || installedOk) {
-        const merged = mergeProducts(
-          baseOk ? baseResult.products || [] : [],
-          installedOk ? installedResult.products || [] : []
-        );
-
+      const result = await getProducts();
+      if (result?.success) {
+        const list = withLive(mergeProducts(result.products || [], []));
         setProducts((prev) =>
-          JSON.stringify(prev) === JSON.stringify(merged) ? prev : merged
+          JSON.stringify(prev) === JSON.stringify(list) ? prev : list
         );
       }
     } catch (e) {
@@ -99,13 +88,14 @@ const HomeScreen = ({ navigation }) => {
     }
   };
 
+  // Safety-net polling
   useFocusEffect(
     useCallback(() => {
       loadHomeData();
 
       intervalRef.current = setInterval(() => {
         loadHomeData();
-      }, 5000); // 5 second polling
+      }, 10000);
 
       return () => {
         if (intervalRef.current) {
@@ -115,8 +105,50 @@ const HomeScreen = ({ navigation }) => {
     }, [])
   );
 
+  // Instant online / offline updates from the server
+  useFocusEffect(
+    useCallback(() => {
+      const applyLive = (serial, patch) => {
+        liveRef.current[(serial || '').trim().toUpperCase()] = { ...patch, at: Date.now() };
+        setProducts((prev) =>
+          prev.map((p) => (sameSerial(keyOf(p), serial) ? { ...p, ...patch } : p))
+        );
+      };
+
+      const socket = io(IP_ADDRESS, {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionDelay: 1000,
+      });
+      socket.on('connect_error', (e) => console.log('Home socket error:', e?.message));
+
+      socket.on('device_status', (s) => {
+        if (!s?.serial_no) return;
+        applyLive(s.serial_no, {
+          online: !!s.online,
+          ...(s.last_seen ? { last_seen: s.last_seen } : {}),
+        });
+      });
+
+      socket.on('live_telemetry', (t) => {
+        if (!t?.serial_no) return;
+        applyLive(t.serial_no, { online: true, last_seen: Date.now() });
+      });
+
+      socket.on('connect', () => loadHomeData());
+
+      return () => socket.disconnect();
+    }, [])
+  );
+
+  // Re-render every 10 s so "x seconds ago" keeps counting between events
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 10000);
+    return () => clearInterval(id);
+  }, []);
+
   const renderDeviceCard = ({ item }) => {
-    const isConnected = item.online ?? true;
+    const isConnected = !!item.online;
 
     // Devices installed through the setup wizard have an application saved
     const isInstalled = item.config_status === 'applied';
@@ -128,21 +160,20 @@ const HomeScreen = ({ navigation }) => {
         style={styles.card}
         activeOpacity={0.88}
         onPress={() => {
-          // Same as before: connected devices open the IntelliTemp dashboard.
-          // A device that finished the installation wizard opens it too, even if
-          // it has not reported yet.
+          // Navigates directly to Commissioned screen when connected or installed
           if (isConnected || isInstalled) {
-            navigation.navigate('WtsDashboard', { product: item });
-          }
-           else {
-            AreaChart.alert("Device is Offline , Make it Online")
-            //navigation.navigate('DeviceConfig', { product: item });
+            navigation.navigate('Commissioned', {
+              serialNo: item.serial_no || item.serial_number,
+              product: item,
+            });
+          } else {
+            navigation.navigate('DeviceConfig', { product: item });
           }
         }}>
         {/* Device Name + Status Badge */}
         <View style={styles.cardHeader}>
           <Text style={styles.deviceName} numberOfLines={1}>
-            {item.location || item.device_name || 'IntelliTemp'}
+            {item.location || item.device_name || 'Thermidity'}
           </Text>
 
           <View
@@ -169,7 +200,7 @@ const HomeScreen = ({ navigation }) => {
         {/* Model & Serial Number Row */}
         <View style={styles.subtitleRow}>
           <Text style={styles.deviceSubtitle}>
-            {item.model_no || item.device_name || 'IntelliTemp 4P'} ·{' '}
+            {item.model_no || item.device_name || 'Thermidity 4P'} ·{' '}
             {item.application || 'Electrical panel'}
           </Text>
           <Text style={styles.deviceSerial}>
@@ -204,7 +235,7 @@ const HomeScreen = ({ navigation }) => {
             <Text style={styles.metricText}>
               {item.last_updated ||
                 lastSeenText ||
-                (isConnected ? '20 seconds ago' : '8 minutes ago')}
+                'Waiting for first report'}
             </Text>
           </View>
         </View>
@@ -270,7 +301,7 @@ const HomeScreen = ({ navigation }) => {
       <View style={styles.topHeaderContainer}>
         <View style={styles.brandRow}>
           <Feather name="thermometer" size={22} color={ACCENT} />
-          <Text style={styles.brandTitle}>IntelliTemp</Text>
+          <Text style={styles.brandTitle}>Thermidity</Text>
         </View>
         <TouchableOpacity
           activeOpacity={0.8}

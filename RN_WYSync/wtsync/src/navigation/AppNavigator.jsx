@@ -25,27 +25,22 @@ import Setclearalertlimits from "../screens/Setclearalertlimits";
 import Individualoverride from '../screens/Individualoverride';
 import Choosealertrecipients from '../screens/Choosealertrecipients';
 import Reviewbeforeapplying from '../screens/Reviewbeforeapplying';
+import Monitoringready from '../screens/Monitoringready';
+import Commissioned from '../screens/Commissioned';
 import MainDashboard from '../screens/MainDashboard';
 import WtsNewUI from '../screens/WtsNewUI';
+import Temperaturehistory from '../screens/Temperaturehistory';
 
 const Stack = createNativeStackNavigator();
 
 const AppNavigator = () => {
   return (
-    <Stack.Navigator
-      initialRouteName="Splash"
-      screenOptions={{
-        headerShown: false,
-      }}>
-      {/* Authentication Stack */}
+    <Stack.Navigator initialRouteName="Splash" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Splash" component={SplashScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="Forgotpassword" component={ForgotPassword} />
-
-      {/* Main Tab Bar Entry Point */}
       <Stack.Screen name="Main" component={BottomNavigator} />
-      {/* Full-screen Child Routes (Pushed above Bottom Tab Bar) */}
       <Stack.Screen name="ProductRegister" component={ProductRegistrationScreen} />
       <Stack.Screen name="EditProfile" component={EditProfile} />
       <Stack.Screen name="DeviceConfig" component={DeviceConfig} />
@@ -53,19 +48,22 @@ const AppNavigator = () => {
       <Stack.Screen name="Password" component={PasswordScreen} />
       <Stack.Screen name="ResetwifiNetwork" component={ResetWifiNetwork} />
       <Stack.Screen name="WtsDashboard" component={WtsDashboard} />
-      <Stack.Screen name="FindIntelliTempDevice" component={FindIntelliTempDevice}/>
-      <Stack.Screen name="ConnectToDeviceScreen" component={ConnectToDeviceScreen}/>
-      <Stack.Screen name="FindSiteNetworks" component={FindSiteNetworks}/>
-      <Stack.Screen name="WifiConnectedScreen" component={WifiConnectedScreen}/>
-      <Stack.Screen name="NametheInstallation" component={NametheInstallation}/>
-      <Stack.Screen name="Identifyfourprobes" component={Identifyfourprobes}/>
-      <Stack.Screen name="Checkfirstreadings" component={Checkfirstreadings}/>
-      <Stack.Screen name="Setclearalertlimits" component={Setclearalertlimits}/>
-      <Stack.Screen name="Individualoverride" component={Individualoverride}/>
-      <Stack.Screen name="Choosealertrecipients" component={Choosealertrecipients}/>
-      <Stack.Screen name="Reviewbeforeapplying" component={Reviewbeforeapplying}/>
-      <Stack.Screen name="WtsNewUI" component={WtsNewUI}/>
-      <Stack.Screen name="MainDashboard" component={MainDashboard}/>
+      <Stack.Screen name="FindIntelliTempDevice" component={FindIntelliTempDevice} />
+      <Stack.Screen name="ConnectToDeviceScreen" component={ConnectToDeviceScreen} />
+      <Stack.Screen name="FindSiteNetworks" component={FindSiteNetworks} />
+      <Stack.Screen name="WifiConnectedScreen" component={WifiConnectedScreen} />
+      <Stack.Screen name="NametheInstallation" component={NametheInstallation} />
+      <Stack.Screen name="Identifyfourprobes" component={Identifyfourprobes} />
+      <Stack.Screen name="Checkfirstreadings" component={Checkfirstreadings} />
+      <Stack.Screen name="Setclearalertlimits" component={Setclearalertlimits} />
+      <Stack.Screen name="Individualoverride" component={Individualoverride} />
+      <Stack.Screen name="Choosealertrecipients" component={Choosealertrecipients} />
+      <Stack.Screen name="Reviewbeforeapplying" component={Reviewbeforeapplying} />
+      <Stack.Screen name="Monitoringready" component={Monitoringready} />
+      <Stack.Screen name="Commissioned" component={Commissioned} />
+      <Stack.Screen name="WtsNewUI" component={WtsNewUI} />
+      <Stack.Screen name="MainDashboard" component={MainDashboard} />
+      <Stack.Screen name="Temperaturehistory" component={Temperaturehistory} />
     </Stack.Navigator>
   );
 };

@@ -1025,7 +1025,7 @@ const WtsDashboard = () => {
           <Icon name="arrow-back" size={22} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.headerTitleWrap}>
-          <Text style={styles.headerTitle}>IntelliTemp Dashboard</Text>
+          <Text style={styles.headerTitle}>Thermidity Dashboard</Text>
         </View>
         <HeaderMenu onSelect={handleMenuSelect} />
       </View>

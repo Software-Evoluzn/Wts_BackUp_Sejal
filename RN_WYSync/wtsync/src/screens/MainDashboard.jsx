@@ -148,7 +148,7 @@ const MainDashboard = ({ navigation, route }) => {
   const totalChannels = groups.reduce((n, g) => n + g.channels.length, 0);
   const reporting = groups.reduce((n, g) => n + g.channels.filter((c) => c.temp != null).length, 0);
 
-  const deviceTitle = device ? `${device.device_name || 'IntelliTemp'}` : product?.title || product?.name || 'IntelliTemp';
+  const deviceTitle = device ? `${device.device_name || 'Thermidity'}` : product?.title || product?.name || 'Thermidity';
   const deviceSubTitle = device
     ? `${device.serial_no} · ${totalChannels} temperature input${totalChannels === 1 ? '' : 's'}`
     : product?.description || product?.type || '';
@@ -167,7 +167,7 @@ const MainDashboard = ({ navigation, route }) => {
       <View style={styles.header}>
         <View style={styles.logoGroup}>
           <MaterialCommunityIcons name="thermometer" color={PRIMARY} size={26} />
-          <Text style={styles.logoText}>IntelliTemp</Text>
+          <Text style={styles.logoText}>Thermidity</Text>
         </View>
         <Image source={require('../assests/images/logo.png')} style={styles.brandLogo} resizeMode="contain" />
       </View>

@@ -71,7 +71,7 @@ const SettingsScreen = ({ navigation }) => {
       <View style={styles.topHeaderContainer}>
         <View style={styles.brandRow}>
           <Feather name="thermometer" size={22} color="#8A2586" />
-          <Text style={styles.brandTitle}>IntelliTemp</Text>
+          <Text style={styles.brandTitle}>Thermidity</Text>
         </View>
         <Image
           source={require('../assests/images/logo.png')}

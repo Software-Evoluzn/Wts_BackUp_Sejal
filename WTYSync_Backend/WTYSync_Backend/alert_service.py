@@ -1,9 +1,14 @@
 import smtplib
 import requests
 import ssl
+
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from flask import render_template
+import google.auth
+from google.auth.transport.requests import Request
+from google.oauth2 import service_account
+
 
 # ------------------------------------------------------------------
 # Email (SMTP / Gmail App Password) - same pattern as the WTS project
@@ -18,6 +23,76 @@ SENDER_PASSWORD = "ewmjsmoehhhvnxuz"  # Gmail App Password
 # SMS (Fast2SMS DLT route) - same pattern as the smoke-detector project
 # ------------------------------------------------------------------
 FAST2SMS_API_KEY = "bpNGDhrI3AEHXMJdzsiuPWlRTt10CjoUVYFfcg9m2qS8Z65kKy6VS3s1wGZTfEFC4n8boLtPlAcxOvkN"
+
+
+# ------------------------------------------------------------------
+# Push Notification Setup (FCM v1 without Service Account JSON)
+# ------------------------------------------------------------------
+PROJECT_ID = "thermidity-37a89"
+FCM_ENDPOINT = f"https://fcm.googleapis.com/v1/projects/{PROJECT_ID}/messages:send"
+
+SERVICE_ACCOUNT_FILE = 'service_account.json'
+
+def get_access_token():
+    print("enter into the get_access_token")
+    """Dynamically fetches OAuth2 access token using Firebase Service Account JSON """
+    credentials = service_account.Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE,
+        scopes=["https://www.googleapis.com/auth/firebase.messaging"]
+    )
+    print("sejal inside  get access token")
+    credentials.refresh(Request())
+    return credentials.token
+
+def send_push_notification(fcm_token, serial_no, alert_message):
+    """Send Mobile Push Notification to app (Works in Killed/Background/Foreground)."""
+    print("sejal comes in send_push_notification")
+    if not fcm_token:
+        print(f"ℹ️ No FCM Token set for {serial_no}, skipping Push Notification.")
+        return
+
+    try:
+        print("sejal comes in send_push_notification try block")
+        token = get_access_token()
+        print("sejal want to see token: ",token)
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json; UTF-8"
+        }
+        print("sejal want to see headers: ",headers)
+
+        payload = {
+            "message": {
+                "token": fcm_token,
+                "notification": {
+                    "title": f"⚠️ Temperature Alert ({serial_no})",
+                    "body": alert_message
+                },
+                "data": {
+                    "serial_no": str(serial_no),
+                    "message": str(alert_message),
+                    "type": "ALERT"
+                },
+                "android": {
+                    "priority": "high",
+                    "notification": {
+                        "channel_id": "high_priority_alerts",
+                        "sound": "default"
+                    }
+                }
+            }
+        }
+        print("sejal want to see payload: " , payload)
+
+        response = requests.post(FCM_ENDPOINT, headers=headers, json=payload)
+        print("sejal want to see response: ",response)
+        if response.status_code == 200:
+            print(f"🔔 Push notification sent to device {serial_no}")
+        else:
+            print(f"❌ Push notification failed ({response.status_code}): {response.text}")
+
+    except Exception as e:
+        print(f"❌ Error sending FCM Push notification: {e}")
 
 
 def send_threshold_email(to_email, serial_no, exceeded_phases, threshold, current_time):
@@ -95,3 +170,6 @@ def send_threshold_sms(mobile_number, serial_no, exceeded_phases, current_time):
 
     except Exception as e:
         print(f"❌ SMS send failed for {serial_no}: {e}")
+        
+        
+        

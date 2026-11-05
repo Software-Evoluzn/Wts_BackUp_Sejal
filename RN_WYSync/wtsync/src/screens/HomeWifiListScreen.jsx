@@ -215,7 +215,7 @@ export default function HomeWifiListScreen({ navigation, route }) {
       {/* Step Info */}
       <Text style={styles.stepText}>STEP 2 OF 6 · CONNECT</Text>
       <Text style={styles.mainTitle}>Choose site Wi-Fi.</Text>
-      <Text style={styles.subTitle}>Select the network IntelliTemp should use.</Text>
+      <Text style={styles.subTitle}>Select the network Thermidity should use.</Text>
 
       {/* Section Title with Badge */}
       <View style={styles.sectionHeaderRow}>
@@ -267,7 +267,7 @@ export default function HomeWifiListScreen({ navigation, route }) {
         </TouchableOpacity>
 
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitleBold}>IntelliTemp </Text>
+          <Text style={styles.headerTitleBold}>Thermidity </Text>
           <Text style={styles.headerTitleSub}>4P</Text>
         </View>
 

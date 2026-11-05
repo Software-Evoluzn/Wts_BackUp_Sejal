@@ -162,7 +162,7 @@ const RegisterScreen = ({ navigation }) => {
 
         <Text style={styles.title}>Create Account</Text>
         <Text style={styles.subtitle}>
-          Create your account to get started with IntelliTemp
+          Create your account to get started with Thermidity
         </Text>
 
         <View style={styles.form}>

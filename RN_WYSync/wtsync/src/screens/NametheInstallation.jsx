@@ -97,7 +97,7 @@ const NametheInstallation = ({ navigation, route }) => {
     route?.params?.deviceModel ||
     product?.['Device Name'] ||
     product?.['Model No'] ||
-    'IntelliTemp 4P';
+    'Thermidity 4P';
   const siteTimezone = route?.params?.siteTimezone || getSiteTimezone();
 
   const [location, setLocation] = useState(route?.params?.location || '');
@@ -161,7 +161,7 @@ const NametheInstallation = ({ navigation, route }) => {
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>
-            IntelliTemp <Text style={styles.headerSubtitleText}>4P</Text>
+            Thermidity <Text style={styles.headerSubtitleText}>4P</Text>
           </Text>
         </View>
 
