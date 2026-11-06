@@ -73,7 +73,7 @@ const post = async (path, body) => {
   return { ...json, success: json.success ?? response.ok };
 };
 
-// "IntelliTemp 4P" -> "4P"
+// "Thermidity 4P" -> "4P"
 const getProbeType = (product) => {
   const source = `${product?.['Device Name'] || ''} ${product?.['Model No'] || ''}`;
   const match = source.match(/(\d{1,2})\s*-?\s*P(?![a-z])/i);

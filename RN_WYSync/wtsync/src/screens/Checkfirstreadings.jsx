@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,12 @@ import {
   StyleSheet,
   useColorScheme,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Feather from 'react-native-vector-icons/Feather';
+import io from 'socket.io-client';
+
+import IP_ADDRESS from '../services/ipconfig';
 
 /* ---------- Theme palettes (light = original colours, dark = new) ---------- */
 const LIGHT = {
@@ -72,14 +76,56 @@ const DEFAULT_LABELS = [
   'Enclosure surface',
 ];
 
-// Static demo data for now.
-// Later: replace these with live values (see ReadingsApi.js).
-const STATIC_READINGS = [42.8, 41.6, 42.1, 35.4];
-const STATIC_SAMPLE_TIME = '14:00:00 IST';
-const STATIC_RECEIVED_TEXT = 'Received 20 seconds ago';
+/* ---------- Live readings ---------- */
+
+// Probe T1..T4 -> telemetry column. Same mapping as PROBE_TO_PHASE_COLUMN in the backend.
+const PROBE_COLUMNS = ['R1', 'Y1', 'B1', 'N1'];
+
+// Values some sensors report when a probe is unplugged. A real 0.0 stays valid.
+const SENSOR_ERROR_VALUES = [-127];
+
+// A stored reading is only used to fill the screen at the start if it is newer than this.
+const PREFILL_MAX_AGE_MS = 5 * 60 * 1000;
+
+// A reading older than this is shown as "stale" (the device normally reports more often).
+const STALE_AFTER_SEC = 90;
 
 const isValidReading = (value) =>
-  typeof value === 'number' && Number.isFinite(value); // a genuine 0.0 is valid
+  typeof value === 'number' && Number.isFinite(value) && !SENSOR_ERROR_VALUES.includes(value);
+
+// "WTS-F0C0BE " and "wtsf0c0be" are the same device
+const normalizeSerial = (s) => String(s || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+
+// Backend "live_telemetry" message -> [T1, T2, T3, T4] (null when missing / invalid)
+const readingsFromPayload = (panels) => {
+  const byPhase = {};
+  (panels || []).forEach((panel) =>
+    (panel.temperatures || []).forEach((t) => {
+      byPhase[t.phase] = t.current;
+    })
+  );
+  return PROBE_COLUMNS.map((col) => (isValidReading(byPhase[col]) ? byPhase[col] : null));
+};
+
+// Stored readings are saved in UTC without a time zone marker, so add it before parsing
+const parseServerTime = (iso) => {
+  if (!iso) return NaN;
+  const hasZone = /([zZ]|[+-]\d\d:?\d\d)$/.test(iso);
+  return Date.parse(hasZone ? iso : `${iso}Z`);
+};
+
+const pad = (n) => String(n).padStart(2, '0');
+const formatClock = (ms) => {
+  const d = new Date(ms);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
+
+const formatAgo = (seconds) => {
+  if (seconds < 5) return 'just now';
+  if (seconds < 60) return `${seconds} seconds ago`;
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+};
 
 const Checkfirstreadings = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
@@ -91,7 +137,25 @@ const Checkfirstreadings = ({ navigation, route }) => {
 
   // Probe names come from the previous step (Identifyfourprobes)
   const labels = route?.params?.probeLabels || DEFAULT_LABELS;
-  const readings = STATIC_READINGS;
+
+  // The device being installed (passed along by every step of the wizard)
+  const serial =
+    route?.params?.serialNo ||
+    route?.params?.deviceId ||
+    route?.params?.product?.['Serial No'] ||
+    '';
+
+  const [readings, setReadings] = useState([null, null, null, null]);
+  const [receivedAt, setReceivedAt] = useState(null); // when the newest reading was taken
+  const [link, setLink] = useState('connecting'); // 'connecting' | 'live' | 'offline'
+  const [, setTick] = useState(0);
+  const receivedAtRef = useRef(null);
+
+  const applyReadings = useCallback((values, at) => {
+    receivedAtRef.current = at;
+    setReadings(values);
+    setReceivedAt(at);
+  }, []);
 
   // Hide tab bar for this screen (same as the other registration screens)
   useLayoutEffect(() => {
@@ -110,10 +174,97 @@ const Checkfirstreadings = ({ navigation, route }) => {
     };
   }, [navigation]);
 
+  // Live readings: listen while this screen is on top, stop when the user moves on
+  useFocusEffect(
+    useCallback(() => {
+      if (!serial) return undefined;
+
+      const wanted = normalizeSerial(serial);
+      let cancelled = false;
+
+      const socket = io(IP_ADDRESS, {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionDelay: 1000,
+      });
+      socket.on('connect', () => setLink('live'));
+      socket.on('disconnect', () => setLink('offline'));
+      socket.on('connect_error', () => setLink('offline'));
+
+      // Every message the device publishes arrives here within a moment
+      socket.on('live_telemetry', (msg) => {
+        if (normalizeSerial(msg?.serial_no) !== wanted) return;
+        applyReadings(readingsFromPayload(msg.panels), Date.now());
+      });
+
+      // The screen should not stay empty until the next message: fill it from the newest
+      // stored reading, if that is recent. A live message that arrives first always wins.
+      (async () => {
+        try {
+          const response = await fetch(
+            `${IP_ADDRESS}/api/telemetry-history?serial_no=${encodeURIComponent(serial)}`,
+            { headers: { 'ngrok-skip-browser-warning': 'true' } }
+          );
+          const rows = await response.json();
+          const last = Array.isArray(rows) ? rows[rows.length - 1] : null;
+          if (!last || cancelled) return;
+
+          const takenAt = parseServerTime(last.timestamp);
+          const age = Date.now() - takenAt;
+          if (Number.isNaN(takenAt) || age < -60000 || age > PREFILL_MAX_AGE_MS) return;
+          if (receivedAtRef.current != null && receivedAtRef.current >= takenAt) return;
+
+          applyReadings(
+            PROBE_COLUMNS.map((col) => (isValidReading(last[col]) ? last[col] : null)),
+            takenAt
+          );
+        } catch (e) {
+          // No stored reading yet: the live message will fill the screen
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+        socket.disconnect();
+      };
+    }, [serial, applyReadings])
+  );
+
+  // Re-render every second so "x seconds ago" keeps counting
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const hasData = receivedAt != null;
   const validCount = readings.filter(isValidReading).length;
   const totalCount = labels.length;
-  const allValid = validCount === totalCount;
-  const sampleTime = STATIC_SAMPLE_TIME;
+  const allValid = hasData && validCount === totalCount;
+  const ageSec = hasData ? Math.max(0, Math.round((Date.now() - receivedAt) / 1000)) : null;
+  const isStale = ageSec != null && ageSec > STALE_AFTER_SEC;
+  const sampleTime = hasData ? formatClock(receivedAt) : '';
+
+  let titleText;
+  if (!serial) {
+    titleText = 'Device ID not found';
+  } else if (!hasData) {
+    titleText = 'Waiting for readings…';
+  } else if (allValid) {
+    titleText = 'Four probes. Four valid readings.';
+  } else {
+    titleText = `Four probes. ${validCount} valid reading${validCount === 1 ? '' : 's'}.`;
+  }
+
+  let statusText;
+  if (!serial) {
+    statusText = 'No device selected';
+  } else if (hasData) {
+    statusText = `${isStale ? 'Last reading' : 'Received'} ${formatAgo(ageSec)}`;
+  } else if (link === 'offline') {
+    statusText = 'Cannot reach the server, retrying…';
+  } else {
+    statusText = 'Listening for the device…';
+  }
 
   const onContinue = () => {
     navigation.navigate('Setclearalertlimits', {
@@ -135,7 +286,7 @@ const Checkfirstreadings = ({ navigation, route }) => {
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>
-            IntelliTemp <Text style={styles.headerSubtitleText}>4P</Text>
+            Thermidity <Text style={styles.headerSubtitleText}>4P</Text>
           </Text>
         </View>
 
@@ -169,9 +320,7 @@ const Checkfirstreadings = ({ navigation, route }) => {
           numberOfLines={1}
           adjustsFontSizeToFit
           minimumFontScale={0.75}>
-          {allValid
-            ? 'Four probes. Four valid readings.'
-            : `Four probes. ${validCount} valid reading${validCount === 1 ? '' : 's'}.`}
+          {titleText}
         </Text>
         <Text style={styles.stepDescription}>
           Check each physical point before setting alerts.
@@ -194,16 +343,20 @@ const Checkfirstreadings = ({ navigation, route }) => {
                   <Text style={styles.readingLabel} numberOfLines={1}>
                     {label}
                   </Text>
-                  {/* <Text style={styles.readingSub}>
-                    {valid ? `Valid sample · ${sampleTime}` : 'No valid sample'}
-                  </Text> */}
+                  <Text style={styles.readingSub}>
+                    {valid
+                      ? `Valid sample · ${sampleTime}`
+                      : hasData
+                      ? 'No valid sample'
+                      : 'Waiting for reading'}
+                  </Text>
                 </View>
 
                 <View style={styles.readingValueWrap}>
-                  {/* <Text style={styles.readingValue}>
+                  <Text style={styles.readingValue}>
                     {valid ? Number(value).toFixed(1) : '—'}
-                  </Text> */}
-                  {/* {valid && <Text style={styles.readingUnit}>°C</Text>} */}
+                  </Text>
+                  {valid && <Text style={styles.readingUnit}>°C</Text>}
                 </View>
               </View>
             );
@@ -219,13 +372,15 @@ const Checkfirstreadings = ({ navigation, route }) => {
               color={allValid ? t.okText : t.warnText}
             />
             <Text style={[styles.validBadgeText, !allValid && styles.validBadgeTextWarn]}>
-              {`${validCount} / ${totalCount} valid`}
+              {hasData ? `${validCount} / ${totalCount} valid` : 'Waiting'}
             </Text>
           </View>
 
           <View style={styles.receivedWrap}>
-            {/* <Feather name="clock" size={12} color="#9CA3AF" /> */}
-            {/* <Text style={styles.receivedText}>{STATIC_RECEIVED_TEXT}</Text> */}
+            <Feather name="clock" size={12} color={isStale ? t.warnText : t.muted} />
+            <Text style={[styles.receivedText, isStale && { color: t.warnText }]}>
+              {statusText}
+            </Text>
           </View>
         </View>
 
@@ -233,8 +388,9 @@ const Checkfirstreadings = ({ navigation, route }) => {
         <View style={styles.hintCard}>
           <Feather name="info" size={16} color={t.accent} style={styles.hintIcon} />
           <Text style={styles.hintText}>
-            A genuine 0.0°C is valid when reported by the sensor. Missing or invalid values
-            are shown as —.
+            {serial
+              ? 'A genuine 0.0°C is valid when reported by the sensor. Missing or invalid values are shown as —. Values update live as the device reports.'
+              : 'The device ID was not passed to this step, so live readings cannot be shown. Go back and start the setup again.'}
           </Text>
         </View>
       </ScrollView>

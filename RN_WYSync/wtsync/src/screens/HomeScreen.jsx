@@ -42,7 +42,6 @@ const keyOf = (p) => p.serial_no || p.serial_number || `id-${p.id}`;
 const sameSerial = (a, b) => (a || '').trim().toUpperCase() === (b || '').trim().toUpperCase();
 
 // Merges the normal device list with the devices installed through the setup wizard.
-// The wizard data (location, application, probe names, ...) is added on top.
 const mergeProducts = (base = [], installed = []) => {
   const map = new Map();
   base.forEach((p) => map.set(keyOf(p), p));
@@ -64,7 +63,6 @@ const HomeScreen = ({ navigation }) => {
   const intervalRef = useRef(null);
 
   // Latest status pushed by the server over Socket.IO: { SERIAL: { online, last_seen, at } }.
-  // Kept so a slow poll response that was sent BEFORE the push cannot overwrite it.
   const liveRef = useRef({});
 
   const withLive = (list) =>
@@ -74,8 +72,6 @@ const HomeScreen = ({ navigation }) => {
       return { ...p, online: live.online, last_seen: live.last_seen ?? p.last_seen };
     });
 
-  // One request per poll. (It used to be three: /get-user plus /get-products twice,
-  // and the two /get-products calls returned exactly the same data.)
   const loadHomeData = async () => {
     try {
       const result = await getProducts();
@@ -92,7 +88,7 @@ const HomeScreen = ({ navigation }) => {
     }
   };
 
-  // Safety-net polling (the live socket below does the fast updates)
+  // Safety-net polling
   useFocusEffect(
     useCallback(() => {
       loadHomeData();
@@ -126,7 +122,6 @@ const HomeScreen = ({ navigation }) => {
       });
       socket.on('connect_error', (e) => console.log('Home socket error:', e?.message));
 
-      // The server saw this device come online / go offline
       socket.on('device_status', (s) => {
         if (!s?.serial_no) return;
         applyLive(s.serial_no, {
@@ -135,13 +130,11 @@ const HomeScreen = ({ navigation }) => {
         });
       });
 
-      // Every reading proves the device is online and refreshes "last updated"
       socket.on('live_telemetry', (t) => {
         if (!t?.serial_no) return;
         applyLive(t.serial_no, { online: true, last_seen: Date.now() });
       });
 
-      // Re-fetch once the socket (re)connects, in case a status was missed meanwhile
       socket.on('connect', () => loadHomeData());
 
       return () => socket.disconnect();
@@ -167,11 +160,12 @@ const HomeScreen = ({ navigation }) => {
         style={styles.card}
         activeOpacity={0.88}
         onPress={() => {
-          // Same as before: connected devices open the IntelliTemp dashboard.
-          // A device that finished the installation wizard opens it too, even if
-          // it has not reported yet.
+          // Navigates directly to Commissioned screen when connected or installed
           if (isConnected || isInstalled) {
-            navigation.navigate('WtsDashboard', { product: item });
+            navigation.navigate('Commissioned', {
+              serialNo: item.serial_no || item.serial_number,
+              product: item,
+            });
           } else {
             navigation.navigate('DeviceConfig', { product: item });
           }
@@ -179,7 +173,7 @@ const HomeScreen = ({ navigation }) => {
         {/* Device Name + Status Badge */}
         <View style={styles.cardHeader}>
           <Text style={styles.deviceName} numberOfLines={1}>
-            {item.location || item.device_name || 'IntelliTemp'}
+            {item.location || item.device_name || 'Thermidity'}
           </Text>
 
           <View
@@ -206,7 +200,7 @@ const HomeScreen = ({ navigation }) => {
         {/* Model & Serial Number Row */}
         <View style={styles.subtitleRow}>
           <Text style={styles.deviceSubtitle}>
-            {item.model_no || item.device_name || 'IntelliTemp 4P'} ·{' '}
+            {item.model_no || item.device_name || 'Thermidity 4P'} ·{' '}
             {item.application || 'Electrical panel'}
           </Text>
           <Text style={styles.deviceSerial}>
@@ -307,7 +301,7 @@ const HomeScreen = ({ navigation }) => {
       <View style={styles.topHeaderContainer}>
         <View style={styles.brandRow}>
           <Feather name="thermometer" size={22} color={ACCENT} />
-          <Text style={styles.brandTitle}>IntelliTemp</Text>
+          <Text style={styles.brandTitle}>Thermidity</Text>
         </View>
         <TouchableOpacity
           activeOpacity={0.8}

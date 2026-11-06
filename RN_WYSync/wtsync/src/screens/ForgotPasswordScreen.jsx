@@ -66,7 +66,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>
-            IntelliTemp <Text style={styles.headerSubTitle}>4P</Text>
+            Thermidity <Text style={styles.headerSubTitle}>4P</Text>
           </Text>
 
           <Image

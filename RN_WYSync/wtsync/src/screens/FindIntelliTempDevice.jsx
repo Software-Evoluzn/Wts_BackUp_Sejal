@@ -244,7 +244,7 @@ const FindIntelliTempDevice = ({ navigation, route }) => {
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitleBold}>IntelliTemp </Text>
+          <Text style={styles.headerTitleBold}>Thermidity </Text>
           <Text style={styles.headerTitleSub}>4P</Text>
         </View>
         <View style={styles.logoContainer}>
@@ -271,7 +271,7 @@ const FindIntelliTempDevice = ({ navigation, route }) => {
         <Text style={styles.stepText}>STEP 2 OF 6 · CONNECT</Text>
 
         {/* Title and Subtitle */}
-        <Text style={styles.mainTitle}>Looking for IntelliTemp.</Text>
+        <Text style={styles.mainTitle}>Looking for Thermidity.</Text>
         <Text style={styles.subTitle}>
           Keep the device powered and your phone nearby.
         </Text>
@@ -295,7 +295,7 @@ const FindIntelliTempDevice = ({ navigation, route }) => {
         <View style={styles.deviceCard}>
           <View style={styles.deviceCardLeft}>
             <Text style={styles.thermometerIcon}>🌡️</Text>
-            <Text style={styles.deviceName}>IntelliTemp 4P</Text>
+            <Text style={styles.deviceName}>Thermidity 4P</Text>
           </View>
           <Text style={styles.deviceCode}>
             {foundSsid || targetSSID || serialNo || 'DEMO-4P-001'}
@@ -365,7 +365,7 @@ const FindIntelliTempDevice = ({ navigation, route }) => {
         <View style={styles.securityBox}>
           <Text style={styles.securityIcon}>🛡️</Text>
           <Text style={styles.securityText}>
-            Only connect to the IntelliTemp identity you just scanned.
+            Only connect to the Thermidity identity you just scanned.
           </Text>
         </View>
 

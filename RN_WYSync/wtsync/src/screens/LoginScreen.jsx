@@ -72,7 +72,7 @@ const LoginScreen = ({ navigation }) => {
             <Text style={styles.tagline}>CONDITIONS. CLARITY. CONTROL.</Text>
             <Text style={styles.title}>Welcome back.</Text>
             <Text style={styles.subtitle}>
-              Sign in to your IntelliTemp workspace.
+              Sign in to your Thermidity workspace.
             </Text>
           </View>
 

@@ -328,7 +328,7 @@ export default function PasswordScreen({ route, navigation }) {
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>
-            IntelliTemp <Text style={styles.headerSubTitle}>4P</Text>
+            Thermidity <Text style={styles.headerSubTitle}>4P</Text>
           </Text>
 
           {/* Evoluzn Logo Image */}
@@ -363,7 +363,7 @@ export default function PasswordScreen({ route, navigation }) {
             ]}
           >
             <Text style={styles.eyebrow}>STEP 2 OF 6 · CONNECT</Text>
-            <Text style={styles.heading}>Connect IntelliTemp.</Text>
+            <Text style={styles.heading}>Connect Thermidity.</Text>
             <Text style={styles.subtitle}>
               Enter the password for your selected site network.
             </Text>
@@ -417,7 +417,7 @@ export default function PasswordScreen({ route, navigation }) {
             <View style={styles.infoBox}>
               <Feather name="zap" size={16} color={p.infoIcon} style={{ marginRight: 10 }} />
               <Text style={styles.infoBoxText}>
-                Keep IntelliTemp powered while the connection is configured.
+                Keep Thermidity powered while the connection is configured.
               </Text>
             </View>
 
