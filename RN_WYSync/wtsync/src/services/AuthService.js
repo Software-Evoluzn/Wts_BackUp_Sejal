@@ -1,5 +1,6 @@
 import { getApp } from '@react-native-firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithCredential, signOut } from '@react-native-firebase/auth';
+import { unregisterPushToken } from './PushNotifications';
 import IP_ADDRESS from '../services/ipconfig';
 import { GoogleSignin, isSuccessResponse } from '@react-native-google-signin/google-signin';
 
@@ -102,6 +103,9 @@ export const loginUser = async (email, password) => {
 
 export const logoutUser = async () => {
     try {
+        // Stop this phone receiving the user's alerts (must happen while still signed in)
+        await unregisterPushToken();
+
         await signOut(auth);
 
         // Revoke Google access

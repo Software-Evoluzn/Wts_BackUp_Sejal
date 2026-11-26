@@ -64,7 +64,8 @@ function CustomTabBar({ state, descriptors, navigation }) {
             });
 
             if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
+              // Fixed: Use jumpTo for switching tabs inside custom bottom bar
+              navigation.jumpTo(route.name);
             }
           };
 

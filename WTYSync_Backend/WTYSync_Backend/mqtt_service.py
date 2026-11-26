@@ -1,13 +1,13 @@
 import json
+import time
 from datetime import datetime, timedelta
+from sqlalchemy import or_
 from apscheduler.schedulers.background import BackgroundScheduler
 import paho.mqtt.client as mqtt
 
 from database.db import db
 from models.RegisterProduct import RegisterProduct
 from routes.telemetry import process_and_save_mqtt_data
-
-from alert_service import send_push_notification , send_threshold_email,send_threshold_sms
 
 broker = "evoluzn.org"
 port = 18889
@@ -21,43 +21,66 @@ flask_app = None
 socketio_instance = None
 scheduler = None
 
-alert_cooldowns = {}
-ALERT_COOLDOWN_MINUTES = 30
+# A device is marked offline when it has sent nothing for OFFLINE_AFTER_SECONDS.
+# Keep this at least 2-3x the interval at which the device publishes, otherwise a
+# healthy device will flicker offline. The check itself runs every
+# OFFLINE_CHECK_EVERY_SECONDS, so the worst-case delay before "offline" shows is
+# OFFLINE_AFTER_SECONDS + OFFLINE_CHECK_EVERY_SECONDS (it used to be 150 + 60).
+OFFLINE_AFTER_SECONDS = 150
+OFFLINE_CHECK_EVERY_SECONDS = 15
 
+
+def emit_device_status(serial, online):
+    """Pushes an online/offline change to every connected app instantly."""
+    if socketio_instance is None:
+        return
+    try:
+        socketio_instance.emit(
+            "device_status",
+            {
+                "serial_no": serial,
+                "online": bool(online),
+                "last_seen": int(time.time() * 1000) if online else None,
+            },
+        )
+    except Exception as e:
+        print(f"Error emitting device_status for {serial}:", str(e))
 
 
 def check_inactive_devices():
-    """Periodically checks for devices that haven't sent data recently
-    and marks them offline (online_status = 0).
-    """
-    print("⏰ [Scheduler] Running check for inactive devices...")
+    """Marks devices offline when they have not sent data for OFFLINE_AFTER_SECONDS,
+    and tells the apps immediately."""
     if not flask_app:
-        print("⚠️ [Scheduler] flask_app is None, skipping check.")
         return
 
     with flask_app.app_context():
         try:
-            # ✅ STRICT LOCAL TIME MATCHING DATABASE TIMESTAMPS
-            timeout_threshold = datetime.now() - timedelta(seconds=150)
+            # Local time, matching the datetime.now() used for last_seen
+            timeout_threshold = datetime.now() - timedelta(seconds=OFFLINE_AFTER_SECONDS)
 
-            # Query active devices (1) that haven't updated last_seen in > 3 minutes
-            updated_count = (
+            stale = (
                 db.session.query(RegisterProduct)
                 .filter(
                     RegisterProduct.online_status == 1,
-                    RegisterProduct.last_seen < timeout_threshold,
+                    or_(
+                        RegisterProduct.last_seen < timeout_threshold,
+                        RegisterProduct.last_seen.is_(None),  # online but never timestamped
+                    ),
                 )
-                .update({"online_status": 0}, synchronize_session=False)
+                .all()
             )
 
+            if not stale:
+                return
+
+            serials = [p.serial_no for p in stale]
+            for p in stale:
+                p.online_status = False
             db.session.commit()
 
-            if updated_count > 0:
-                print(
-                    f"✅ [Scheduler] Marked {updated_count} inactive device(s) as offline (online_status = 0)."
-                )
-            else:
-                print("ℹ️ [Scheduler] All active devices are up to date.")
+            print(f"✅ [Scheduler] Marked offline: {serials}")
+            for serial in serials:
+                emit_device_status(serial, False)
 
         except Exception as e:
             db.session.rollback()
@@ -78,10 +101,12 @@ def init_app(app, socketio_ref=None):
     if scheduler is None:
         scheduler = BackgroundScheduler()
         scheduler.add_job(
-            func=check_inactive_devices, trigger="interval", seconds=60
+            func=check_inactive_devices,
+            trigger="interval",
+            seconds=OFFLINE_CHECK_EVERY_SECONDS,
         )
         scheduler.start()
-        print("✅ Background offline status checker started successfully.")
+        print(f"✅ Offline checker started (every {OFFLINE_CHECK_EVERY_SECONDS}s, timeout {OFFLINE_AFTER_SECONDS}s).")
 
 
 def on_connect(client, userdata, flags, rc):
@@ -105,8 +130,6 @@ def on_message(client, userdata, msg):
         return
 
     serial = topic.split("/")[0]
-    
-    
     raw_payload = msg.payload.decode("utf-8")
 
     print(f"Data --> {topic} | Payload: {raw_payload}")
@@ -124,106 +147,20 @@ def on_message(client, userdata, msg):
                     product.online_status = 0
                     db.session.commit()
                     print(f"🔴 Device {serial} explicitly sent offline status.")
+                    emit_device_status(serial, False)
             except Exception as e:
                 db.session.rollback()
                 print(f"❌ Error setting offline status for {serial}:", str(e))
             return
-        
-        
-        if "WTSAlert" in raw_payload:
-            try:
-                print("alert comes here WTSAlert")
-                print("Raw Payload:", raw_payload)
-                print("Topic Serial:", serial)
-                
-                clean_payload = raw_payload.strip("{} ")
-                parts = clean_payload.split(":")
-                
-                raw_device_id = parts[1].strip() if len(parts) > 1 else serial
-                
-                if raw_device_id.startswith("WTSAlert"):
-                    alert_device = raw_device_id.replace("WTSAlert" , "WTS" , 1)
-                else:
-                    alert_device = raw_device_id
-                
-                alert_msg = parts[2].strip() if len(parts) > 2 else "Temperature Threshold Exceeded!"
-                print(f"🚨 REALTIME ALERT PROCESSED: Parsed Serial -> {alert_device} | Msg -> {alert_msg}")
-                
-                # 🛑 COOLDOWN CHECK: Prevent duplicate alerts within the cooldown window
-                now = datetime.now()
-                if alert_device in alert_cooldowns:
-                    time_diff = now - alert_cooldowns[alert_device]
-                    if time_diff < timedelta(minutes=ALERT_COOLDOWN_MINUTES):
-                        print(f"ℹ️ Alert for {alert_device} suppressed. Cooldown active (sent {time_diff.seconds}s ago).")
-                        
-                        # Socket.io live emit kar sakte hain agar frontend par real-time update chahiye bina spam ke
-                        if socketio_instance:
-                            socketio_instance.emit("temperature_alert", {
-                                "serial_no": alert_device,
-                                "message": alert_msg,
-                                "timestamp": now.isoformat()
-                            })
-                        return
-
-                # Update last alert time
-                alert_cooldowns[alert_device] = now
-
-                # Socket.IO Realtime Emit to Active Frontend
-                if socketio_instance:
-                    print("SocketIO instance available")
-                    socketio_instance.emit("temperature_alert", {
-                        "serial_no": alert_device,
-                        "message": alert_msg,
-                        "timestamp": now.isoformat()
-                    })
-
-                # Fetch Product details from DB
-                product = RegisterProduct.query.filter_by(serial_no=alert_device).first()
-                print("Product Found: ", product)
-
-                if product:
-                    # Send App Push Notification
-                    if hasattr(product, 'fcm_token') and product.fcm_token:
-                        send_push_notification(
-                            product.fcm_token, 
-                            alert_device, 
-                            alert_msg
-                        )
-                        print("Push function completed")
-                    else:
-                        print("❌ FCM TOKEN NOT FOUND")
-
-                    # Send Email
-                    if product.email_enabled and product.alert_email:
-                        print("Calling Email Function......")
-                        send_threshold_email(
-                            to_email=product.alert_email,
-                            serial_no=alert_device,
-                            exceeded_phases=[alert_msg],
-                            threshold=getattr(product, 'threshold_value', 20),
-                            current_time=now
-                        )
-
-                    # Send SMS
-                    if product.sms_enabled and product.sms_phone:
-                        print("Calling SMS Function")
-                        send_threshold_sms(
-                            mobile_number=product.sms_phone,
-                            serial_no=alert_device,
-                            exceeded_phases=[alert_msg],
-                            current_time=now
-                        )
-                else:
-                    print("Product not found")
-
-            except Exception as e:
-                print(f"❌ Error processing WTSAlert payload: {e}")
-            return
-                
-                
 
         # 1. Process telemetry and save to DB
-        process_and_save_mqtt_data(serial, raw_payload)
+        came_online = process_and_save_mqtt_data(serial, raw_payload)
+
+        # 1b. First message after being offline -> tell the apps right now,
+        #     they do not have to wait for their next poll.
+        if came_online:
+            print(f"🟢 Device {serial} is now online.")
+            emit_device_status(serial, True)
 
         # 2. Live Socket.IO Emit
         try:

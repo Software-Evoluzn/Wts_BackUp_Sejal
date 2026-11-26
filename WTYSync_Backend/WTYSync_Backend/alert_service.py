@@ -1,14 +1,13 @@
 import smtplib
+import time
 import requests
 import ssl
-
+from concurrent.futures import ThreadPoolExecutor
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from flask import render_template
-import google.auth
-from google.auth.transport.requests import Request
-from google.oauth2 import service_account
 
+from fcm_service import send_push_to_user
 
 # ------------------------------------------------------------------
 # Email (SMTP / Gmail App Password) - same pattern as the WTS project
@@ -26,84 +25,26 @@ FAST2SMS_API_KEY = "bpNGDhrI3AEHXMJdzsiuPWlRTt10CjoUVYFfcg9m2qS8Z65kKy6VS3s1wGZT
 
 
 # ------------------------------------------------------------------
-# Push Notification Setup (FCM v1 without Service Account JSON)
+# Background workers
 # ------------------------------------------------------------------
-PROJECT_ID = "thermidity-37a89"
-FCM_ENDPOINT = f"https://fcm.googleapis.com/v1/projects/{PROJECT_ID}/messages:send"
+# Email and SMS are slow network calls (SMTP login + send can take several
+# seconds, Fast2SMS is an HTTP call). They must NEVER run inside the MQTT
+# callback thread, otherwise every incoming MQTT message (and the live
+# Socket.IO emit) waits for them. They run in this small pool instead, and
+# email + SMS run in parallel so SMS does not wait for email.
+_alert_pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="alert")
 
-SERVICE_ACCOUNT_FILE = 'service_account.json'
-
-def get_access_token():
-    print("enter into the get_access_token")
-    """Dynamically fetches OAuth2 access token using Firebase Service Account JSON """
-    credentials = service_account.Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE,
-        scopes=["https://www.googleapis.com/auth/firebase.messaging"]
-    )
-    print("sejal inside  get access token")
-    credentials.refresh(Request())
-    return credentials.token
-
-def send_push_notification(fcm_token, serial_no, alert_message):
-    """Send Mobile Push Notification to app (Works in Killed/Background/Foreground)."""
-    print("sejal comes in send_push_notification")
-    if not fcm_token:
-        print(f"ℹ️ No FCM Token set for {serial_no}, skipping Push Notification.")
-        return
-
-    try:
-        print("sejal comes in send_push_notification try block")
-        token = get_access_token()
-        print("sejal want to see token: ",token)
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json; UTF-8"
-        }
-        print("sejal want to see headers: ",headers)
-
-        payload = {
-            "message": {
-                "token": fcm_token,
-                "notification": {
-                    "title": f"⚠️ Temperature Alert ({serial_no})",
-                    "body": alert_message
-                },
-                "data": {
-                    "serial_no": str(serial_no),
-                    "message": str(alert_message),
-                    "type": "ALERT"
-                },
-                "android": {
-                    "priority": "high",
-                    "notification": {
-                        "channel_id": "high_priority_alerts",
-                        "sound": "default"
-                    }
-                }
-            }
-        }
-        print("sejal want to see payload: " , payload)
-
-        response = requests.post(FCM_ENDPOINT, headers=headers, json=payload)
-        print("sejal want to see response: ",response)
-        if response.status_code == 200:
-            print(f"🔔 Push notification sent to device {serial_no}")
-        else:
-            print(f"❌ Push notification failed ({response.status_code}): {response.text}")
-
-    except Exception as e:
-        print(f"❌ Error sending FCM Push notification: {e}")
+NETWORK_TIMEOUT = 10  # seconds, so a dead SMTP/SMS server can never hang a worker
 
 
 def send_threshold_email(to_email, serial_no, exceeded_phases, threshold, current_time):
-    print("enter in this funtion ")
     """Send a threshold-exceeded email alert for one device."""
     if not to_email:
         print(f"ℹ️ No alert_email set for {serial_no}, skipping email.")
         return
 
+    started = time.time()
     try:
-        print("here first come sejal")
         html_body = render_template(
             "alert.html",
             serial_number=serial_no,
@@ -111,34 +52,43 @@ def send_threshold_email(to_email, serial_no, exceeded_phases, threshold, curren
             exceeded_phases=', '.join(exceeded_phases),
             timestamp=current_time.strftime("%d %b %Y, %I:%M %p")
         )
-        print("here come sejal")
 
         msg = MIMEMultipart("alternative")
-        print("msg of " , msg)
         msg['From'] = f"{SENDER_NAME} <{SENDER_EMAIL}>"
-        print("msg of from " , msg['From'])
         msg['To'] = to_email
-        print("msg of to " , msg['To'])
         msg['Subject'] = f"⚠️ Temperature Alert for {serial_no} (Phases: {', '.join(exceeded_phases)})"
-        print("msg of subject " , msg['Subject'])
         msg.attach(MIMEText(html_body, 'html'))
-      
-        print("now come here inside this after message MIMIETEXT")
 
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
-        print("msg of  " , server)
-        server.starttls()
-        print("servr start")
-        server.login(SENDER_EMAIL, SENDER_PASSWORD)
-        print("server login")
-        server.sendmail(SENDER_EMAIL, [to_email], msg.as_string())
-        print("server send email")
-        server.quit()
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=NETWORK_TIMEOUT) as server:
+            server.starttls()
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.sendmail(SENDER_EMAIL, [to_email], msg.as_string())
 
-        print(f"📧 Alert email sent to {to_email} for {serial_no}")
+        print(f"📧 Alert email sent to {to_email} for {serial_no} (took {time.time() - started:.1f}s)")
 
     except Exception as e:
-        print(f"❌ Email send failed for {serial_no}: {e}")
+        print(f"❌ Email send failed for {serial_no} after {time.time() - started:.1f}s: {e}")
+
+
+# DLT variables are limited to 30 characters. The approved template (ID 217514)
+# has 3 slots: "ALERT: {#var#} / Device ID: {#var#} / Time: {#var#}".
+# A 4th value is silently dropped by Fast2SMS, so the exceeded probes are put
+# inside slot 1 instead: "ALERT: TEMP EXCEEDED R1,Y1".
+SMS_VAR_MAX = 30
+
+
+def build_sms_alert_text(exceeded_phases, prefix="TEMP EXCEEDED"):
+    """'TEMP EXCEEDED R1,Y1' - as many probe names as fit in 30 chars, then '+N'."""
+    names = [str(p) for p in exceeded_phases]
+    total = len(names)
+    if total == 0:
+        return prefix
+    for keep in range(total, 0, -1):
+        text = ",".join(names[:keep]) + (f"+{total - keep}" if keep < total else "")
+        candidate = f"{prefix} {text}"
+        if len(candidate) <= SMS_VAR_MAX:
+            return candidate
+    return prefix  # extremely unlikely, keeps the SMS valid
 
 
 def send_threshold_sms(mobile_number, serial_no, exceeded_phases, current_time):
@@ -147,29 +97,67 @@ def send_threshold_sms(mobile_number, serial_no, exceeded_phases, current_time):
         print(f"ℹ️ No sms_phone set for {serial_no}, skipping SMS.")
         return
 
+    started = time.time()
     try:
         formatted_time = current_time.strftime("%d %b %Y %H:%M:%S")
-        
+
         if isinstance(exceeded_phases, list):
             phases_str = ", ".join(str(p) for p in exceeded_phases)
         else:
             phases_str = str(exceeded_phases)
-        
+
         url = "https://www.fast2sms.com/dev/bulkV2"
         params = {
             "authorization": FAST2SMS_API_KEY,
             "route": "dlt",
             "sender_id": "EVZIND",
             "message": "217514",  # DLT-approved template ID
-            "variables_values": f"TEMP EXCEEDED|{serial_no}|{formatted_time}|{phases_str}",
+            "variables_values": f"{build_sms_alert_text(exceeded_phases)}|{serial_no}|{formatted_time}",
             "numbers": mobile_number
         }
 
-        response = requests.get(url, params=params)
-        print(f"📱 SMS status for {serial_no}: {response.status_code} | {response.text}")
+        response = requests.get(url, params=params, timeout=NETWORK_TIMEOUT)
+        print(f"📱 SMS status for {serial_no}: {response.status_code} | {response.text} "
+              f"(took {time.time() - started:.1f}s)")
 
     except Exception as e:
-        print(f"❌ SMS send failed for {serial_no}: {e}")
-        
-        
-        
+        print(f"❌ SMS send failed for {serial_no} after {time.time() - started:.1f}s: {e}")
+
+
+def _run_in_app_context(app, func, **kwargs):
+    # render_template() needs a Flask app context, and worker threads don't have one.
+    with app.app_context():
+        func(**kwargs)
+
+
+def dispatch_threshold_alerts(app, serial_no, exceeded_phases, threshold, current_time,
+                              email_to=None, sms_to=None,
+                              push_uid=None, push_title=None, push_body=None, push_data=None):
+    """
+    Fire-and-forget. Returns immediately (microseconds); the push notification,
+    the email and the SMS are sent by background workers, in parallel.
+
+    `app` must be the real Flask app object (use current_app._get_current_object()).
+    Only plain values are passed in. The push worker reads the user's phone
+    tokens from the database, so it runs inside its own app context.
+    """
+    # Push first: it is the fastest channel to the user's phone.
+    if push_uid:
+        _alert_pool.submit(
+            _run_in_app_context, app, send_push_to_user,
+            firebase_uid=push_uid, title=push_title, body=push_body, data=push_data,
+        )
+    if email_to:
+        _alert_pool.submit(
+            _run_in_app_context, app, send_threshold_email,
+            to_email=email_to, serial_no=serial_no,
+            exceeded_phases=list(exceeded_phases),
+            threshold=threshold, current_time=current_time,
+        )
+    if sms_to:
+        _alert_pool.submit(
+            _run_in_app_context, app, send_threshold_sms,
+            mobile_number=sms_to, serial_no=serial_no,
+            exceeded_phases=list(exceeded_phases),
+            current_time=current_time,
+        )

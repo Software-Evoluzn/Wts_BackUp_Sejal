@@ -1,13 +1,50 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from database.db import db
 from models.RegisterProduct import RegisterProduct
 from models.temp_values import TempValues
 from models.control_panel import ControlPanel
 from datetime import datetime, date as date_cls
-from alert_service import send_threshold_email, send_threshold_sms
+from alert_service import dispatch_threshold_alerts
 
 # Create a Blueprint just like you did in product.py
 telemetry = Blueprint("telemetry", __name__)
+
+def get_effective_limits(product):
+    """
+    Returns {column: limit} for every probe that has a high limit.
+
+    Rule (same as the install wizard): a per-probe override wins; a probe with
+    no override uses the group limit; if neither exists the probe is not checked.
+    probe_1..probe_24 map in order to R1, Y1, B1, N1, R2 ... N6.
+    """
+    overrides = product.probe_thresholds[0] if product.probe_thresholds else None
+    limits = {}
+    for i, col in enumerate(PHASE_COLUMNS, start=1):
+        limit = getattr(overrides, f"probe_{i}", None) if overrides else None
+        if limit is None:
+            limit = product.threshold_value
+        if limit is not None:
+            limits[col] = limit
+    return limits
+
+
+def describe_limits(limits, exceeded_phases):
+    """Text for the email's 'Threshold' row, e.g. '40.0' or 'R1: 40.0, Y1: 80.0'."""
+    used = {col: limits[col] for col in exceeded_phases}
+    if len(set(used.values())) == 1:
+        return str(next(iter(used.values())))
+    return ", ".join(f"{col}: {lim}" for col, lim in used.items())
+
+
+def build_push_text(product, serial, exceeded_phases, record_data, limits):
+    """Title/body of the app notification, e.g. 'R1 46°C (limit 40), Y1 51°C (limit 40)'."""
+    name = product.device_name or serial
+    parts = [f"{c} {record_data[c]:g}°C (limit {limits[c]:g})" for c in exceeded_phases]
+    body = ", ".join(parts[:4])
+    if len(parts) > 4:
+        body += f" +{len(parts) - 4} more"
+    return f"⚠️ Temperature alert: {name}", body
+
 
 def process_and_save_mqtt_data(serial, raw_payload):
     """
@@ -15,8 +52,13 @@ def process_and_save_mqtt_data(serial, raw_payload):
     """
     # 1. Update Online Status
     product = RegisterProduct.query.filter_by(serial_no=serial).first()
-    
+
+    # True only when this message flips the device from offline to online, so
+    # mqtt_service can push a "device_status" event to the app straight away.
+    came_online = False
+
     if product:
+        came_online = not product.online_status
         product.online_status = True
         product.last_seen = datetime.now()
     else:
@@ -56,36 +98,56 @@ def process_and_save_mqtt_data(serial, raw_payload):
                 # Alert once when threshold is exceeded, stay silent while it
                 # remains exceeded, and re-arm once it drops back below.
                 # ------------------------------------------------------------
-                if product and product.threshold_value is not None:
+                limits = get_effective_limits(product) if product else {}
+                if product and limits:
                     exceeded_phases = [
                         col for col, val in record_data.items()
                         if col != 'serial_no'
                         and val is not None
-                        and val > product.threshold_value
+                        and col in limits
+                        and val > limits[col]
                     ]
 
                     now = datetime.now()
 
                     if exceeded_phases:
                         if not product.alert_active:
-                            print(f"🚨 Threshold exceeded for {serial}: {exceeded_phases}")
+                            print(f"🚨 Threshold exceeded for {serial}: "
+                                  f"{[(c, record_data[c], limits[c]) for c in exceeded_phases]}")
 
-                            if product.email_enabled:
-                                send_threshold_email(
-                                    to_email=product.alert_email,
-                                    serial_no=serial,
-                                    exceeded_phases=exceeded_phases,
-                                    threshold=product.threshold_value,
-                                    current_time=now
+                            # Hand the slow work (SMTP / SMS HTTP call) to background
+                            # workers and carry on immediately. Nothing here waits.
+                            # The push part is wrapped on its own: whatever goes wrong with it,
+                            # the email and SMS below are still sent.
+                            push_kwargs = {}
+                            try:
+                                push_title, push_body = build_push_text(
+                                    product, serial, exceeded_phases, record_data, limits
                                 )
+                                push_kwargs = dict(
+                                    push_uid=product.firebase_uid,
+                                    push_title=push_title,
+                                    push_body=push_body,
+                                    push_data={
+                                        "type": "threshold_alert",
+                                        "serial_no": serial,
+                                        "device_name": product.device_name or "",
+                                        "phases": ",".join(exceeded_phases),
+                                    },
+                                )
+                            except Exception as e:
+                                print("Push text could not be built (email/SMS not affected):", e)
 
-                            if product.sms_enabled:
-                                send_threshold_sms(
-                                    mobile_number=product.sms_phone,
-                                    serial_no=serial,
-                                    exceeded_phases=exceeded_phases,
-                                    current_time=now
-                                )
+                            dispatch_threshold_alerts(
+                                app=current_app._get_current_object(),
+                                serial_no=serial,
+                                exceeded_phases=exceeded_phases,
+                                threshold=describe_limits(limits, exceeded_phases),
+                                current_time=now,
+                                email_to=product.alert_email if product.email_enabled else None,
+                                sms_to=product.sms_phone if product.sms_enabled else None,
+                                **push_kwargs,
+                            )
 
                             product.alert_active = True
                         # else: alert already open for this device, do nothing
@@ -100,6 +162,7 @@ def process_and_save_mqtt_data(serial, raw_payload):
 
     # Commit both the status update and the new temperatures at once
     db.session.commit()
+    return came_online
 
 
 # ---------------------------------------------------------
