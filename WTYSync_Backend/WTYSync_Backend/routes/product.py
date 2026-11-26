@@ -105,6 +105,7 @@ def register_product():
         prod.email = data.get("email")
         prod.contact = data.get("contact")
         prod.device_name = data.get("device_name")
+        prod.fcm_token = data.get("fcm_token")
         prod.probe_type = data.get("probe_type")
         prod.model_no = data.get("model_no")
         prod.serial_no = serial

@@ -443,6 +443,52 @@ const Commissioned = ({ navigation, route }) => {
     navigation.navigate('Temperaturehistory', { serialNo: serial });
   };
 
+  const onOpenDeviceDetails = () => {
+    if (!serial) return;
+    navigation.navigate('Devicedetails', { serialNo: serial });
+  };
+
+  const onOpenAirHumidity = () => {
+    if (!serial) return;
+    navigation.navigate('Airarroundscreen', {
+      serialNo: serial,
+      probeType: product?.probe_type || '4P',
+    });
+  };
+
+  const onOpenReports = () => {
+    if (!serial) return;
+
+    // Real values shown on this screen, passed on so the Excel export is not blank
+    const liveReadings = {
+      timestamp: lastDataAt
+        ? new Date(lastDataAt).toLocaleString('en-IN')
+        : new Date().toLocaleString('en-IN'),
+      threshold: product?.threshold_value ?? '',
+      lowLimit: lowLimit ?? '',
+      probes: items.map((item) => ({
+        probe: `T${item.n}`,
+        label: item.label,
+        value: isValidReading(item.value) ? Number(item.value.toFixed(1)) : '',
+        threshold: item.high ?? '',
+        lowLimit: item.low ?? '',
+        status: item.status,
+      })),
+    };
+
+    navigation.navigate('Reportsrecords', {
+      serialNo: serial,
+      siteName: product?.location || product?.device_name || 'Demo industrial site',
+      probeType: product?.probe_type || '4P',
+      probeCount: count,
+      product,
+      isDeviceOffline: !online,
+      liveReadings,
+    });
+  };
+
+  const externalRhText = product?.external_rh ? 'fitted' : 'not fitted';
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -535,6 +581,48 @@ const Commissioned = ({ navigation, route }) => {
           <Feather name="bar-chart-2" size={18} color={t.accent} />
           <Text style={styles.historyText}>Explore temperature history</Text>
         </TouchableOpacity>
+
+        {/* External RH & Device details row */}
+        <View style={styles.metaRow}>
+          <Text style={styles.metaLeftText}>External RH: {externalRhText}</Text>
+          <TouchableOpacity
+            activeOpacity={0.75}
+            onPress={onOpenDeviceDetails}
+            disabled={!serial}>
+            <Text style={[styles.metaRightLink, !serial && styles.historyButtonDisabled]}>
+              Device details
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Grouped action rows */}
+        <View style={[styles.actionGroupCard, !serial && styles.historyButtonDisabled]}>
+          <TouchableOpacity
+            style={styles.actionRow}
+            activeOpacity={0.8}
+            onPress={onOpenAirHumidity}
+            disabled={!serial}>
+            <Feather name="droplet" size={18} color={t.sub} style={styles.actionRowIcon} />
+            <Text style={styles.actionRowLabel} numberOfLines={1}>
+              Air temperature, humidity &amp; dew point
+            </Text>
+            <Feather name="chevron-right" size={18} color={t.muted} />
+          </TouchableOpacity>
+
+          <View style={styles.actionRowDivider} />
+
+          <TouchableOpacity
+            style={styles.actionRow}
+            activeOpacity={0.8}
+            onPress={onOpenReports}
+            disabled={!serial}>
+            <Feather name="file-text" size={18} color={t.sub} style={styles.actionRowIcon} />
+            <Text style={styles.actionRowLabel} numberOfLines={1}>
+              Reports &amp; records
+            </Text>
+            <Feather name="chevron-right" size={18} color={t.muted} />
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       {/* Bottom bar (same look as the app's tabs; "Devices" is the active one) */}
@@ -656,6 +744,48 @@ const createStyles = (t, insets) =>
     },
     historyButtonDisabled: { opacity: 0.5 },
     historyText: { fontSize: 15, fontWeight: '700', color: t.accent },
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: 18,
+      marginBottom: 14,
+    },
+    metaLeftText: {
+      fontSize: 13.5,
+      color: t.sub,
+    },
+    metaRightLink: {
+      fontSize: 13.5,
+      fontWeight: '700',
+      color: t.accent,
+    },
+    actionGroupCard: {
+      backgroundColor: t.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: t.border,
+      overflow: 'hidden',
+    },
+    actionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 16,
+    },
+    actionRowIcon: { marginRight: 12 },
+    actionRowLabel: {
+      flex: 1,
+      fontSize: 15,
+      fontWeight: '500',
+      color: t.sub,
+      marginRight: 8,
+    },
+    actionRowDivider: {
+      height: 1,
+      backgroundColor: t.divider,
+      marginHorizontal: 16,
+    },
     bottomBar: {
       backgroundColor: t.surface,
       borderTopWidth: 1,

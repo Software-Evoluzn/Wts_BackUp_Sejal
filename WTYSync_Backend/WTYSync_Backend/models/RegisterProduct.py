@@ -68,6 +68,7 @@ class RegisterProduct(db.Model):
     
     # Relationship: Clean link to child table
     probe_thresholds = db.relationship('ProbeThreshold', backref='product', cascade="all, delete-orphan", lazy=True)
+    fcm_token = db.Column(db.String(255) , nullable=True)
 
 
 

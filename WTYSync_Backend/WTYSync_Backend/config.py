@@ -1,4 +1,4 @@
 class Config:
     SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://root:root@localhost/react_native_wts'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    FIREBASE_PROJECT_ID = 'wiretempsync-f87c0'
+    FIREBASE_PROJECT_ID = 'thermidity-37a89'

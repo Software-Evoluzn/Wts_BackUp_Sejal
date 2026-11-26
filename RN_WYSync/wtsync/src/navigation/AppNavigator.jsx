@@ -21,7 +21,7 @@ import WifiConnectedScreen from '../screens/WifiConnectedScreen';
 import NametheInstallation from '../screens/NametheInstallation';
 import Identifyfourprobes from '../screens/Identifyfourprobes';
 import Checkfirstreadings from '../screens/Checkfirstreadings';
-import Setclearalertlimits from "../screens/Setclearalertlimits";
+import Setclearalertlimits from '../screens/Setclearalertlimits';
 import Individualoverride from '../screens/Individualoverride';
 import Choosealertrecipients from '../screens/Choosealertrecipients';
 import Reviewbeforeapplying from '../screens/Reviewbeforeapplying';
@@ -30,6 +30,9 @@ import Commissioned from '../screens/Commissioned';
 import MainDashboard from '../screens/MainDashboard';
 import WtsNewUI from '../screens/WtsNewUI';
 import Temperaturehistory from '../screens/Temperaturehistory';
+import Airarroundscreen from '../screens/Airarroundscreen';
+import ReportsAndRecordsScreen from '../screens/ReportsAndRecordsScreen';
+import TemperatureAlertScreen from '../screens/TemperatureAlertScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -64,6 +67,9 @@ const AppNavigator = () => {
       <Stack.Screen name="WtsNewUI" component={WtsNewUI} />
       <Stack.Screen name="MainDashboard" component={MainDashboard} />
       <Stack.Screen name="Temperaturehistory" component={Temperaturehistory} />
+      <Stack.Screen name="Airarroundscreen" component={Airarroundscreen} />
+      <Stack.Screen name="Reportsrecords" component={ReportsAndRecordsScreen} />
+      <Stack.Screen name="TemperatureAlert" component={TemperatureAlertScreen} />
     </Stack.Navigator>
   );
 };
